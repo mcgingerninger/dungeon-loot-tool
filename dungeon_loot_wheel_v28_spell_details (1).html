@@ -150,15 +150,18 @@
   @keyframes idle-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
   @keyframes goblin-bob { 0%,100%{transform:translateY(0) scaleX(1)} 50%{transform:translateY(-2px) scaleX(1)} }
   @keyframes fight-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(4px)} 40%{transform:translateX(-4px)} 60%{transform:translateX(3px)} 80%{transform:translateX(-2px)} }
-  @keyframes sword-slash { 0%,100%{transform:rotate(-25deg)} 50%{transform:rotate(20deg)} }
-  @keyframes lunge-right { 0%,100%{transform:translateX(0)} 35%{transform:translateX(3px)} 55%{transform:translateX(15px)} 75%{transform:translateX(5px)} }
-  @keyframes lunge-left { 0%,100%{transform:translateX(0)} 35%{transform:translateX(-3px)} 55%{transform:translateX(-15px)} 75%{transform:translateX(-5px)} }
-  @keyframes knockback-left { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(-8px) rotate(-10deg)} 75%{transform:translateX(-2px) rotate(4deg)} }
-  @keyframes knockback-right { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(8px) rotate(10deg)} 75%{transform:translateX(2px) rotate(-4deg)} }
-  @keyframes guard-shake { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-2px)} }
+  @keyframes sword-slash { 0%,100%{transform:rotate(-42deg) translateX(0)} 50%{transform:rotate(34deg) translateX(6px)} }
+  @keyframes lunge-right { 0%,100%{transform:translateX(0) scale(1)} 35%{transform:translateX(4px) scale(1)} 55%{transform:translateX(28px) scale(1.08)} 75%{transform:translateX(8px) scale(1)} }
+  @keyframes lunge-left { 0%,100%{transform:translateX(0) scale(1)} 35%{transform:translateX(-4px) scale(1)} 55%{transform:translateX(-28px) scale(1.08)} 75%{transform:translateX(-8px) scale(1)} }
+  @keyframes knockback-left { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(-18px) rotate(-18deg)} 75%{transform:translateX(-4px) rotate(6deg)} }
+  @keyframes knockback-right { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(18px) rotate(18deg)} 75%{transform:translateX(4px) rotate(-6deg)} }
+  @keyframes guard-shake { 0%,100%{transform:translateX(0) translateY(0)} 25%{transform:translateX(-3px) translateY(-2px)} 50%{transform:translateX(0) translateY(0)} 75%{transform:translateX(3px) translateY(-2px)} }
   @keyframes loot-pop { 0%{transform:translateY(0);opacity:0} 20%{opacity:1} 80%{transform:translateY(-50px);opacity:1} 100%{transform:translateY(-60px);opacity:0} }
   @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(200px)} }
-  @keyframes flash-gold { 0%,100%{background:#0a0a0a} 50%{background:rgba(201,168,76,0.08)} }
+  @keyframes flash-gold   { 0%,100%{background:#0a0a0a} 50%{background:rgba(201,168,76,0.08)} }
+  @keyframes flash-orange { 0%,100%{background:#0a0a0a} 50%{background:rgba(255,159,67,0.12)} }
+  @keyframes flash-green  { 0%,100%{background:#0a0a0a} 50%{background:rgba(76,175,125,0.12)} }
+  @keyframes flash-blue   { 0%,100%{background:#0a0a0a} 50%{background:rgba(91,156,246,0.12)} }
 
   .battle-stage.rolling { animation: flash-gold 0.45s infinite; }
 
@@ -168,16 +171,19 @@
   .battle-stage.rolling.fight-clash .goblin2   { animation: fight-shake 0.3s infinite; }
 
   /* Fight style: press — the hero presses the attack, goblins reel back */
+  .battle-stage.rolling.fight-press { animation: flash-orange 0.45s infinite; }
   .battle-stage.rolling.fight-press .adventurer { animation: lunge-right 0.55s ease-in-out infinite; transform-origin: bottom left; }
   .battle-stage.rolling.fight-press .goblin    { animation: knockback-left 0.55s ease-in-out infinite; }
   .battle-stage.rolling.fight-press .goblin2   { animation: knockback-left 0.55s ease-in-out infinite 0.18s; }
 
   /* Fight style: swarm — the goblins press in, the hero holds the line */
+  .battle-stage.rolling.fight-swarm { animation: flash-green 0.45s infinite; }
   .battle-stage.rolling.fight-swarm .adventurer { animation: guard-shake 0.3s infinite; }
   .battle-stage.rolling.fight-swarm .goblin    { animation: lunge-left 0.5s ease-in-out infinite; transform-origin: bottom right; }
   .battle-stage.rolling.fight-swarm .goblin2   { animation: lunge-left 0.5s ease-in-out infinite 0.22s; transform-origin: bottom right; }
 
   /* Fight style: duel — hero and lead goblin trade a slower back-and-forth, second goblin circles */
+  .battle-stage.rolling.fight-duel { animation: flash-blue 0.45s infinite; }
   .battle-stage.rolling.fight-duel .adventurer { animation: sword-slash 0.6s ease-in-out infinite; transform-origin: bottom right; }
   .battle-stage.rolling.fight-duel .goblin    { animation: fight-shake 0.32s infinite; }
   .battle-stage.rolling.fight-duel .goblin2   { animation: goblin-bob 0.7s ease-in-out infinite; }
