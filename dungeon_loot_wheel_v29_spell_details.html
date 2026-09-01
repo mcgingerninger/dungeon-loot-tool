@@ -6576,6 +6576,13 @@ function spellMaterialLabel(c){
   return 'Material component';
 }
 function spellArrayLabel(a){ return Array.isArray(a)&&a.length ? a.map(spellCap).join(', ') : '—'; }
+// Source data encodes a spell's area-of-effect / targeting as short codes (ST, MT, C, N, S, ...).
+// Expand them to full words so the table/popup never shows a bare, unexplained abbreviation.
+const SPELL_AREA_TYPE_NAMES = {
+  ST:'Single Target', MT:'Multiple Targets', C:'Cube', N:'Cone', Y:'Cylinder',
+  S:'Sphere', R:'Circle', Q:'Square', L:'Line', H:'Hemisphere', W:'Wall', E:'Emanation'
+};
+function spellAreaLabel(a){ return Array.isArray(a)&&a.length ? a.map(x=>SPELL_AREA_TYPE_NAMES[x]||spellCap(x)).join(', ') : '—'; }
 function spellSourceLabel(code){ return SPELL_SOURCE_NAMES[code] ? SPELL_SOURCE_NAMES[code]+' ('+code+')' : code; }
 function spellSlug(name){ return String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 function spellOfficialUrl(spell){ return 'https://www.dndbeyond.com/spells/'+spellSlug(spell.name); }
@@ -6627,7 +6634,7 @@ function spellNormalize(raw, ruleset){
     ...raw, ruleset, schoolName:school, concentration,
     ritual:!!raw.meta?.ritual,
     casting:spellTimeLabel(raw.time), rangeLabel:spellRangeLabel(raw.range), durationLabel:spellDurationLabel(raw.duration), componentsLabel:spellComponentsLabel(raw.components), materialLabel:spellMaterialLabel(raw.components),
-    save:spellArrayLabel(raw.savingThrow), attack:raw.spellAttack?.length ? raw.spellAttack.map(x=>x==='R'?'Ranged':x==='M'?'Melee':'Other').join(', ') : '—', damage:spellArrayLabel(raw.damageInflict), conditions:spellArrayLabel(raw.conditionInflict), area:spellArrayLabel(raw.areaTags), sourceLabel:spellSourceLabel(raw.source),
+    save:spellArrayLabel(raw.savingThrow), attack:raw.spellAttack?.length ? raw.spellAttack.map(x=>x==='R'?'Ranged':x==='M'?'Melee':'Other').join(', ') : '—', damage:spellArrayLabel(raw.damageInflict), conditions:spellArrayLabel(raw.conditionInflict), area:spellAreaLabel(raw.areaTags), sourceLabel:spellSourceLabel(raw.source),
     description, hitDice:spellHitDiceLabel(description, raw)
   };
 }
@@ -6692,7 +6699,7 @@ function renderSpellTable(){
   });
   document.getElementById('spellCount').textContent=`${rows.length.toLocaleString()} spell${rows.length===1?'':'s'} shown · ${spellDatabase.length.toLocaleString()} loaded`;
   if(!rows.length){wrap.innerHTML='<div class="spell-loading">No spells match the current filters.</div>';return;}
-  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save</th><th>Attack</th><th>Damage / Effect</th><th>Hit Dice</th><th>Description</th><th>Source</th></tr></thead><tbody>${rows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
+  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save</th><th>Attack</th><th title="Damage type(s) inflicted · conditions inflicted · area-of-effect shape or targeting (e.g. Single Target, Cone, Sphere)">Damage / Effect ⓘ</th><th>Hit Dice</th><th>Description</th><th>Source</th></tr></thead><tbody>${rows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
   wrap.innerHTML=html;
 }
 function spellRowHtml(s,i){
