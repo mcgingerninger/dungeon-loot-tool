@@ -1308,11 +1308,13 @@
   .spell-tag{font-family:'Share Tech Mono',monospace;font-size:.62rem;padding:.12rem .3rem;border:1px solid var(--border);color:var(--text-dim);white-space:nowrap}
   .spell-tag.good{color:var(--gold);border-color:rgba(201,168,76,.4)}
   .spell-source{font-family:'Share Tech Mono',monospace;font-size:.67rem;color:var(--text-dim);white-space:nowrap}
+  .spell-desc-preview{max-width:280px;min-width:200px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text-dim);white-space:normal;line-height:1.35}
   .spell-detail{display:none;background:var(--surface);border:1px solid var(--gold);padding:1rem;margin-top:1rem;box-shadow:0 8px 30px rgba(0,0,0,.35)}
   .spell-detail.open{display:block}
   .spell-detail-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:.7rem;margin-bottom:.7rem}
   .spell-detail-name{font-size:1.45rem;color:var(--gold-bright);font-weight:600}
   .spell-detail-sub{font-family:'Share Tech Mono',monospace;color:var(--text-dim);font-size:.72rem;margin-top:.2rem}
+  .spell-detail-desc{font-size:.9rem;line-height:1.6;color:var(--text);white-space:pre-line;margin-bottom:.9rem;border-left:2px solid var(--gold);padding-left:.7rem;font-style:italic}
   .spell-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.55rem}
   .spell-detail-field{background:rgba(0,0,0,.18);border:1px solid var(--border);padding:.45rem .55rem}
   .spell-detail-label{display:block;font-family:'Share Tech Mono',monospace;color:var(--text-dim);font-size:.63rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.15rem}
@@ -1935,7 +1937,7 @@
     <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
   </div>
   <div class="spells-controls">
-    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition…" oninput="renderSpellTable()">
+    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
     <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both">Both rulesets</option></select>
     <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
     <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
@@ -6577,14 +6579,56 @@ function spellArrayLabel(a){ return Array.isArray(a)&&a.length ? a.map(spellCap)
 function spellSourceLabel(code){ return SPELL_SOURCE_NAMES[code] ? SPELL_SOURCE_NAMES[code]+' ('+code+')' : code; }
 function spellSlug(name){ return String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 function spellOfficialUrl(spell){ return 'https://www.dndbeyond.com/spells/'+spellSlug(spell.name); }
+// Flattens the 5etools "entries" tree (strings, nested lists, sub-sections) into plain text.
+function spellFlattenEntries(entries){
+  if(entries==null) return '';
+  if(typeof entries==='string') return entries;
+  if(Array.isArray(entries)) return entries.map(spellFlattenEntries).filter(Boolean).join('\n\n');
+  if(typeof entries==='object'){
+    if(entries.type==='list' && entries.items) return entries.items.map(spellFlattenEntries).filter(Boolean).map(t=>'• '+t).join('\n');
+    if(entries.type==='table') return '';
+    if(entries.name && entries.entries) return entries.name+'. '+spellFlattenEntries(entries.entries);
+    if(entries.entries) return spellFlattenEntries(entries.entries);
+    if(entries.items) return spellFlattenEntries(entries.items);
+  }
+  return '';
+}
+// Strips 5etools {@tag ...} reference markup down to its plain display text.
+function spellCleanTags(text){
+  if(!text) return '';
+  return String(text)
+    .replace(/\{@h\}/g, 'Hit: ')
+    .replace(/\{@hit (-?\d+)\}/g, (m,n)=> (n.startsWith('-')?n:'+'+n))
+    .replace(/\{@(?:dice|damage|scaledice|scaledamage) ([^}|]*)(?:\|[^}]*)*\}/g, (m,dice)=>dice)
+    .replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)*\}/g, (m,label)=>label)
+    .replace(/\{@\w+\}/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+function spellDescriptionText(raw){
+  const main = spellCleanTags(spellFlattenEntries(raw.entries));
+  const higher = raw.entriesHigherLevel ? spellCleanTags(spellFlattenEntries(raw.entriesHigherLevel)) : '';
+  return [main, higher].filter(Boolean).join('\n\n');
+}
+// Pulls every "NdN" dice expression out of the cleaned description (plus any
+// structured cantrip scaling dice) so spells that roll damage/healing show their dice.
+const SPELL_DICE_RE = /\b\d{1,2}d\d{1,3}(?:\s?[+–-]\s?\d{1,3})?\b/gi;
+function spellHitDiceLabel(descriptionText, raw){
+  const found = new Set();
+  if(raw.scalingLevelDice?.scaling) Object.values(raw.scalingLevelDice.scaling).forEach(d=>found.add(d));
+  (descriptionText.match(SPELL_DICE_RE) || []).forEach(m=>found.add(m.replace(/\s+/g,'')));
+  return found.size ? [...found].join(', ') : '—';
+}
 function spellNormalize(raw, ruleset){
   const concentration=Array.isArray(raw.duration)&&raw.duration.some(d=>d.concentration);
   const school=SPELL_SCHOOL_NAMES[raw.school] || raw.school || 'Unknown';
+  const description=spellDescriptionText(raw);
   return {
     ...raw, ruleset, schoolName:school, concentration,
     ritual:!!raw.meta?.ritual,
     casting:spellTimeLabel(raw.time), rangeLabel:spellRangeLabel(raw.range), durationLabel:spellDurationLabel(raw.duration), componentsLabel:spellComponentsLabel(raw.components), materialLabel:spellMaterialLabel(raw.components),
-    save:spellArrayLabel(raw.savingThrow), attack:raw.spellAttack?.length ? raw.spellAttack.map(x=>x==='R'?'Ranged':x==='M'?'Melee':'Other').join(', ') : '—', damage:spellArrayLabel(raw.damageInflict), conditions:spellArrayLabel(raw.conditionInflict), area:spellArrayLabel(raw.areaTags), sourceLabel:spellSourceLabel(raw.source)
+    save:spellArrayLabel(raw.savingThrow), attack:raw.spellAttack?.length ? raw.spellAttack.map(x=>x==='R'?'Ranged':x==='M'?'Melee':'Other').join(', ') : '—', damage:spellArrayLabel(raw.damageInflict), conditions:spellArrayLabel(raw.conditionInflict), area:spellArrayLabel(raw.areaTags), sourceLabel:spellSourceLabel(raw.source),
+    description, hitDice:spellHitDiceLabel(description, raw)
   };
 }
 async function fetchSpellSet(ruleset){
@@ -6637,7 +6681,7 @@ function spellMatches(s){
   if(lv!=='all' && String(s.level)!==lv)return false; if(school!=='all'&&s.schoolName!==school)return false; if(cast!=='all'&&spellCastBucket(s.casting)!==cast)return false; if(src!=='all'&&s.source!==src)return false;
   if(document.getElementById('spellConcentrationFilter')?.checked&&!s.concentration)return false; if(document.getElementById('spellRitualFilter')?.checked&&!s.ritual)return false;
   if(document.getElementById('spellVFilter')?.checked&&!s.components?.v)return false; if(document.getElementById('spellSFilter')?.checked&&!s.components?.s)return false; if(document.getElementById('spellMFilter')?.checked&&!s.components?.m)return false;
-  if(q){const hay=[s.name,s.sourceLabel,s.damage,s.conditions,s.schoolName,s.casting,s.rangeLabel,s.durationLabel,s.materialLabel,s.ruleset].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+  if(q){const hay=[s.name,s.sourceLabel,s.damage,s.conditions,s.schoolName,s.casting,s.rangeLabel,s.durationLabel,s.materialLabel,s.ruleset,s.description].join(' ').toLowerCase();if(!hay.includes(q))return false;}
   return true;
 }
 function renderSpellTable(){
@@ -6648,23 +6692,24 @@ function renderSpellTable(){
   });
   document.getElementById('spellCount').textContent=`${rows.length.toLocaleString()} spell${rows.length===1?'':'s'} shown · ${spellDatabase.length.toLocaleString()} loaded`;
   if(!rows.length){wrap.innerHTML='<div class="spell-loading">No spells match the current filters.</div>';return;}
-  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save / Attack</th><th>Damage / Effect</th><th>Source</th></tr></thead><tbody>${rows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
+  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save</th><th>Attack</th><th>Damage / Effect</th><th>Hit Dice</th><th>Description</th><th>Source</th></tr></thead><tbody>${rows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
   wrap.innerHTML=html;
 }
 function spellRowHtml(s,i){
   const tags=[]; if(s.concentration)tags.push('CONC'); if(s.ritual)tags.push('RITUAL'); if(s.meta?.technomagic)tags.push('TECHNOMAGIC'); if(s.ruleset==='2024')tags.push('2024');
   const effect=[s.damage,s.conditions,s.area].filter(x=>x&&x!=='—').join(' · ')||'—';
-  return `<tr onclick="showSpellDetail(${spellDatabase.indexOf(s)})"><td><div class="spell-name">${escapeHtml(s.name)}</div><div class="spell-tags">${tags.map(t=>`<span class="spell-tag good">${escapeHtml(t)}</span>`).join('')}</div></td><td><span class="spell-level">${spellLevelLabel(s.level)}</span></td><td><span class="spell-school">${escapeHtml(s.schoolName)}</span></td><td>${escapeHtml(s.casting)}</td><td>${escapeHtml(s.rangeLabel)}</td><td>${escapeHtml(s.durationLabel)}</td><td>${escapeHtml(s.componentsLabel)}</td><td>${escapeHtml(s.save)}${s.save!=='—'&&s.attack!=='—'?' / ':''}${escapeHtml(s.attack)}</td><td>${escapeHtml(effect)}</td><td><span class="spell-source">${escapeHtml(s.source)}</span></td></tr>`;
+  return `<tr onclick="showSpellDetail(${spellDatabase.indexOf(s)})"><td><div class="spell-name">${escapeHtml(s.name)}</div><div class="spell-tags">${tags.map(t=>`<span class="spell-tag good">${escapeHtml(t)}</span>`).join('')}</div></td><td><span class="spell-level">${spellLevelLabel(s.level)}</span></td><td><span class="spell-school">${escapeHtml(s.schoolName)}</span></td><td>${escapeHtml(s.casting)}</td><td>${escapeHtml(s.rangeLabel)}</td><td>${escapeHtml(s.durationLabel)}</td><td>${escapeHtml(s.componentsLabel)}</td><td>${escapeHtml(s.save)}</td><td>${escapeHtml(s.attack)}</td><td>${escapeHtml(effect)}</td><td>${escapeHtml(s.hitDice)}</td><td><div class="spell-desc-preview">${s.description?escapeHtml(s.description):'—'}</div></td><td><span class="spell-source">${escapeHtml(s.source)}</span></td></tr>`;
 }
 function showSpellDetail(i){
   const s=spellDatabase[i]; const el=document.getElementById('spellDetail'); if(!s||!el)return;
-  const fields=[['Level',spellLevelLabel(s.level)],['School',s.schoolName],['Casting Time',s.casting],['Range / Area',s.rangeLabel],['Duration',s.durationLabel],['Components',s.componentsLabel],['Material',s.materialLabel],['Concentration',s.concentration?'Yes':'No'],['Ritual',s.ritual?'Yes':'No'],['Saving Throw',s.save],['Spell Attack',s.attack],['Damage',s.damage],['Conditions',s.conditions],['Area',s.area],['Source',s.sourceLabel],['Page',s.page??'—'],['Ruleset',s.ruleset==='2014'?'2014 5e':'2024 rules']];
-  el.innerHTML=`<div class="spell-detail-head"><div><div class="spell-detail-name">${escapeHtml(s.name)}</div><div class="spell-detail-sub">${escapeHtml(s.sourceLabel)} · ${s.ruleset==='2014'?'2014 5e':'2024 rules'}</div></div><button class="edit-modal-close" onclick="document.getElementById('spellDetail').classList.remove('open')">×</button></div><div class="spell-detail-grid">${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div><div class="spell-detail-actions"><a class="spell-link-btn" href="${spellOfficialUrl(s)}" target="_blank" rel="noopener">Open on D&D Beyond ↗</a><button class="spell-link-btn" onclick="copySpellMetadata(${i})">Copy Metadata</button></div>`;
+  const fields=[['Level',spellLevelLabel(s.level)],['School',s.schoolName],['Casting Time',s.casting],['Range / Area',s.rangeLabel],['Duration',s.durationLabel],['Components',s.componentsLabel],['Material',s.materialLabel],['Concentration',s.concentration?'Yes':'No'],['Ritual',s.ritual?'Yes':'No'],['Saving Throw',s.save],['Spell Attack',s.attack],['Damage',s.damage],['Hit Dice',s.hitDice],['Conditions',s.conditions],['Area',s.area],['Source',s.sourceLabel],['Page',s.page??'—'],['Ruleset',s.ruleset==='2014'?'2014 5e':'2024 rules']];
+  const descHtml = s.description ? `<div class="spell-detail-desc">${escapeHtml(s.description)}</div>` : '';
+  el.innerHTML=`<div class="spell-detail-head"><div><div class="spell-detail-name">${escapeHtml(s.name)}</div><div class="spell-detail-sub">${escapeHtml(s.sourceLabel)} · ${s.ruleset==='2014'?'2014 5e':'2024 rules'}</div></div><button class="edit-modal-close" onclick="document.getElementById('spellDetail').classList.remove('open')">×</button></div>${descHtml}<div class="spell-detail-grid">${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div><div class="spell-detail-actions"><a class="spell-link-btn" href="${spellOfficialUrl(s)}" target="_blank" rel="noopener">Open on D&D Beyond ↗</a><button class="spell-link-btn" onclick="copySpellMetadata(${i})">Copy Metadata</button></div>`;
   el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function copySpellMetadata(i){
   const s=spellDatabase[i];if(!s)return;
-  const txt=[`${s.name} — ${spellLevelLabel(s.level)} ${s.schoolName}`,`Casting: ${s.casting}`,`Range: ${s.rangeLabel}`,`Duration: ${s.durationLabel}`,`Components: ${s.componentsLabel}`,`Concentration: ${s.concentration?'Yes':'No'} | Ritual: ${s.ritual?'Yes':'No'}`,`Save: ${s.save} | Attack: ${s.attack}`,`Damage: ${s.damage} | Conditions: ${s.conditions}`,`Source: ${s.sourceLabel}${s.page?' p. '+s.page:''}`].join('\n');
+  const txt=[`${s.name} — ${spellLevelLabel(s.level)} ${s.schoolName}`,`Casting: ${s.casting}`,`Range: ${s.rangeLabel}`,`Duration: ${s.durationLabel}`,`Components: ${s.componentsLabel}`,`Concentration: ${s.concentration?'Yes':'No'} | Ritual: ${s.ritual?'Yes':'No'}`,`Save: ${s.save} | Attack: ${s.attack}`,`Damage: ${s.damage} | Conditions: ${s.conditions}`,`Hit Dice: ${s.hitDice}`,`Source: ${s.sourceLabel}${s.page?' p. '+s.page:''}`,``,s.description||''].join('\n');
   navigator.clipboard?.writeText(txt);
 }
 
