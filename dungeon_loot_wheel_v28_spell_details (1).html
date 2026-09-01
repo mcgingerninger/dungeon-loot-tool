@@ -150,15 +150,37 @@
   @keyframes idle-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
   @keyframes goblin-bob { 0%,100%{transform:translateY(0) scaleX(1)} 50%{transform:translateY(-2px) scaleX(1)} }
   @keyframes fight-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(4px)} 40%{transform:translateX(-4px)} 60%{transform:translateX(3px)} 80%{transform:translateX(-2px)} }
-  @keyframes sword-slash { 0%{transform:rotate(-30deg) translateX(0)} 50%{transform:rotate(30deg) translateX(8px)} 100%{transform:rotate(-30deg) translateX(0)} }
+  @keyframes sword-slash { 0%,100%{transform:rotate(-25deg)} 50%{transform:rotate(20deg)} }
+  @keyframes lunge-right { 0%,100%{transform:translateX(0)} 35%{transform:translateX(3px)} 55%{transform:translateX(15px)} 75%{transform:translateX(5px)} }
+  @keyframes lunge-left { 0%,100%{transform:translateX(0)} 35%{transform:translateX(-3px)} 55%{transform:translateX(-15px)} 75%{transform:translateX(-5px)} }
+  @keyframes knockback-left { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(-8px) rotate(-10deg)} 75%{transform:translateX(-2px) rotate(4deg)} }
+  @keyframes knockback-right { 0%,100%{transform:translateX(0) rotate(0)} 40%{transform:translateX(0) rotate(0)} 55%{transform:translateX(8px) rotate(10deg)} 75%{transform:translateX(2px) rotate(-4deg)} }
+  @keyframes guard-shake { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-2px)} }
   @keyframes loot-pop { 0%{transform:translateY(0);opacity:0} 20%{opacity:1} 80%{transform:translateY(-50px);opacity:1} 100%{transform:translateY(-60px);opacity:0} }
   @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(200px)} }
   @keyframes flash-gold { 0%,100%{background:#0a0a0a} 50%{background:rgba(201,168,76,0.08)} }
 
-  .battle-stage.rolling { animation: flash-gold 0.3s infinite; }
-  .battle-stage.rolling .adventurer { animation: fight-shake 0.15s infinite; }
-  .battle-stage.rolling .goblin    { animation: fight-shake 0.12s infinite; }
-  .battle-stage.rolling .goblin2   { animation: fight-shake 0.18s infinite; }
+  .battle-stage.rolling { animation: flash-gold 0.45s infinite; }
+
+  /* Fight style: clash — everyone trading blows at close range (the default scrap) */
+  .battle-stage.rolling.fight-clash .adventurer { animation: fight-shake 0.26s infinite; }
+  .battle-stage.rolling.fight-clash .goblin    { animation: fight-shake 0.22s infinite; }
+  .battle-stage.rolling.fight-clash .goblin2   { animation: fight-shake 0.3s infinite; }
+
+  /* Fight style: press — the hero presses the attack, goblins reel back */
+  .battle-stage.rolling.fight-press .adventurer { animation: lunge-right 0.55s ease-in-out infinite; transform-origin: bottom left; }
+  .battle-stage.rolling.fight-press .goblin    { animation: knockback-left 0.55s ease-in-out infinite; }
+  .battle-stage.rolling.fight-press .goblin2   { animation: knockback-left 0.55s ease-in-out infinite 0.18s; }
+
+  /* Fight style: swarm — the goblins press in, the hero holds the line */
+  .battle-stage.rolling.fight-swarm .adventurer { animation: guard-shake 0.3s infinite; }
+  .battle-stage.rolling.fight-swarm .goblin    { animation: lunge-left 0.5s ease-in-out infinite; transform-origin: bottom right; }
+  .battle-stage.rolling.fight-swarm .goblin2   { animation: lunge-left 0.5s ease-in-out infinite 0.22s; transform-origin: bottom right; }
+
+  /* Fight style: duel — hero and lead goblin trade a slower back-and-forth, second goblin circles */
+  .battle-stage.rolling.fight-duel .adventurer { animation: sword-slash 0.6s ease-in-out infinite; transform-origin: bottom right; }
+  .battle-stage.rolling.fight-duel .goblin    { animation: fight-shake 0.32s infinite; }
+  .battle-stage.rolling.fight-duel .goblin2   { animation: goblin-bob 0.7s ease-in-out infinite; }
 
   .battle-stage:not(.rolling) .adventurer { animation: idle-bob 1.2s ease-in-out infinite; }
   .battle-stage:not(.rolling) .goblin     { animation: goblin-bob 0.9s ease-in-out infinite; }
@@ -432,23 +454,7 @@
   .total-warn { color: var(--danger); font-size: 0.9rem; font-style: italic; }
 
   /* ITEMS TAB */
-  .items-layout { display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem; }
-  .items-nav { display: flex; flex-direction: column; gap: 0.4rem; }
-
-  .items-nav-btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-family: 'Crimson Text', serif;
-    font-size: 1rem;
-    padding: 0.6rem 1rem;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.2s;
-  }
-  .items-nav-btn:hover { border-color: var(--gold); color: var(--gold); }
-  .items-nav-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
-  .items-nav-btn .count { float: right; font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; }
+  .items-layout { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
 
   .items-panel { background: var(--surface); border: 1px solid var(--border); }
 
@@ -643,7 +649,6 @@
   @media (max-width: 700px) {
     .wheel-layout { grid-template-columns: 1fr; }
     .items-layout { grid-template-columns: 1fr; }
-    .items-nav { flex-direction: row; flex-wrap: wrap; }
   }
 
   /* ===== UNIQUE ITEM GENERATOR ===== */
@@ -1621,22 +1626,51 @@
 <!-- ITEMS TAB -->
 <div id="tab-items" class="tab-content">
   <div class="items-layout">
-    <div class="items-nav">
-      <button class="items-nav-btn active" onclick="showItemsCategory('common',this)">Common <span class="count" id="cnt-common">0</span></button>
-      <button class="items-nav-btn" onclick="showItemsCategory('uncommon',this)">Uncommon <span class="count" id="cnt-uncommon">0</span></button>
-      <button class="items-nav-btn" onclick="showItemsCategory('rare',this)">Rare <span class="count" id="cnt-rare">0</span></button>
-      <button class="items-nav-btn" onclick="showItemsCategory('superrare',this)">Super Rare <span class="count" id="cnt-superrare">0</span></button>
-      <button class="items-nav-btn" onclick="showItemsCategory('legendary',this)">Legendary <span class="count" id="cnt-legendary">0</span></button>
-      <button class="items-nav-btn" onclick="showItemsCategory('celestial',this)">Celestial <span class="count" id="cnt-celestial">0</span></button>
-    </div>
     <div class="items-panel">
       <div class="items-panel-header">
-        <h3 id="itemsPanelTitle">Common Items</h3>
+        <h3 id="itemsPanelTitle">All Items</h3>
+      </div>
+      <div class="token-toolbar" style="padding:0.6rem 1rem; border-bottom:1px solid var(--border);">
+        <input type="text" id="itemsSearch" class="token-search" placeholder="Search all items…" oninput="renderItemsList()">
+        <span class="token-count" id="itemsFilterCount"></span>
+      </div>
+      <div class="token-toolbar" style="padding:0 1rem 0.6rem; border-bottom:1px solid var(--border);">
+        <select id="itemsRarityFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all" selected>All Rarities</option>
+          <option value="common">Common</option>
+          <option value="uncommon">Uncommon</option>
+          <option value="rare">Rare</option>
+          <option value="superrare">Super Rare</option>
+          <option value="legendary">Legendary</option>
+          <option value="celestial">Celestial</option>
+        </select>
+        <select id="itemsTypeFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all">All Types</option>
+          <option value="armor">Armor</option>
+          <option value="weapon">Weapon</option>
+          <option value="consumable">Consumable</option>
+          <option value="misc">Misc</option>
+          <option value="unknown">Unknown</option>
+        </select>
+        <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all">All Slot Sizes</option>
+          <option value="1">Slot Size 1</option>
+          <option value="2">Slot Size 2</option>
+          <option value="3">Slot Size 3</option>
+        </select>
       </div>
       <div class="add-item-area">
         <input type="text" id="newItemName" placeholder="Item name...">
         <textarea id="newItemDesc" placeholder="Item description..."></textarea>
         <div class="item-form-meta">
+          <select id="newItemRarity">
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare">Rare</option>
+            <option value="superrare">Super Rare</option>
+            <option value="legendary">Legendary</option>
+            <option value="celestial">Celestial</option>
+          </select>
           <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="unknown">Unknown</option></select>
           <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
         </div>
@@ -1749,7 +1783,7 @@
     <div class="edit-modal-body">
       <label>Item Name</label><input id="editItemName" type="text">
       <label>Description</label><textarea id="editItemDesc"></textarea>
-      <div class="item-form-meta"><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
+      <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
       <label>Value (GP)</label><input id="editItemGp" type="text" placeholder="e.g. 500 gp"><div id="editWeaponField"><label>Damage Dice</label><input id="editItemDmg" type="text" placeholder="e.g. 1d8+2"></div>
       <div id="editArmorField"><label>Armor Class</label><input id="editItemAc" type="text" placeholder="e.g. 16 or +2"></div>
       <div id="editConsumableField"><label>Healing Dice</label><input id="editItemHp" type="text" placeholder="e.g. 2d4+2"></div>
@@ -2656,7 +2690,6 @@ const lootData = {
   ]
 };
 
-let currentItemsCategory = 'common';
 let spinResults = [];
 let isSpinning = false;
 let printFilter = 'all';
@@ -2802,6 +2835,8 @@ const IDLE_MESSAGES = [
   'Awaiting the roll...','The dungeon is quiet. For now.','Something stirs in the dark.',
   'A distant drip echoes.','Roll to claim your spoils.','The goblins are watching.',
 ];
+// Different ways the little skirmish can play out — one is picked at random each roll.
+const FIGHT_STYLES = ['fight-clash', 'fight-press', 'fight-swarm', 'fight-duel'];
 
 function setBattleState(rolling) {
   const stage = document.getElementById('battleStage');
@@ -2809,6 +2844,8 @@ function setBattleState(rolling) {
   const sparks = document.getElementById('clashSparks');
   if (!stage) return;
   if (rolling) {
+    stage.classList.remove(...FIGHT_STYLES);
+    stage.classList.add(FIGHT_STYLES[Math.floor(Math.random()*FIGHT_STYLES.length)]);
     stage.classList.add('rolling');
     sparks.style.display = 'block';
     clearInterval(battleTimer);
@@ -2821,9 +2858,9 @@ function setBattleState(rolling) {
       const enemyEl = document.getElementById('enemyHp');
       if (heroEl) heroEl.style.width = heroW+'px';
       if (enemyEl) enemyEl.style.width = enemyW+'px';
-    }, 200);
+    }, 320);
   } else {
-    stage.classList.remove('rolling');
+    stage.classList.remove('rolling', ...FIGHT_STYLES);
     sparks.style.display = 'none';
     clearInterval(battleTimer);
     const heroEl = document.getElementById('heroHp');
@@ -2896,7 +2933,7 @@ function spinWheel(instant=false) {
   isSpinning = true;
   btn.disabled = true;
   setBattleState(true);
-  const duration = 1800 + Math.random()*1200;
+  const duration = 2400 + Math.random()*1400;
   const startTime = performance.now();
 
   function tick(now) {
@@ -3823,51 +3860,69 @@ function updateChanceDisplay() {
 }
 
 // ===================== ITEMS =====================
-function showItemsCategory(cat, btn) {
-  currentItemsCategory=cat;
-  document.querySelectorAll('.items-nav-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const titles={common:'Common Items',uncommon:'Uncommon Items',rare:'Rare Items',superrare:'Super Rare Items',legendary:'Legendary Items',celestial:'Celestial Items'};
-  document.getElementById('itemsPanelTitle').textContent=titles[cat];
-  renderItemsList();
-}
-
-function metaTagsFor(item){
-  let tags = `<span class="meta-tag type">Type: ${item.type || 'unknown'}</span><span class="meta-tag slot">Slot: ${item.slotSize || 1}</span>`;
+function metaTagsFor(item, rarity){
+  let tags = '';
+  if (rarity) tags += `<span class="meta-tag rarity" style="color:${rarityColors[rarity]||''};border-color:${rarityColors[rarity]||''}">${rarityNames[rarity]||rarity}</span>`;
+  tags += `<span class="meta-tag type">Type: ${item.type || 'unknown'}</span><span class="meta-tag slot">Slot: ${item.slotSize || 1}</span>`;
   if(item.gp) tags += `<span class="meta-tag gp">Value: ${item.gp}</span>`;
   if(item.dmg) tags += `<span class="meta-tag dmg">DMG: ${item.dmg}</span>`;
   if(item.ac) tags += `<span class="meta-tag ac">AC: ${item.ac}</span>`;
   if(item.hp) tags += `<span class="meta-tag hp">Heals: ${item.hp}</span>`;
   if(item.charges) tags += `<span class="meta-tag charges">Charges: ${item.charges}</span>`;
+  if(item.requirement) tags += `<span class="meta-tag">Req: ${item.requirement}</span>`;
   return tags;
 }
 
 function renderItemsList() {
   const list = document.getElementById('itemsList');
-  const data = lootData[currentItemsCategory];
-  list.innerHTML = data.map((item, i) => `
+
+  const searchEl = document.getElementById('itemsSearch');
+  const rarityEl = document.getElementById('itemsRarityFilter');
+  const typeEl = document.getElementById('itemsTypeFilter');
+  const slotEl = document.getElementById('itemsSlotFilter');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const rarityFilter = rarityEl ? rarityEl.value : 'all';
+  const typeFilter = typeEl ? typeEl.value : 'all';
+  const slotFilter = slotEl ? slotEl.value : 'all';
+
+  const rarities = rarityFilter === 'all' ? Object.keys(rarityNames) : [rarityFilter];
+  const entries = [];
+  rarities.forEach(rarity => {
+    lootData[rarity].forEach((item, i) => {
+      if (typeFilter !== 'all' && (item.type || 'unknown') !== typeFilter) return;
+      if (slotFilter !== 'all' && String(item.slotSize || 1) !== slotFilter) return;
+      if (search && !item.name.toLowerCase().includes(search) && !(item.desc || '').toLowerCase().includes(search)) return;
+      entries.push({item, rarity, i});
+    });
+  });
+
+  const titleEl = document.getElementById('itemsPanelTitle');
+  if (titleEl) titleEl.textContent = rarityFilter === 'all' ? 'All Items' : (rarityNames[rarityFilter] || rarityFilter) + ' Items';
+
+  const countEl = document.getElementById('itemsFilterCount');
+  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-results" style="padding:1rem;">No items match your filters.</div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(({item, rarity, i}) => `
     <div class="item-row">
       <span class="item-num">${i+1}</span>
       <div class="item-info">
         <div class="item-name">${item.name}</div>
         <div class="item-desc">${item.desc}</div>
-        <div class="item-meta">${metaTagsFor(item)}</div>
+        <div class="item-meta">${metaTagsFor(item, rarity)}</div>
         ${item.effect ? `<div class="item-effect">Effect: ${item.effect}</div>` : ''}
-        ${item.unlocks && item.unlocks.length ? renderUnlocks(item, currentItemsCategory) : ''}
+        ${item.unlocks && item.unlocks.length ? renderUnlocks(item, rarity) : ''}
       </div>
       <div class="item-actions">
-        <button class="edit-btn" onclick="editItem(${i})" title="Edit">✎</button>
-        <button class="del-btn" onclick="removeItem(${i})" title="Remove">✕</button>
+        <button class="edit-btn" onclick="editItem('${rarity}', ${i})" title="Edit">✎</button>
+        <button class="del-btn" onclick="removeItem('${rarity}', ${i})" title="Remove">✕</button>
       </div>
     </div>
   `).join('');
-  updateCounts();
-}
-
-function updateCounts() {
-  ['common','uncommon','rare','superrare','legendary','celestial'].forEach(cat=>{
-    document.getElementById('cnt-'+cat).textContent=lootData[cat].length;
-  });
 }
 
 function updateAddFormFields() {
@@ -3896,7 +3951,8 @@ function addItem() {
   if(charges) item.charges=charges;
   if(gp) item.gp=gp;
   if(effect) item.effect=effect;
-  lootData[currentItemsCategory].push(item);
+  const rarity=document.getElementById('newItemRarity').value;
+  lootData[rarity].push(item);
   document.getElementById('newItemName').value='';
   document.getElementById('newItemDesc').value='';
   document.getElementById('newItemDmg').value='';
@@ -3909,6 +3965,7 @@ function addItem() {
 }
 
 let editingItemIndex = null;
+let editingItemRarity = null;
 
 function unlockTierRowHTML(tier, idx) {
   const t = tier || {type:'locked', tierLabel:'', condition:'', reward:''};
@@ -3984,9 +4041,11 @@ function readUnlockTiers() {
   return result;
 }
 
-function editItem(index) {
+function editItem(rarity, index) {
+  editingItemRarity = rarity;
   editingItemIndex = index;
-  const item = lootData[currentItemsCategory][index];
+  const item = lootData[rarity][index];
+  document.getElementById('editItemRarity').value  = rarity;
   document.getElementById('editItemName').value    = item.name    || '';
   document.getElementById('editItemDesc').value    = item.desc    || '';
   document.getElementById('editItemType').value    = item.type    || 'unknown';
@@ -4012,11 +4071,12 @@ function updateEditFormFields() {
 function closeEditItemModal() {
   document.getElementById('editItemModal').classList.remove('open');
   editingItemIndex = null;
+  editingItemRarity = null;
 }
 
 function saveEditedItem() {
-  if (editingItemIndex === null) return;
-  const item = lootData[currentItemsCategory][editingItemIndex];
+  if (editingItemIndex === null || editingItemRarity === null) return;
+  const item = lootData[editingItemRarity][editingItemIndex];
   const type = document.getElementById('editItemType').value;
   item.name     = document.getElementById('editItemName').value.trim()  || item.name;
   item.desc     = document.getElementById('editItemDesc').value.trim();
@@ -4037,13 +4097,20 @@ function saveEditedItem() {
   if (charges) item.charges  = charges; else delete item.charges;
   if (effect)  item.effect   = effect;  else delete item.effect;
   if (unlocks.length) item.unlocks = unlocks; else delete item.unlocks;
+
+  const newRarity = document.getElementById('editItemRarity').value;
+  if (newRarity !== editingItemRarity) {
+    lootData[editingItemRarity].splice(editingItemIndex, 1);
+    lootData[newRarity].push(item);
+  }
+
   closeEditItemModal();
   renderItemsList();
   renderPrintTable();
 }
 
-function removeItem(index) {
-  lootData[currentItemsCategory].splice(index,1);
+function removeItem(rarity, index) {
+  lootData[rarity].splice(index,1);
   renderItemsList();
   renderPrintTable();
 }
@@ -4098,6 +4165,123 @@ function copyTable() {
 }
 
 // ===================== UNIQUE ITEM GENERATOR =====================
+
+// Single source of truth for spell/power names used by both the generic modifier pool
+// (GEN.powers) and the rarity-gated pool (BAL.powerTiers) — previously duplicated as two
+// separately-maintained lists.
+const POWER_POOL = [
+  {name:"Fire Bolt (Empowered Cantrip)", tier:'common'},
+  {name:"Thunderwave", tier:'common'},
+  {name:"Shatter", tier:'uncommon'},
+  {name:"Fireball", tier:'rare'},
+  {name:"Chain Lightning", tier:'superrare'},
+  {name:"Meteor Swarm", tier:'celestial'},
+  {name:"Wish", tier:'celestial'},
+  {name:"Time Stop", tier:'legendary'},
+  {name:"Gate", tier:'celestial'},
+  {name:"True Polymorph", tier:'celestial'},
+  {name:"Power Word Kill", tier:null},
+  {name:"Power Word Stun", tier:null},
+  {name:"Imprisonment", tier:'celestial'},
+  {name:"Reverse Gravity", tier:'legendary'},
+  {name:"Maze", tier:'legendary'},
+  {name:"Dominate Monster", tier:'superrare'},
+  {name:"Feeblemind", tier:'legendary'},
+  {name:"Disintegrate", tier:'superrare'},
+  {name:"Finger of Death", tier:'legendary'},
+  {name:"Flesh to Stone", tier:'superrare'},
+  {name:"Teleport", tier:null},
+  {name:"Plane Shift", tier:'superrare'},
+  {name:"Etherealness", tier:null},
+  {name:"Astral Projection", tier:'celestial'},
+  {name:"Foresight", tier:'celestial'},
+  {name:"Mass Heal", tier:'celestial'},
+  {name:"Resurrection", tier:null},
+  {name:"True Resurrection", tier:'legendary'},
+  {name:"Divine Intervention", tier:null},
+  {name:"Mass Cure Wounds (Upcasted)", tier:'superrare'},
+  {name:"Animate Dead", tier:null},
+  {name:"Create Undead", tier:null},
+  {name:"Circle of Death", tier:null},
+  {name:"Blight", tier:'rare'},
+  {name:"Inflict Wounds", tier:null},
+  {name:"Cloudkill", tier:null},
+  {name:"Contagion", tier:null},
+  {name:"Harm", tier:null},
+  {name:"Wither and Bloom (Strixhaven)", tier:null},
+  {name:"Soul Cage", tier:null},
+  {name:"Banishment", tier:'rare'},
+  {name:"Dismissal (Banishment variant)", tier:null},
+  {name:"Counterspell (9th level)", tier:'rare'},
+  {name:"Dispel Magic (9th level)", tier:null},
+  {name:"Antimagic Field", tier:'legendary'},
+  {name:"Forcecage", tier:'superrare'},
+  {name:"Wall of Force", tier:'superrare'},
+  {name:"Telekinesis", tier:'rare'},
+  {name:"Psychic Scream", tier:null},
+  {name:"Modify Memory", tier:null},
+  {name:"Detect Thoughts", tier:'uncommon'},
+  {name:"Sending", tier:null},
+  {name:"Telepathic Bond", tier:null},
+  {name:"Rary's Telepathic Lash (Strixhaven)", tier:null},
+  {name:"Synaptic Static", tier:'rare'},
+  {name:"Summon Greater Demon", tier:null},
+  {name:"Infernal Calling", tier:null},
+  {name:"Planar Binding", tier:null},
+  {name:"Conjure Celestial", tier:null},
+  {name:"Summon Fiend (Tasha's)", tier:null},
+  {name:"Ice Storm", tier:'uncommon'},
+  {name:"Cone of Cold", tier:'rare'},
+  {name:"Investiture of Ice", tier:null},
+  {name:"Arms of Hadar (Cold variant)", tier:null},
+  {name:"Otiluke's Freezing Sphere", tier:null},
+  {name:"Call Lightning", tier:null},
+  {name:"Storm Sphere", tier:null},
+  {name:"Thunder Step", tier:'uncommon'},
+  {name:"Lightning Arrow", tier:'uncommon'},
+  {name:"Control Winds", tier:null},
+  {name:"Wall of Fire", tier:'rare'},
+  {name:"Fire Storm", tier:null},
+  {name:"Incendiary Cloud", tier:null},
+  {name:"Investiture of Flame", tier:null},
+  {name:"Sunburst", tier:'legendary'},
+  {name:"Earthquake", tier:'legendary'},
+  {name:"Move Earth", tier:null},
+  {name:"Stone Shape", tier:null},
+  {name:"Transmute Rock", tier:null},
+  {name:"Erupting Earth", tier:null},
+  {name:"Tsunami", tier:null},
+  {name:"Watery Sphere", tier:null},
+  {name:"Control Water", tier:null},
+  {name:"Maelstrom", tier:null},
+  {name:"Tidal Wave", tier:'uncommon'},
+  {name:"Dawn (Xanathar's)", tier:null},
+  {name:"Searing Smite", tier:null},
+  {name:"Sacred Flame (Upcast)", tier:'common'},
+  {name:"Divine Word", tier:null},
+  {name:"Misty Step (Shadow variant)", tier:'common'},
+  {name:"Shadow of Moil", tier:null},
+  {name:"Darkness", tier:'uncommon'},
+  {name:"Shadow Blade (Upcast)", tier:null},
+  {name:"Hunger of Hadar", tier:null},
+  {name:"Life Transference (Xanathar's)", tier:null},
+  {name:"Vampiric Touch (Upcast)", tier:null},
+  {name:"Bestow Curse", tier:'rare'},
+  {name:"Enervation (Xanathar's)", tier:null},
+  {name:"Fear", tier:'uncommon'},
+  {name:"Symbol", tier:null},
+  {name:"Crown of Madness", tier:null},
+  {name:"Enemies Abound (Xanathar's)", tier:null},
+  {name:"Mind Blank", tier:null},
+  {name:"Scatter (Xanathar's)", tier:null},
+  {name:"Gravity Sinkhole (Wildemount)", tier:null},
+  {name:"Immovable Object (Wildemount)", tier:null},
+  {name:"Fortune's Favor (Wildemount)", tier:null},
+  {name:"Ravenous Void (Wildemount)", tier:null},
+];
+function powersForTier(tier) {
+  return POWER_POOL.filter(p => p.tier === tier).map(p => p.name);
+}
 
 const GEN = {
   // Rarity scale factors (used for numeric values like +STR, GP, etc.)
@@ -4357,31 +4541,9 @@ const GEN = {
     "Siege Expertise","Battering Expert","Wall Climber","Fortification Builder","War Machine Operator"
   ],
 
-  // 100 powers/spells
-  powers: [
-    "Fire Bolt (Empowered Cantrip)","Thunderwave","Shatter","Fireball","Chain Lightning",
-    "Meteor Swarm","Wish","Time Stop","Gate","True Polymorph",
-    "Power Word Kill","Power Word Stun","Imprisonment","Reverse Gravity","Maze",
-    "Dominate Monster","Feeblemind","Disintegrate","Finger of Death","Flesh to Stone",
-    "Teleport","Plane Shift","Etherealness","Astral Projection","Foresight",
-    "Mass Heal","Resurrection","True Resurrection","Divine Intervention","Mass Cure Wounds (Upcasted)",
-    "Animate Dead","Create Undead","Circle of Death","Blight","Inflict Wounds",
-    "Cloudkill","Contagion","Harm","Wither and Bloom (Strixhaven)","Soul Cage",
-    "Banishment","Dismissal (Banishment variant)","Counterspell (9th level)","Dispel Magic (9th level)","Antimagic Field",
-    "Forcecage","Wall of Force","Telekinesis","Psychic Scream","Modify Memory",
-    "Detect Thoughts","Sending","Telepathic Bond","Rary's Telepathic Lash (Strixhaven)","Synaptic Static",
-    "Summon Greater Demon","Infernal Calling","Planar Binding","Conjure Celestial","Summon Fiend (Tasha's)",
-    "Ice Storm","Cone of Cold","Investiture of Ice","Arms of Hadar (Cold variant)","Otiluke's Freezing Sphere",
-    "Call Lightning","Storm Sphere","Thunder Step","Lightning Arrow","Control Winds",
-    "Wall of Fire","Fire Storm","Incendiary Cloud","Investiture of Flame","Sunburst",
-    "Earthquake","Move Earth","Stone Shape","Transmute Rock","Erupting Earth",
-    "Tsunami","Watery Sphere","Control Water","Maelstrom","Tidal Wave",
-    "Sunburst","Dawn (Xanathar's)","Searing Smite","Sacred Flame (Upcast)","Divine Word",
-    "Misty Step (Shadow variant)","Shadow of Moil","Darkness","Shadow Blade (Upcast)","Hunger of Hadar",
-    "Soul Cage","Life Transference (Xanathar's)","Vampiric Touch (Upcast)","Bestow Curse","Enervation (Xanathar's)",
-    "Fear","Symbol","Crown of Madness","Enemies Abound (Xanathar's)","Mind Blank",
-    "Scatter (Xanathar's)","Gravity Sinkhole (Wildemount)","Immovable Object (Wildemount)","Fortune's Favor (Wildemount)","Ravenous Void (Wildemount)"
-  ],
+  // Powers/spells pool — sourced from POWER_POOL (see above) so this list is never
+  // maintained separately from BAL.powerTiers.
+  powers: POWER_POOL.map(p => p.name),
 };
 
 let genRarity = 'rare';
@@ -5067,7 +5229,6 @@ window.SpellCompendiumAPI = {
 
 // ===================== INIT =====================
 updateChanceDisplay();
-updateCounts();
 renderPrintTable();
 updateAddFormFields();
 // Init battle stage idle state after DOM ready
@@ -5195,13 +5356,15 @@ const BAL = {
     rare:['1 hour','8 hours','24 hours'], superrare:['24 hours','3 days','7 days'],
     legendary:['permanently'], celestial:['permanently']
   },
+  // Rarity-gated subsets of POWER_POOL (see above) — derived, not duplicated, so editing a
+  // power's name or tier in POWER_POOL never leaves this out of sync.
   powerTiers:{
-    common:['Fire Bolt (Empowered Cantrip)','Sacred Flame (Upcast)','Misty Step (Shadow variant)','Thunderwave'],
-    uncommon:['Shatter','Darkness','Tidal Wave','Thunder Step','Lightning Arrow','Ice Storm','Fear','Detect Thoughts'],
-    rare:['Fireball','Banishment','Counterspell (9th level)','Wall of Fire','Cone of Cold','Blight','Bestow Curse','Synaptic Static','Telekinesis'],
-    superrare:['Chain Lightning','Disintegrate','Wall of Force','Dominate Monster','Flesh to Stone','Mass Cure Wounds (Upcasted)','Plane Shift','Forcecage'],
-    legendary:['Time Stop','Reverse Gravity','Maze','Feeblemind','Finger of Death','True Resurrection','Antimagic Field','Earthquake','Sunburst'],
-    celestial:['Wish','Meteor Swarm','Gate','True Polymorph','Imprisonment','Astral Projection','Foresight','Mass Heal']
+    common:powersForTier('common'),
+    uncommon:powersForTier('uncommon'),
+    rare:powersForTier('rare'),
+    superrare:powersForTier('superrare'),
+    legendary:powersForTier('legendary'),
+    celestial:powersForTier('celestial')
   }
 };
 function rarityGP(r) {
@@ -5298,16 +5461,6 @@ function pickItem(rarity) {
   const pool=lootData[rarity];
   if(!pool||!pool.length) return {name:'Nothing',desc:'',type:'misc',slotSize:1,gp:'0 gp'};
   return qualityForWheel(pool[Math.floor(Math.random()*pool.length)],rarity);
-}
-function metaTagsFor(item){
-  let tags=`<span class="meta-tag type">Type: ${item.type||'unknown'}</span><span class="meta-tag slot">Slot: ${item.slotSize||1}</span>`;
-  if(item.gp) tags+=`<span class="meta-tag gp">Value: ${item.gp}</span>`;
-  if(item.dmg) tags+=`<span class="meta-tag dmg">DMG: ${item.dmg}</span>`;
-  if(item.ac) tags+=`<span class="meta-tag ac">AC: ${item.ac}</span>`;
-  if(item.hp) tags+=`<span class="meta-tag hp">Heals: ${item.hp}</span>`;
-  if(item.charges) tags+=`<span class="meta-tag charges">Charges: ${item.charges}</span>`;
-  if(item.requirement) tags+=`<span class="meta-tag">Req: ${item.requirement}</span>`;
-  return tags;
 }
 // ===================== COMBINATORIAL DESCRIPTION SYSTEM =====================
 // Each section is built from keyed fragment lists, combined into full sentences and paragraphs.
