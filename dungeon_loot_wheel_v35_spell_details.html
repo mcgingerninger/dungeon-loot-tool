@@ -897,17 +897,18 @@
   .store-merchant-list { display: flex; flex-wrap: wrap; gap: 0.7rem; }
   .store-merchant-btn {
     background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
-    font-family: 'Crimson Text', serif; font-size: 1rem; padding: 0.7rem 1.2rem;
-    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'Crimson Text', serif; font-size: 1rem; padding: 0.8rem 1.2rem 1rem;
+    cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
   }
   .store-merchant-btn:hover { border-color: var(--gold); color: var(--gold); }
   .store-merchant-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
   .store-merchant-icon { font-size: 1.3rem; }
-  .store-merchant-portrait { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); flex-shrink: 0; }
+  .store-merchant-portrait { width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); flex-shrink: 0; }
   .store-merchant-portrait svg { width: 100%; height: 100%; }
-  .store-merchant-portrait.large { width: 64px; height: 64px; }
+  .store-merchant-portrait.large { width: 128px; height: 128px; }
   .store-panel { min-height: 200px; }
-  .store-merchant-head { margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; }
+  .store-merchant-head { margin-bottom: 1rem; display: flex; }
+  .store-merchant-head > div { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .store-merchant-title { font-size: 1.3rem; color: var(--gold-bright); font-weight: 600; }
   .store-merchant-flavor { color: var(--text-dim); font-style: italic; font-size: 0.92rem; margin-top: 0.3rem; }
   .store-section-label {
@@ -1468,7 +1469,6 @@
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
-  <button class="tab-btn" onclick="showTab('flesh',this)">🩸 Fleshmancer</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
 
@@ -2033,82 +2033,90 @@
 </div>
 
 <!-- FLESHMANCER TAB -->
-<div id="tab-flesh" class="tab-content">
-  <div class="flesh-layout">
-    <p class="flesh-intro">
-      Summon three freshly harvested limbs. Each one rolls its own effects first —
-      <strong style="color:var(--text)">the limb's rarity is determined by how strong those effects turn out</strong>,
-      not chosen ahead of time. Pick one, pay to have it grafted on, and see whether the flesh takes.
-      A successful graft is added straight to your item list, ready to equip from the Player &amp; Tokens tab.
-    </p>
-    <button class="generate-btn" onclick="rollFleshCandidates()">🩸 Summon 3 Limbs</button>
-    <div class="flesh-candidates" id="fleshCandidates"></div>
-    <div class="flesh-confirm" id="fleshConfirm" style="display:none;"></div>
-    <div class="flesh-result" id="fleshResult"></div>
-
-    <details class="collapsible">
-      <summary>⚖ Flesh Effect Weights</summary>
-      <div class="collapsible-body">
-        <p class="modweights-intro">
-          These control how likely each effect type is to be rolled onto a limb — independent of the Generate Item tab's weights, since
-          flesh magic favors different effects than crafted gear. Higher weight = appears more often.
-        </p>
-        <div class="modweights-grid">
-          <div class="mw-card">
-            <h3>⚡ Power / Spell</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-power" min="0" max="20" value="6" oninput="updateFleshMWDisplay('power')"><span class="mw-val" id="fmv-power">6</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>⬆ Buff (Self / Ally)</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-buff" min="0" max="20" value="8" oninput="updateFleshMWDisplay('buff')"><span class="mw-val" id="fmv-buff">8</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>⬇ Debuff (Enemy / Curse)</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-debuff" min="0" max="20" value="7" oninput="updateFleshMWDisplay('debuff')"><span class="mw-val" id="fmv-debuff">7</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>🎭 Named Trait</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-trait" min="0" max="20" value="8" oninput="updateFleshMWDisplay('trait')"><span class="mw-val" id="fmv-trait">8</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>🌀 Transform</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-transform" min="0" max="20" value="3" oninput="updateFleshMWDisplay('transform')"><span class="mw-val" id="fmv-transform">3</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>👁 Summon</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-summon" min="0" max="20" value="2" oninput="updateFleshMWDisplay('summon')"><span class="mw-val" id="fmv-summon">2</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>🗺 Terrain</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-terrain" min="0" max="20" value="1" oninput="updateFleshMWDisplay('terrain')"><span class="mw-val" id="fmv-terrain">1</span></div>
-          </div>
-          <div class="mw-card">
-            <h3>🗡 Skill</h3>
-            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-skill" min="0" max="20" value="3" oninput="updateFleshMWDisplay('skill')"><span class="mw-val" id="fmv-skill">3</span></div>
-          </div>
-        </div>
-        <div class="mw-total-row">
-          <span>Total weight pool:</span>
-          <span class="mw-total-val" id="fmw-total">38</span>
-          <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
-          <button class="mw-reset-btn" onclick="resetFleshModWeights()">Reset Defaults</button>
-        </div>
-      </div>
-    </details>
-  </div>
-</div>
-
 <!-- STORE TAB -->
 <div id="tab-store" class="tab-content">
   <div class="store-layout">
     <p class="store-intro">
-      Pick a merchant to see what they have for sale. Each one always carries the same handful of standing stock,
+      Pick a merchant to see what they have for sale. Ordinary merchants always carry the same handful of standing stock,
       plus <strong style="color:var(--text)">5 daily wares</strong> — freshly rolled, any-rarity magic items generated the moment you select them.
-      Rerolling or switching merchants replaces the daily wares. Buying anything adds it straight to your item list.
+      Rerolling or switching merchants replaces the daily wares. The Fleshmancer works differently: pick a fresh limb, pay to have it
+      grafted on, and see whether the flesh takes. Buying (or successfully grafting) anything adds it straight to your item list.
     </p>
     <div class="store-merchant-list" id="storeMerchantList"></div>
     <div class="store-panel" id="storePanel">
       <div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>
+    </div>
+
+    <!-- The Fleshmancer's screens live here, toggled visible in place of storePanel
+         when he's the selected "merchant" — see renderStoreTab(). -->
+    <div class="store-panel" id="storeFleshPanel" style="display:none;">
+      <div class="store-merchant-head">
+        <div>
+          <div class="store-merchant-title">🩸 The Fleshmancer</div>
+          <span class="store-merchant-portrait large" id="fleshPortraitSlot"></span>
+          <p class="store-merchant-flavor">A cellar that smells of formaldehyde and copper. Jars line every shelf, and something in them is always still twitching.</p>
+        </div>
+      </div>
+      <p class="flesh-intro">
+        Summon three freshly harvested limbs. Each one rolls its own effects first —
+        <strong style="color:var(--text)">the limb's rarity is determined by how strong those effects turn out</strong>,
+        not chosen ahead of time. Pick one, pay to have it grafted on, and see whether the flesh takes.
+        A successful graft is added straight to your item list, ready to equip from the Player &amp; Tokens tab.
+      </p>
+      <button class="generate-btn" onclick="rollFleshCandidates()">🩸 Summon 3 Limbs</button>
+      <div class="flesh-candidates" id="fleshCandidates"></div>
+      <div class="flesh-confirm" id="fleshConfirm" style="display:none;"></div>
+      <div class="flesh-result" id="fleshResult"></div>
+
+      <details class="collapsible">
+        <summary>⚖ Flesh Effect Weights</summary>
+        <div class="collapsible-body">
+          <p class="modweights-intro">
+            These control how likely each effect type is to be rolled onto a limb — independent of the Generate Item tab's weights, since
+            flesh magic favors different effects than crafted gear. Higher weight = appears more often.
+          </p>
+          <div class="modweights-grid">
+            <div class="mw-card">
+              <h3>⚡ Power / Spell</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-power" min="0" max="20" value="6" oninput="updateFleshMWDisplay('power')"><span class="mw-val" id="fmv-power">6</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>⬆ Buff (Self / Ally)</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-buff" min="0" max="20" value="8" oninput="updateFleshMWDisplay('buff')"><span class="mw-val" id="fmv-buff">8</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>⬇ Debuff (Enemy / Curse)</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-debuff" min="0" max="20" value="7" oninput="updateFleshMWDisplay('debuff')"><span class="mw-val" id="fmv-debuff">7</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>🎭 Named Trait</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-trait" min="0" max="20" value="8" oninput="updateFleshMWDisplay('trait')"><span class="mw-val" id="fmv-trait">8</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>🌀 Transform</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-transform" min="0" max="20" value="3" oninput="updateFleshMWDisplay('transform')"><span class="mw-val" id="fmv-transform">3</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>👁 Summon</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-summon" min="0" max="20" value="2" oninput="updateFleshMWDisplay('summon')"><span class="mw-val" id="fmv-summon">2</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>🗺 Terrain</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-terrain" min="0" max="20" value="1" oninput="updateFleshMWDisplay('terrain')"><span class="mw-val" id="fmv-terrain">1</span></div>
+            </div>
+            <div class="mw-card">
+              <h3>🗡 Skill</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-skill" min="0" max="20" value="3" oninput="updateFleshMWDisplay('skill')"><span class="mw-val" id="fmv-skill">3</span></div>
+            </div>
+          </div>
+          <div class="mw-total-row">
+            <span>Total weight pool:</span>
+            <span class="mw-total-val" id="fmw-total">38</span>
+            <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
+            <button class="mw-reset-btn" onclick="resetFleshModWeights()">Reset Defaults</button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 </div>
@@ -3054,7 +3062,6 @@ function showTab(tab, btn) {
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   if (tab === 'spells') { loadSpellDatabase(false); }
-  if (tab === 'flesh') { renderFleshCandidates(); }
   if (tab === 'store') { renderStoreTab(); }
 }
 
@@ -5998,6 +6005,15 @@ const MERCHANTS = {
       { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc' },
     ],
   },
+  // The Fleshmancer isn't a normal shop — selecting him swaps in the whole limb-grafting
+  // flow (see renderStoreTab/#storeFleshPanel) instead of a staples/daily-wares grid.
+  // `staples` stays empty; it's unused for this entry but keeps the shape consistent
+  // with the other merchants for the generic merchant-list rendering.
+  fleshmancer: {
+    name: 'The Fleshmancer', icon: '🩸',
+    flavor: 'A cellar that smells of formaldehyde and copper. Jars line every shelf, and something in them is always still twitching.',
+    staples: [],
+  },
 };
 
 // Rolls one fully random magic item for sale — reuses the exact same base-name pools,
@@ -6043,12 +6059,16 @@ let storeDailyItems = [];
 
 function selectMerchant(key) {
   currentMerchant = key;
-  storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
+  // The Fleshmancer doesn't use the daily-wares mechanic — his "wares" are rolled fresh
+  // via rollFleshCandidates() instead (see renderStoreTab()).
+  if (key !== 'fleshmancer') {
+    storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
+  }
   renderStoreTab();
 }
 
 function rerollStoreDaily() {
-  if (!currentMerchant) return;
+  if (!currentMerchant || currentMerchant === 'fleshmancer') return;
   storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
   renderStoreTab();
 }
@@ -6120,6 +6140,12 @@ const MERCHANT_PORTRAITS = {
     [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,6,3,1,'#8a5a30'],
     [0,7,9,4,'#6a4a2a'],[0,7,9,1,'#8a6a3a'],[1,2,7,1,'#c48a3a'],
   ],
+  fleshmancer: [
+    [2,0,5,2,'#2a1010'],[1,2,7,1,'#1a0808'],[2,3,5,4,'#c9b8a8'],
+    [2,4,1,1,'#8a1a1a'],[6,4,1,1,'#8a1a1a'],[5,3,1,2,'#6a2a2a'],
+    [3,6,3,1,'#6a2a2a'],[0,7,9,4,'#2a1010'],[0,7,9,1,'#5a2020'],
+    [2,7,1,1,'#8a1a1a'],
+  ],
 };
 function merchantPortraitSvg(key) {
   const rects = (MERCHANT_PORTRAITS[key] || []).map(([x,y,w,h,fill]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`).join('');
@@ -6131,25 +6157,41 @@ function renderStoreTab() {
   if (listEl) {
     listEl.innerHTML = Object.entries(MERCHANTS).map(([key, m]) => `
       <button class="store-merchant-btn${key === currentMerchant ? ' active' : ''}" onclick="selectMerchant('${key}')">
-        <span class="store-merchant-portrait">${merchantPortraitSvg(key)}</span>
         <span>${m.icon} ${m.name}</span>
+        <span class="store-merchant-portrait">${merchantPortraitSvg(key)}</span>
       </button>
     `).join('');
   }
   const panelEl = document.getElementById('storePanel');
-  if (!panelEl) return;
+  const fleshPanelEl = document.getElementById('storeFleshPanel');
+  if (!panelEl || !fleshPanelEl) return;
+
   if (!currentMerchant) {
+    panelEl.style.display = '';
+    fleshPanelEl.style.display = 'none';
     panelEl.innerHTML = '<div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>';
     return;
   }
+
+  if (currentMerchant === 'fleshmancer') {
+    panelEl.style.display = 'none';
+    fleshPanelEl.style.display = 'block';
+    const portraitSlot = document.getElementById('fleshPortraitSlot');
+    if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('fleshmancer');
+    renderFleshCandidates();
+    return;
+  }
+
+  panelEl.style.display = '';
+  fleshPanelEl.style.display = 'none';
   const m = MERCHANTS[currentMerchant];
   const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
   const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
   panelEl.innerHTML = `
     <div class="store-merchant-head">
-      <span class="store-merchant-portrait large">${merchantPortraitSvg(currentMerchant)}</span>
       <div>
         <div class="store-merchant-title">${m.icon} ${escapeHtml(m.name)}</div>
+        <span class="store-merchant-portrait large">${merchantPortraitSvg(currentMerchant)}</span>
         <p class="store-merchant-flavor">${escapeHtml(m.flavor)}</p>
       </div>
     </div>
