@@ -1292,7 +1292,16 @@
   /* ===================== INVENTORY TAB ===================== */
   .inv-summary-bar { display:flex; align-items:center; gap:1.5rem; background:var(--surface); border:1px solid var(--border); padding:0.8rem 1rem; margin-bottom:1rem; flex-wrap:wrap; font-size:0.92rem; color:var(--text-dim); }
   .inv-summary-bar strong { color:var(--gold); }
-  .inv-grid-wrap { background:var(--surface); border:1px solid var(--border); padding:0.8rem; overflow-x:auto; margin-bottom:1rem; }
+  .inv-grid-wrap { background:var(--surface); border:1px solid var(--border); padding:0.8rem; overflow-x:auto; margin-bottom:0; }
+  .inv-layout-row { display:flex; gap:1rem; align-items:stretch; flex-wrap:wrap; margin-bottom:1rem; }
+  .inv-layout-row .inv-grid-wrap { flex:1 1 auto; min-width:0; }
+  .inv-remove-zone {
+    flex:0 0 150px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--surface); border:2px dashed var(--danger); color:var(--text-dim); font-size:0.85rem;
+    text-align:center; line-height:1.5; padding:1rem; transition:background 0.15s, color 0.15s;
+  }
+  .inv-remove-zone:hover { background:rgba(224,82,82,0.08); color:var(--danger); }
+  .inv-remove-zone.slot-invalid { animation:slotShake 0.3s; }
   .inv-grid { display:flex; flex-direction:column; gap:3px; width:max-content; }
   .inv-row { display:flex; gap:3px; }
   .inv-cell { width:44px; height:44px; background:var(--bg); border:1px dashed var(--border); transition:border-color 0.15s, background 0.15s; flex-shrink:0; }
@@ -2573,8 +2582,13 @@
     <span>🎒 Slots Used: <strong id="invSlotsUsed">0</strong> / <span id="invSlotsTotal">90</span></span>
     <button class="action-btn" style="width:auto;max-width:none" onclick="clearInventory()">Clear Inventory</button>
   </div>
-  <div class="inv-grid-wrap">
-    <div id="inventoryGrid" class="inv-grid"></div>
+  <div class="inv-layout-row">
+    <div class="inv-grid-wrap">
+      <div id="inventoryGrid" class="inv-grid"></div>
+    </div>
+    <div class="inv-remove-zone" id="invRemoveZone" ondragover="slotDragOver(event)" ondrop="inventoryRemoveDrop(event)">
+      🗑<br>Drag an item<br>here to remove it
+    </div>
   </div>
 
   <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:0.05em;margin:1.5rem 0 0.6rem;">🎒 Token Library</h3>
@@ -8742,9 +8756,15 @@ let inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(
 let inventoryPlacements = {};
 let inventoryPlacementCounter = 0;
 
-function invCanPlaceAt(row, col, w) {
+// ignoreId lets a placement's own currently-occupied cells not count as a collision against
+// itself — without this, an item could never be dropped anywhere that overlaps where it
+// already is, which rules out most small repositioning moves (shifting one slot over, etc).
+function invCanPlaceAt(row, col, w, ignoreId) {
   if (row < 0 || row >= INV_ROWS || col < 0 || col + w > INV_COLS) return false;
-  for (let c = col; c < col + w; c++) { if (inventoryGrid[row][c]) return false; }
+  for (let c = col; c < col + w; c++) {
+    const occupant = inventoryGrid[row][c];
+    if (occupant && occupant !== ignoreId) return false;
+  }
   return true;
 }
 
@@ -8763,8 +8783,9 @@ function flashInvCellInvalid(row, col) {
 }
 
 // Handles both a fresh token dragged in from the library (place it) and an existing
-// placement dragged to a new spot (move it, snapping back to its old spot if the new one
-// doesn't fit).
+// placement dragged to a new spot — anywhere in the grid, including a spot that overlaps
+// where it currently sits (see invCanPlaceAt's ignoreId), so it can be repositioned freely
+// rather than only onto cells that happen to already be empty of everything.
 function inventoryCellDrop(evt, row, col) {
   evt.preventDefault();
   const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
@@ -8774,15 +8795,10 @@ function inventoryCellDrop(evt, row, col) {
     const placementId = raw.slice('invplace:'.length);
     const p = inventoryPlacements[placementId];
     if (!p) return;
-    const oldRow = p.row, oldCol = p.col;
-    for (let c = oldCol; c < oldCol + p.w; c++) inventoryGrid[oldRow][c] = null;
-    if (invCanPlaceAt(row, col, p.w)) {
-      p.row = row; p.col = col;
-      for (let c = col; c < col + p.w; c++) inventoryGrid[row][c] = placementId;
-    } else {
-      for (let c = oldCol; c < oldCol + p.w; c++) inventoryGrid[oldRow][c] = placementId;
-      flashInvCellInvalid(row, col);
-    }
+    if (!invCanPlaceAt(row, col, p.w, placementId)) { flashInvCellInvalid(row, col); return; }
+    for (let c = p.col; c < p.col + p.w; c++) inventoryGrid[p.row][c] = null;
+    p.row = row; p.col = col;
+    for (let c = col; c < col + p.w; c++) inventoryGrid[row][c] = placementId;
     renderInventoryGrid();
     return;
   }
@@ -8807,6 +8823,16 @@ function removeFromInventory(placementId) {
   renderInventoryGrid();
 }
 
+// The dedicated "drag here to remove" zone next to the grid — only acts on an actual
+// placed item (an "invplace:" drag); dropping a fresh, not-yet-placed token from the
+// library here is a harmless no-op since there's nothing in the inventory to remove.
+function inventoryRemoveDrop(evt) {
+  evt.preventDefault();
+  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : null);
+  if (!raw || raw.indexOf('invplace:') !== 0) return;
+  removeFromInventory(raw.slice('invplace:'.length));
+}
+
 function clearInventory() {
   inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
   inventoryPlacements = {};
@@ -8829,7 +8855,12 @@ function renderInventoryGrid() {
           const rarity = entry ? entry.rarity : 'common';
           const icon = entry ? itemPixelIcon(entry.item, 22) : '';
           const safeKey = p.key.replace(/'/g, "\\'");
-          html += `<div class="inv-item ${rarity}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
+          // Deliberately NOT a drop target — only genuinely empty cells (below) accept
+          // drops, so there's never any ambiguity about two different items overlapping.
+          // Repositioning onto a spot that overlaps the item's OWN old footprint still
+          // works because invCanPlaceAt ignores the dragged item's own cells; it just has
+          // to be dropped starting on an empty cell, same as any other move.
+          html += `<div class="inv-item ${rarity}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
             ondragstart="inventoryItemDragStart(event,'${placementId}')"
             onclick="removeFromInventory('${placementId}')"
             onmouseenter="showTokenTooltip(event,'${safeKey}')"
