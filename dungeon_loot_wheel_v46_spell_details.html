@@ -2340,7 +2340,7 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled twice, independently: once for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and once for a named personality trait — the exact same traits players can roll on gear (Cautious, Feral, Bloody, etc.). The two can stack into something like a "Cautious Goblin Assassin," or either can show up on its own.</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. If traits hit, a separate roll decides how many stack (weaker tiers usually get 0-2 and lean toward curses; Elite/Legendary monsters reliably get several and lean toward blessings), so a battle can produce something like a triple-cursed common Weak Goblin or a Champion Alpha Legendary Goblin loaded with buffs.</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -5182,10 +5182,13 @@ const GEN = {
   },
 
   // Named trait modifiers — a fixed personality/theme (e.g. "Bloody") that pairs one or
-  // more buff stats with one or more debuff stats on the bearer. Most are a balanced 1-for-1
-  // trade (the buff always the larger of the two, so it's a net-positive trade rather than a
-  // curse — see pickNamedTrait). Some traits are pure blessings (buffs only, no debuffs) and
-  // some are pure curses (debuffs only, no buffs) for more variety than a strict trade-off.
+  // more buff stats with one or more debuff stats on the bearer. Categories: balanced 1-for-1
+  // trades (buff always the larger of the two — see pickNamedTrait), 2-for-2 multi-stat
+  // trades, pure blessings (buffs only), pure curses (debuffs only), single-modifier traits
+  // (exactly one stat, no trade at all), net-beneficial trios (two buffs + one debuff), and
+  // net-harmful trios (two debuffs + one buff) — a wide spread from strict curse to strict
+  // blessing so weaker/stronger monster variants (see Combat tab) have fitting traits to draw
+  // from at every tier, not just even trade-offs.
   namedModifiers: [
     // ── Balanced trade-offs (one buff, one debuff) ──
     {name:"Bloody",         buffs:["Strength"],        debuffs:["Constitution"]},
@@ -5231,7 +5234,20 @@ const GEN = {
     {name:"Withered",       buffs:[], debuffs:["Constitution","Attack Bonus"]},
     {name:"Timid",          buffs:[], debuffs:["Intimidation","Attack Bonus"]},
     {name:"Fragile",        buffs:[], debuffs:["Armor Class","Maximum Hit Points"]},
-    {name:"Hollow",         buffs:[], debuffs:["Charisma","Persuasion"]}
+    {name:"Hollow",         buffs:[], debuffs:["Charisma","Persuasion"]},
+    // ── Single-modifier traits (exactly one stat, no trade-off at all) ──
+    {name:"Hardy",          buffs:["Constitution"], debuffs:[]},
+    {name:"Keen-Eyed",      buffs:["Perception"],   debuffs:[]},
+    {name:"Frail",          buffs:[], debuffs:["Constitution"]},
+    {name:"Sluggish",       buffs:[], debuffs:["Movement Speed"]},
+    // ── Net-beneficial trios (two buffs, one debuff — "+,+,-") ──
+    {name:"Champion",       buffs:["Strength","Attack Bonus"],      debuffs:["Saving Throws"]},
+    {name:"Vanguard",       buffs:["Armor Class","Maximum Hit Points"], debuffs:["Movement Speed"]},
+    {name:"Zealot",         buffs:["Damage Dealt","Wisdom"],        debuffs:["Armor Class"]},
+    // ── Net-harmful trios (two debuffs, one buff — "-,-,+") ──
+    {name:"Desperate",      buffs:["Damage Dealt"], debuffs:["Armor Class","Saving Throws"]},
+    {name:"Unstable",       buffs:["Attack Bonus"], debuffs:["Constitution","Maximum Hit Points"]},
+    {name:"Broken",         buffs:["Strength"],     debuffs:["Intelligence","Charisma"]}
   ],
 
   // One-line mechanical descriptions for every buff/debuff/condition string used across
@@ -8938,38 +8954,79 @@ function rollMonsterHP(monster) {
   const flat = parseInt(raw, 10);
   return { total: Number.isFinite(flat) ? Math.max(1, flat) : 1, dice: null, rolls: [], mod: 0 };
 }
-// Occasionally layers one of the SAME named personality traits players can roll onto gear
-// (GEN.namedModifiers — "Bloody", "Cautious", "Feral", etc.) onto a monster, independently
-// of whatever shape-variant it got — so the two can stack into something like a "Cautious
-// Goblin Assassin" (Assassin shape variant + Cautious personality trait), or either can show
-// up on its own. Uses the exact same buff/debuff pairing ratio as pickNamedTrait() (the
-// player-item version): the debuff is deliberately smaller so the trait stays worth having.
-function rollMonsterNamedTrait(tier) {
-  const mod = ri(GEN.namedModifiers);
+// How many buffs a trait grants minus how many debuffs it inflicts — positive means it
+// leans toward being a blessing, negative means it leans toward being a curse, zero is an
+// even trade. Used to bias which traits a weak vs. strong monster is more likely to roll.
+function traitNetScore(mod) {
+  return (mod.buffs?.length || 0) - (mod.debuffs?.length || 0);
+}
+// How many named traits a monster gets is itself rolled, before the traits are picked — and
+// the distribution shifts with tier: a plain/weak monster mostly rolls 0-1 (occasionally 2,
+// which is how a monster ends up with multiple debuffs stacked at once), while an elite or
+// legendary monster reliably rolls several. Repeated values in each pool are a lightweight
+// weighting trick (more copies of a number = more likely to be picked by ri()).
+const TRAIT_COUNT_POOLS = {
+  common:    [0,0,1,1,1,2],
+  uncommon:  [0,1,1,1,2,2],
+  rare:      [1,1,2,2,2,3],
+  superrare: [1,2,2,3,3,4],
+  legendary: [2,3,3,4,4,5],
+};
+function rollMonsterTraitCount(tier) {
+  return ri(TRAIT_COUNT_POOLS[tier] || TRAIT_COUNT_POOLS.common);
+}
+// Picks one trait from GEN.namedModifiers (excluding any already used on this monster),
+// weighted by tier: weaker tiers are biased toward curse-leaning traits (net debuffs), and
+// stronger tiers are biased toward blessing-leaning traits (net buffs) — balanced/mixed
+// traits are available everywhere. This is what makes "better monsters have more AND better
+// traits" true, not just a higher count.
+function pickWeightedTrait(tier, usedNames) {
+  const pool = GEN.namedModifiers.filter(m => !usedNames.includes(m.name));
+  if (!pool.length) return null;
+  const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
+  const weighted = pool.map(mod => {
+    const net = traitNetScore(mod);
+    let w = 3; // balanced/mixed traits are always reasonably likely
+    if (idx <= 1) { if (net < 0) w = 6; else if (net > 0) w = 1; }       // common/uncommon: favor curses
+    else if (idx >= 3) { if (net > 0) w = 6; else if (net < 0) w = 1; }  // superrare/legendary: favor blessings
+    return { mod, w };
+  });
+  const total = weighted.reduce((s, x) => s + x.w, 0);
+  let r = Math.random() * total;
+  for (const x of weighted) { r -= x.w; if (r <= 0) return x.mod; }
+  return weighted[weighted.length - 1].mod;
+}
+// Rolls the actual +N/-N lines for one named trait at a given tier — factored out so a
+// monster rolling several traits (see rollMonsterTraitCount) can build each one the same way.
+// Uses the same buff/debuff magnitude ratio as pickNamedTrait() (the player-item version).
+function buildTraitLines(mod, tier) {
   const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
   const modest = Math.max(1, idx + 1);
   const debuffAmt = Math.max(1, Math.round(modest * 0.6));
-  const lines = [
+  return [
     ...(mod.buffs || []).map(stat => ({ stat, isCondition: false, positive: true, text: `+${scaledStatAmount(stat, tier, modest)} ${stat}` })),
     ...(mod.debuffs || []).map(stat => ({ stat, isCondition: false, positive: false, text: `-${scaledStatAmount(stat, tier, debuffAmt)} ${stat}` })),
   ];
-  return { name: mod.name, lines };
 }
 // Builds the full roster entry for a newly-added monster: rolls real HP from its hit dice,
 // and — if the variant/trait rolls hit — reskins it as a weaker or stronger version, folding
 // any mechanically-relevant stat lines (Armor Class, Attack Bonus, Damage Dealt, Maximum Hit
-// Points) directly into the numbers the Combat tab actually uses.
+// Points) directly into the numbers the Combat tab actually uses. A monster can end up with
+// several named traits stacked (e.g. a Legendary Goblin that's also Alpha AND Champion), not
+// just one — how many is rolled first via rollMonsterTraitCount, then each is picked and
+// built individually.
 function buildBattleEntry(monster) {
   const hpRoll = rollMonsterHP(monster);
   const baseAC = parseInt(monster.ac, 10);
   const variantChance = parseInt(document.getElementById('battleVariantChance')?.value, 10) || 0;
   const roll = () => Math.random() * 100 < variantChance;
   const variant = roll() ? pickMonsterVariant() : null;
-  const namedTrait = roll() ? rollMonsterNamedTrait(variant ? variant.tier : 'uncommon') : null;
+  const baseTier = variant ? variant.tier : 'common';
 
   let hp = hpRoll.total;
   let ac = Number.isFinite(baseAC) ? baseAC : null;
   let atkMod = 0, dmgMult = 1, statLines = [], displayName = monster.name;
+  const traits = [];
 
   if (variant) {
     hp = Math.max(1, Math.round(hp * variant.hpMult));
@@ -8982,10 +9039,21 @@ function buildBattleEntry(monster) {
       ...rollMonsterStatLines(variant.debuffs, false, variant.tier),
     );
   }
-  if (namedTrait) {
-    displayName = `${namedTrait.name} ${displayName}`;
-    statLines.push(...namedTrait.lines);
+
+  if (roll()) {
+    const traitCount = rollMonsterTraitCount(baseTier);
+    const usedNames = [];
+    for (let i = 0; i < traitCount; i++) {
+      const mod = pickWeightedTrait(baseTier, usedNames);
+      if (!mod) break;
+      usedNames.push(mod.name);
+      const lines = buildTraitLines(mod, baseTier);
+      traits.push({ name: mod.name, lines });
+      displayName = `${mod.name} ${displayName}`;
+      statLines.push(...lines);
+    }
   }
+
   statLines.forEach(line => {
     if (line.isCondition) return;
     const amt = parseInt(line.text, 10);
@@ -8997,7 +9065,7 @@ function buildBattleEntry(monster) {
   });
 
   return {
-    uid: ++battleUidCounter, monster, displayName, variant, namedTrait,
+    uid: ++battleUidCounter, monster, displayName, variant, traits,
     hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
   };
 }
@@ -9146,7 +9214,8 @@ function renderCombatRoster() {
     const r = entry.lastResult;
     const v = entry.variant;
     const variantBadge = v ? `<span class="combat-variant-badge ${v.tier}">${escapeHtml(v.label)}</span>` : '';
-    const traitBadge = entry.namedTrait ? `<span class="combat-trait-badge">${escapeHtml(entry.namedTrait.name)}</span>` : '';
+    const traits = entry.traits || [];
+    const traitBadges = traits.map(t => `<span class="combat-trait-badge">${escapeHtml(t.name)}</span>`).join('');
     const hpDiceNote = entry.hpRoll && entry.hpRoll.dice ? ` <span class="combat-hp-dice">(rolled ${escapeHtml(entry.hpRoll.dice)})</span>` : '';
     // Colored from the monster's own perspective (green = this stat got stronger, red =
     // this stat got weaker) rather than colorizeModifierText's player-item "net effect on
@@ -9154,10 +9223,10 @@ function renderCombatRoster() {
     const statLinesHtml = (entry.statLines && entry.statLines.length)
       ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
       : '';
-    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${entry.namedTrait && !v ? ' has-trait' : ''}">
+    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadge}${variantBadge}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
