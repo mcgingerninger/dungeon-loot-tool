@@ -2364,7 +2364,7 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising the ceiling on how good that gear can roll.</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon).</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -3023,21 +3023,21 @@ const lootData = {
     {"name":"Mithral Spear","desc":"A mithral a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"1200 gp","dmg":"1d6+1","effect":"Thrown (range 20/60), versatile (1d8). +1 to attack and damage rolls. Half the normal weight of a comparable weapon, without sacrificing durability."},
     {"name":"Mithral Arrows","desc":"A bundle of 20 arrows fletched and tipped in mithral.","type":"weapon","slotSize":1,"gp":"400 gp","dmg":"+1 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +1 to attack and damage rolls when fired. Half the normal weight of a comparable weapon, without sacrificing durability."},
     // ── COMPANIONS: PETS (rare) ──
-    {name:"Bonded Pseudodragon",desc:"A cat-sized dragon with a barbed tail and sharp, knowing eyes, telepathically bonded to one companion.",type:"companion",subcategory:"pet",slotSize:1,gp:"800 gp",effect:"Telepathic communication within 100 ft. Grants advantage on one Wisdom (Insight) or Perception check per short rest via its keen senses."},
-    {name:"Bound Imp",desc:"A small devil bound by a minor pact — technically obedient, constitutionally untrustworthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible (self only) once per short rest to scout unseen. Advantage on Deception checks made on its owner's behalf, when it feels like cooperating."},
-    {name:"Blink Dog",desc:"A loyal, fey-touched dog that teleports in short bursts and dislikes evil creatures on sight.",type:"companion",subcategory:"pet",slotSize:1,gp:"1200 gp",effect:"Once per short rest, teleport up to 40 ft. together with the dog as a reaction to avoid an attack (as if it pulled you out of the way)."},
-    {name:"Speaking Giant Owl",desc:"A car-sized owl that can speak Common and Sylvan, and judges you constantly.",type:"companion",subcategory:"pet",slotSize:1,gp:"1000 gp",effect:"Fly speed 60 ft. if ridden by a Small creature; grants advantage on Perception checks made at night."},
-    {name:"Bound Quasit",desc:"A small, cackling fiend bound to obedience, mostly.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible for up to 1 hour per day (in increments). Resistance to poison damage rubs off faintly on its owner while it's within 5 ft."},
-    {name:"Crafted Homunculus",desc:"A small artificial servant built from clay, wax, and a drop of its creator's blood.",type:"companion",subcategory:"pet",slotSize:1,gp:"1500 gp",effect:"Shares its owner's senses when perched on them; can deliver a touch-range spell on its creator's behalf once per long rest."},
-    {name:"Loyal Giant Toad",desc:"A wagon-sized amphibian with a surprisingly gentle disposition toward its owner.",type:"companion",subcategory:"pet",slotSize:1,gp:"700 gp",effect:"Its tongue can retrieve a dropped or thrown item within 15 ft. as a reaction."},
-    {name:"Winter Wolf Pup",desc:"A young winter wolf, still more playful than predatory, with a breath that fogs even warm air.",type:"companion",subcategory:"pet",slotSize:1,gp:"1100 gp",effect:"Resistance to cold damage while the pup is within 10 ft. of you."},
-    {name:"Chaotic Faerie Dragon",desc:"A butterfly-winged dragon barely a foot long, invisible when it wants to be and always a little bored.",type:"companion",subcategory:"pet",slotSize:1,gp:"1300 gp",effect:"Can turn invisible for 10 minutes once per short rest — itself only, but can grant the same to its owner once per long rest."},
-    {name:"Trained Giant Weasel",desc:"A wolf-sized weasel, disconcertingly fast and unnervingly quiet for its size.",type:"companion",subcategory:"pet",slotSize:1,gp:"850 gp",effect:"Speed 40 ft.; advantage on the wearer's Stealth checks while moving alongside it at night."},
+    {name:"Bonded Pseudodragon",desc:"A cat-sized dragon with a barbed tail and sharp, knowing eyes, telepathically bonded to one companion.",type:"companion",subcategory:"pet",slotSize:1,gp:"800 gp",effect:"Telepathic communication within 100 ft. Advantage on all Wisdom (Insight) and Perception checks while it's within 30 ft. Once per short rest, as a reaction, it can sting an attacker within 5 ft. of you, forcing a DC 13 Constitution save or the attacker is poisoned for 1 minute."},
+    {name:"Bound Imp",desc:"A small devil bound by a minor pact — technically obedient, constitutionally untrustworthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible (self only) at will to scout unseen. Advantage on Deception checks made on its owner's behalf. Once per short rest, it can sting a creature within 5 ft. of you as a reaction, dealing 3d6 poison damage (DC 13 Con save for half) to defend you."},
+    {name:"Blink Dog",desc:"A loyal, fey-touched dog that teleports in short bursts and dislikes evil creatures on sight.",type:"companion",subcategory:"pet",slotSize:1,gp:"1200 gp",effect:"Twice per short rest, teleport up to 40 ft. together with the dog as a reaction to avoid an attack. Advantage on saving throws against being charmed while the dog is within 10 ft. — it dislikes evil magic almost as much as evil creatures."},
+    {name:"Speaking Giant Owl",desc:"A car-sized owl that can speak Common and Sylvan, and judges you constantly.",type:"companion",subcategory:"pet",slotSize:1,gp:"1000 gp",effect:"Fly speed 60 ft. if ridden by a Small creature. Advantage on Wisdom (Perception) checks at all times, not just at night. Can carry a whispered message to a specific person or place it has seen before, delivering it accurately from memory."},
+    {name:"Bound Quasit",desc:"A small, cackling fiend bound to obedience, mostly.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible at will, itself or its owner (touch range), for up to 1 hour per day combined. Resistance to poison damage while it's within 5 ft. Once per short rest, it can polymorph into a rat, raven, or spider for 1 hour to scout unseen."},
+    {name:"Crafted Homunculus",desc:"A small artificial servant built from clay, wax, and a drop of its creator's blood.",type:"companion",subcategory:"pet",slotSize:1,gp:"1500 gp",effect:"Shares its owner's senses when perched on them, and its owner can see through its eyes at range. Can deliver a touch-range spell of up to 3rd level on its creator's behalf once per short rest. If destroyed, it can be rebuilt over a long rest with basic crafting tools."},
+    {name:"Loyal Giant Toad",desc:"A wagon-sized amphibian with a surprisingly gentle disposition toward its owner.",type:"companion",subcategory:"pet",slotSize:1,gp:"700 gp",effect:"Its tongue can retrieve a dropped or thrown item within 15 ft. as a reaction, or grapple a Medium or smaller creature within 15 ft. (DC 13 Dex save negates), pulling it 10 ft. closer. Advantage on Strength checks and saves while it's within 5 ft."},
+    {name:"Winter Wolf Pup",desc:"A young winter wolf, still more playful than predatory, with a breath that fogs even warm air.",type:"companion",subcategory:"pet",slotSize:1,gp:"1100 gp",effect:"Resistance to cold damage while the pup is within 10 ft. of you. Once per short rest, it can exhale a 15-ft cone of frost as a reaction to protect you: 4d6 cold damage (DC 13 Con save for half) to creatures in the cone."},
+    {name:"Chaotic Faerie Dragon",desc:"A butterfly-winged dragon barely a foot long, invisible when it wants to be and always a little bored.",type:"companion",subcategory:"pet",slotSize:1,gp:"1300 gp",effect:"Can turn invisible for 10 minutes at will — itself only. Twice per long rest it can also grant the same invisibility to its owner. Its breath weapon (euphoria or fear gas, 10-ft cone, DC 13 Con save) can be used once per short rest to help in a fight."},
+    {name:"Trained Giant Weasel",desc:"A wolf-sized weasel, disconcertingly fast and unnervingly quiet for its size.",type:"companion",subcategory:"pet",slotSize:1,gp:"850 gp",effect:"Speed 40 ft.; advantage on the wearer's Stealth checks at all times while it travels alongside them. Its keen sense of smell grants advantage on Survival checks made to track a creature or find a hidden path."},
     // ── COMPANIONS: MOUNTS (rare) ──
-    {name:"Saddle-Broken Dire Wolf",desc:"A massive wolf, broken to saddle through patience and mutual respect rather than force.",type:"companion",subcategory:"mount",slotSize:1,gp:"2500 gp",ac:"13",effect:"Speed 60 ft. Rider gains +1 to attack rolls while mounted. Advantage on the mount's own checks to track by scent."},
-    {name:"Riding Giant Lizard",desc:"A stocky, broad-backed lizard bred for stability on vertical and inverted surfaces.",type:"companion",subcategory:"mount",slotSize:1,gp:"3000 gp",ac:"13",effect:"Speed 40 ft. Climb speed 40 ft., including upside-down and on ceilings. Never needs a check to climb difficult surfaces."},
-    {name:"Giant Seahorse",desc:"A colorful, gentle seahorse the size of a warhorse, used for underwater travel by coastal folk.",type:"companion",subcategory:"mount",slotSize:1,gp:"3500 gp",ac:"12",effect:"Swim speed 60 ft. Cannot leave the water. Rider can breathe water while mounted (the seahorse's natural field extends this courtesy)."},
-    {name:"Broken Axe Beak",desc:"A flightless, big-beaked bird bred for speed across open ground, foul-tempered but fast.",type:"companion",subcategory:"mount",slotSize:1,gp:"2800 gp",ac:"12",effect:"Speed 70 ft. Rider gains advantage on checks to avoid being thrown or unhorsed at high speed."},
+    {name:"Saddle-Broken Dire Wolf",desc:"A massive wolf, broken to saddle through patience and mutual respect rather than force.",type:"companion",subcategory:"mount",slotSize:1,gp:"2500 gp",ac:"13",effect:"Speed 60 ft. Rider gains +2 to attack rolls while mounted. Advantage on the mount's own checks to track by scent. Once per short rest, the wolf's own bite can knock a Medium or smaller creature prone (DC 13 Strength save), aiding the rider in a fight."},
+    {name:"Riding Giant Lizard",desc:"A stocky, broad-backed lizard bred for stability on vertical and inverted surfaces.",type:"companion",subcategory:"mount",slotSize:1,gp:"3000 gp",ac:"13",effect:"Speed 40 ft. Climb speed 40 ft., including upside-down and on ceilings. Never needs a check to climb difficult surfaces. Rider gains +1 to attack rolls made while mounted (the lizard's stability makes for a steadier strike)."},
+    {name:"Giant Seahorse",desc:"A colorful, gentle seahorse the size of a warhorse, used for underwater travel by coastal folk.",type:"companion",subcategory:"mount",slotSize:1,gp:"3500 gp",ac:"12",effect:"Swim speed 60 ft. Cannot leave the water. Rider can breathe water while mounted, and has resistance to cold damage while submerged and mounted (the seahorse's natural field extends both courtesies)."},
+    {name:"Broken Axe Beak",desc:"A flightless, big-beaked bird bred for speed across open ground, foul-tempered but fast.",type:"companion",subcategory:"mount",slotSize:1,gp:"2800 gp",ac:"12",effect:"Speed 70 ft. Rider gains advantage on checks to avoid being thrown or unhorsed at high speed, and +1 to attack rolls made on a turn the mount moved at least 20 ft. beforehand (a mounted charge)."},
   ],
   superrare: [
     {name:"Vorpal Sword",desc:"A gleaming longsword of terrifying sharpness.",type:"weapon",slotSize:2,gp:"75000 gp",dmg:"1d8+3",effect:"+3 attack and damage. Natural 20: severs target's head (instantly killing most creatures). No effect on creatures that don't need heads. Ignores slashing resistance. Requires attunement.",unlocks:[{"type":"locked","tierLabel":"Hidden Power — Ascendant","condition":"Sever the head of 3 different creatures using the vorpal effect.","reward":"The vorpal effect now also triggers on a natural 19, and any creature slain this way cannot be raised as undead by means short of a Wish."}]},
@@ -3130,17 +3130,17 @@ const lootData = {
     {"name":"Orichalcum Spear","desc":"A orichalcum a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"12000 gp","dmg":"1d6+2","effect":"Thrown (range 20/60), versatile (1d8). +2 to attack and damage rolls. The metal seems to hum faintly when swung in earnest."},
     {"name":"Orichalcum Arrows","desc":"A bundle of 20 arrows fletched and tipped in orichalcum.","type":"weapon","slotSize":1,"gp":"4000 gp","dmg":"+2 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +2 to attack and damage rolls when fired. The metal seems to hum faintly when swung in earnest."},
     // ── COMPANIONS: PETS (superrare) ──
-    {name:"Baby Griffon",desc:"A young griffon, still growing into its wings, fiercely loyal to whoever raised it from the egg.",type:"companion",subcategory:"pet",slotSize:1,gp:"8000 gp",effect:"Fly speed 50 ft. once fully grown (matures over roughly a year of ownership); until then, grants advantage on Animal Handling checks involving other flying beasts."},
-    {name:"Sworn Sprite",desc:"A tiny fey warrior no taller than a hand, armed with a sword and a longbow sized to match.",type:"companion",subcategory:"pet",slotSize:1,gp:"7500 gp",effect:"Can cast Heart Sight once per long rest on its owner's behalf (know a creature's alignment and strongest emotion). Advantage on saves vs. being charmed while it's within 10 ft."},
-    {name:"Pixie Bound by Favor",desc:"A mischievous, glowing fey no bigger than a sparrow, who owes a debt it intends to repay exactly once.",type:"companion",subcategory:"pet",slotSize:1,gp:"9000 gp",effect:"Can cast Polymorph on its owner once, ever, when the debt is called in (GM discretion on timing/target)."},
-    {name:"Displacer Beast Cub",desc:"A young displacer beast, its light-bending fur not yet fully reliable, tentacles still a bit clumsy.",type:"companion",subcategory:"pet",slotSize:1,gp:"12000 gp",effect:"Once per short rest, grant its owner the Displacement effect for 1 round (attacks against you have disadvantage) as a reaction."},
-    {name:"Sworn Young Couatl",desc:"A small feathered serpent, radiant and gentle, sworn to protect one mortal it has judged worthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"15000 gp",effect:"Can cast Bless once per long rest, no material components. Resistance to psychic damage rubs off on its owner while within 10 ft."},
-    {name:"Shadow Mastiff Pup",desc:"A young mastiff-sized shadow beast, more curious than menacing, that can slip between patches of darkness.",type:"companion",subcategory:"pet",slotSize:1,gp:"10000 gp",effect:"Can teleport up to 30 ft. between two dim or dark areas once per short rest — itself only, but can carry a held item along."},
-    {name:"Tamed Giant Strider",desc:"A flightless bird the size of a draft horse, bred more for loyalty than speed, but plenty fast regardless.",type:"companion",subcategory:"pet",slotSize:1,gp:"9500 gp",effect:"Speed 50 ft.; advantage on Survival checks to navigate open plains or grassland while it's your guide."},
+    {name:"Baby Griffon",desc:"A young griffon, still growing into its wings, fiercely loyal to whoever raised it from the egg.",type:"companion",subcategory:"pet",slotSize:1,gp:"8000 gp",effect:"Fly speed 60 ft. once fully grown (matures over roughly a year of ownership; grants advantage on Animal Handling checks involving flying beasts until then). Once grown, it fights alongside its owner once per short rest with its own claw attack (2d6+3 slashing)."},
+    {name:"Sworn Sprite",desc:"A tiny fey warrior no taller than a hand, armed with a sword and a longbow sized to match.",type:"companion",subcategory:"pet",slotSize:1,gp:"7500 gp",effect:"Can cast Heart Sight once per short rest on its owner's behalf. Advantage on saving throws against being charmed or frightened while it's within 10 ft. Its longbow (1d4 piercing plus 1d4 poison, DC 13 Con save or poisoned 1 minute) can be loosed once per short rest to assist its owner in combat."},
+    {name:"Pixie Bound by Favor",desc:"A mischievous, glowing fey no bigger than a sparrow, who owes a debt it intends to repay exactly once.",type:"companion",subcategory:"pet",slotSize:1,gp:"9000 gp",effect:"Can cast Polymorph on its owner once, ever, when the debt is called in (GM discretion on timing/target). Until then, it can turn invisible at will and cast Dancing Lights or Disguise Self on its owner's behalf freely, plus Confusion once per day as a personal favor."},
+    {name:"Displacer Beast Cub",desc:"A young displacer beast, its light-bending fur not yet fully reliable, tentacles still a bit clumsy.",type:"companion",subcategory:"pet",slotSize:1,gp:"12000 gp",effect:"Once per short rest, grant its owner the Displacement effect for 1 minute (attacks against you have disadvantage) as a reaction. Its tentacles (2d6+3 bludgeoning each, two attacks) can assist its owner in combat once per short rest."},
+    {name:"Sworn Young Couatl",desc:"A small feathered serpent, radiant and gentle, sworn to protect one mortal it has judged worthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"15000 gp",effect:"Can cast Bless or Cure Wounds (as a 3rd-level spell) once per short rest each, no material components. Resistance to psychic and poison damage while its owner is within 10 ft."},
+    {name:"Shadow Mastiff Pup",desc:"A young mastiff-sized shadow beast, more curious than menacing, that can slip between patches of darkness.",type:"companion",subcategory:"pet",slotSize:1,gp:"10000 gp",effect:"Can teleport up to 30 ft. between two dim or dark areas once per short rest — can carry its willing owner along if they're within 5 ft. Its bark forces a DC 13 Wisdom save or the target is frightened for 1 minute, usable once per short rest."},
+    {name:"Tamed Giant Strider",desc:"A flightless bird the size of a draft horse, bred more for loyalty than speed, but plenty fast regardless.",type:"companion",subcategory:"pet",slotSize:1,gp:"9500 gp",effect:"Speed 60 ft.; advantage on Survival checks to navigate open plains or grassland while it's your guide. Its kick (2d6+4 bludgeoning) can assist its owner in combat once per short rest."},
     // ── COMPANIONS: MOUNTS (superrare) ──
-    {name:"Hippogriff",desc:"Half horse, half eagle, entirely proud — a hippogriff accepts a rider only after being genuinely impressed.",type:"companion",subcategory:"mount",slotSize:1,gp:"15000 gp",ac:"14",effect:"Speed 40 ft., fly speed 60 ft. Rider gains +1 to attack rolls made while mounted and airborne."},
-    {name:"Fey-Touched Giant Elk",desc:"An elk the size of a small building, antlers spanning wider than a wagon, faintly touched by the Feywild.",type:"companion",subcategory:"mount",slotSize:1,gp:"18000 gp",ac:"14",effect:"Speed 60 ft. Rider and mount both have advantage on saving throws against being charmed while mounted. Once per day, the elk can Misty Step (itself and rider together) up to 30 ft."},
-    {name:"Trained Giant Vulture",desc:"An enormous, patient vulture trained from the egg to accept a rider — unsettling to look at, dependable in the air.",type:"companion",subcategory:"mount",slotSize:1,gp:"14000 gp",ac:"13",effect:"Fly speed 60 ft. Advantage on checks to spot movement or death from high altitude while the rider scouts."},
+    {name:"Hippogriff",desc:"Half horse, half eagle, entirely proud — a hippogriff accepts a rider only after being genuinely impressed.",type:"companion",subcategory:"mount",slotSize:1,gp:"15000 gp",ac:"14",effect:"Speed 40 ft., fly speed 60 ft. Rider gains +2 to attack rolls made while mounted and airborne. Once per short rest, the hippogriff can make its own claw and beak attacks (2d6+4 slashing, 1d10+4 piercing) to assist the rider in a fight."},
+    {name:"Fey-Touched Giant Elk",desc:"An elk the size of a small building, antlers spanning wider than a wagon, faintly touched by the Feywild.",type:"companion",subcategory:"mount",slotSize:1,gp:"18000 gp",ac:"14",effect:"Speed 60 ft. Rider and mount both have advantage on saving throws against being charmed while mounted. Twice per day, the elk can Misty Step (itself and rider together) up to 30 ft. Rider also gains +1 to attack rolls while mounted."},
+    {name:"Trained Giant Vulture",desc:"An enormous, patient vulture trained from the egg to accept a rider — unsettling to look at, dependable in the air.",type:"companion",subcategory:"mount",slotSize:1,gp:"14000 gp",ac:"13",effect:"Fly speed 60 ft. Advantage on checks to spot movement or death from high altitude while the rider scouts. Its beak and talons (2d6+3 piercing) can assist the rider in combat once per short rest."},
   ],
   legendary: [
     {name:"Emberfang, the Wyrmslayer Blade",desc:"A massive greatsword forged from the fang of an ancient red wyrm and quenched in its own blood.",type:"weapon",slotSize:2,gp:"—",dmg:"2d6+4",effect:"+4 attack and damage. +2d6 fire damage against dragons and dragonkin. When a true dragon is within 100 ft., the blade hums and the hilt scales bristle. Requires attunement.",charges:"—",unlocks:[{"type":"locked","tierLabel":"Tier I — The Hungry Blade","condition":"Deal 500 total fire damage using this weapon across any number of encounters.","reward":"+1d6 fire damage permanently on all hits. The blade stays visibly orange-hot for 10 minutes after each kill."},{"type":"locked","tierLabel":"Tier II — Wyrmslayer","condition":"Kill a true dragon (CR 10+) with this blade as the killing blow.","reward":"Dragon Terror Aura: all dragons within 60 ft. make DC 16 Wisdom save or become Frightened until they leave the radius. You are permanently immune to dragon Frightful Presence."},{"type":"cursed","tierLabel":"Tier III — Wyrm's Hunger (Curse)","condition":"Kill 3 true dragons with this blade as the killing blow. The third dragon's soul is consumed.","reward":"The blade becomes Sentient (Int 14, Wis 10, Cha 18) and craves dragon blood. If no dragon is killed within 30 days, it attacks allies. When fed: advantage on all attack rolls for 1 hour after each dragon kill. +5 attack and damage against dragons permanently."}]},
@@ -3212,12 +3212,12 @@ const lootData = {
     {"name":"Adamantine Spear","desc":"A adamantine a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"25000 gp","dmg":"1d6+2","effect":"Thrown (range 20/60), versatile (1d8). +2 to attack and damage rolls. Attacks made with this weapon that hit an object automatically score a critical hit against it."},
     {"name":"Adamantine Arrows","desc":"A bundle of 20 arrows fletched and tipped in adamantine.","type":"weapon","slotSize":1,"gp":"8000 gp","dmg":"+2 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +2 to attack and damage rolls when fired. Attacks made with this weapon that hit an object automatically score a critical hit against it."},
     // ── COMPANIONS: PETS (legendary) ──
-    {name:"Sworn Bronze Wyrmling",desc:"A young bronze dragon, not yet full-grown, who has sworn an oath of protection over its chosen companion for reasons it considers private.",type:"companion",subcategory:"pet",slotSize:1,gp:"60000 gp",effect:"Breath weapon (once per short rest): 40-ft line, 6d8 lightning damage, DC 15 Dex save for half — usable to defend its owner. Water breathing while nearby."},
-    {name:"Phoenix Chick",desc:"A newly-hatched phoenix, small and unassuming, faintly warm to the touch, radiating quiet certainty that it cannot really die.",type:"companion",subcategory:"pet",slotSize:1,gp:"90000 gp",effect:"Once per long rest, if its owner drops to 0 HP, the chick can expend itself in a burst of restorative flame, healing the owner to half their maximum HP — then requires a week to be reborn from its own ashes before it can do so again."},
-    {name:"Bound Lantern Archon",desc:"A small sphere of gentle, ever-present light bound in perpetual service by an old and largely forgotten pact.",type:"companion",subcategory:"pet",slotSize:1,gp:"75000 gp",effect:"Sheds bright light 30 ft., dim light 30 ft. beyond, at will. Can cast Daylight once per long rest. Immune to being surprised by evil-aligned creatures while it's within 30 ft."},
+    {name:"Sworn Bronze Wyrmling",desc:"A young bronze dragon, not yet full-grown, who has sworn an oath of protection over its chosen companion for reasons it considers private.",type:"companion",subcategory:"pet",slotSize:1,gp:"60000 gp",effect:"Breath weapon (twice per short rest): 40-ft line, 8d8 lightning damage, DC 17 Dex save for half — usable to defend its owner. Water breathing while nearby. Advantage on saving throws against being charmed or frightened while it's within 30 ft."},
+    {name:"Phoenix Chick",desc:"A newly-hatched phoenix, small and unassuming, faintly warm to the touch, radiating quiet certainty that it cannot really die.",type:"companion",subcategory:"pet",slotSize:1,gp:"90000 gp",effect:"Once per long rest, if its owner drops to 0 HP, the chick can expend itself in a burst of restorative flame, fully healing the owner and removing one condition of the owner's choice — then requires a week to be reborn from its own ashes before it can do so again. While alive, it sheds warm light (20 ft.) and grants its owner resistance to fire damage."},
+    {name:"Bound Lantern Archon",desc:"A small sphere of gentle, ever-present light bound in perpetual service by an old and largely forgotten pact.",type:"companion",subcategory:"pet",slotSize:1,gp:"75000 gp",effect:"Sheds bright light 30 ft., dim light 30 ft. beyond, at will. Can cast Daylight once per short rest and Guiding Bolt (4d6 radiant) once per short rest on its owner's behalf. Immune to being surprised by evil-aligned creatures while it's within 30 ft."},
     // ── COMPANIONS: MOUNTS (legendary) ──
-    {name:"Pegasus",desc:"A winged horse of unmistakably noble bearing, who will only bear a rider it judges to be good at heart.",type:"companion",subcategory:"mount",slotSize:1,gp:"80000 gp",ac:"15",effect:"Speed 60 ft., fly speed 90 ft. Rider gains +2 to attack rolls made while mounted and airborne. Advantage on all saving throws against being frightened while mounted."},
-    {name:"Bonded Griffon",desc:"A full-grown griffon, eagle-headed and lion-bodied, bonded for life to one rider it chose itself.",type:"companion",subcategory:"mount",slotSize:1,gp:"95000 gp",ac:"15",effect:"Speed 50 ft., fly speed 80 ft. Rider gains +2 to attack rolls while mounted. The griffon fights alongside its rider in combat, attacking independently with its own claws and beak (2d6+5 slashing, 2d10+5 piercing)."},
+    {name:"Pegasus",desc:"A winged horse of unmistakably noble bearing, who will only bear a rider it judges to be good at heart.",type:"companion",subcategory:"mount",slotSize:1,gp:"80000 gp",ac:"15",effect:"Speed 60 ft., fly speed 90 ft. Rider gains +3 to attack rolls made while mounted and airborne. Advantage on all saving throws against being frightened while mounted. Once per short rest, the pegasus can dive-kick (4d6+5 bludgeoning) to assist the rider."},
+    {name:"Bonded Griffon",desc:"A full-grown griffon, eagle-headed and lion-bodied, bonded for life to one rider it chose itself.",type:"companion",subcategory:"mount",slotSize:1,gp:"95000 gp",ac:"15",effect:"Speed 50 ft., fly speed 80 ft. Rider gains +3 to attack rolls while mounted. The griffon fights alongside its rider every round, attacking independently with its own claws and beak (2d6+5 slashing, 2d10+5 piercing) — no per-day limit."},
   ],
   celestial: [
     {name:"Seraph's Wing Blade",desc:"A greatsword of living silver that has never fully decided whether it is a blade or a feather. The metal shifts like mercury when the light moves and the edge is too fine to see directly. It belonged to a seraph who chose to die defending something mortal, and the god who reforged it into a weapon did so without fully understanding what they were working with.",type:"weapon",slotSize:2,gp:"—",dmg:"2d6+5",effect:"+5 attack and damage. Deals radiant damage. +2d8 radiant on every hit; +4d8 radiant against fiends and undead. Fiends and undead that attempt to wield it take 4d6 radiant damage per round. Holy Aura: while attuned, you emit a 10-ft aura of divine light — fiends and undead within the aura have disadvantage on attack rolls against you. Once per day: cast Holy Aura (no spell slot, no components) centered on yourself for 1 minute. Requires attunement by a creature of good alignment.",charges:"Holy Aura 1/day",unlocks:[{"type":"locked","tierLabel":"Tier I — Seraph's Recognition","condition":"Deal the killing blow to 5 demon lords, archdevils, or CR 20+ fiends.","reward":"All celestials encountered are automatically friendly and will not attack unless attacked first. Holy Aura upgrade: allies within the 10-ft aura also gain +2 to attack and damage rolls."},{"type":"dormant","tierLabel":"Tier II — The Seraph's Name","condition":"Find and read the seraph's true name — requiring considerable research, divine favor, or a journey to the upper planes.","reward":"Once per week: summon the seraph's spirit for 1 hour (full Deva statistics, maximum HP). The +4d8 radiant vs. fiends/undead upgrades to +6d8. Immune to charm, fear, and possession by any means."}]},
@@ -3236,8 +3236,8 @@ const lootData = {
     {name:"Plate of the Immovable Saint",desc:"Full plate armor made from the melted-down weapons of every army that ever tried to take a particular mountain pass and failed. The smith who made it spent forty years on the project and died the morning after completing it, reportedly satisfied. The armor is heavier than any armor has a right to be, and yet the wearer never tires from wearing it.",type:"armor",slotSize:3,gp:"—",ac:"23",effect:"AC 23. Immune to forced movement — no spell, ability, or physical force can move you against your will. Immune to the Prone, Grappled, and Restrained conditions. Once per day as a bonus action: plant yourself — until the start of your next turn, you cannot be moved by any means and any creature that attempts to move through your space takes 4d10 bludgeoning damage and is knocked prone (Strength DC 20 to avoid the prone). Requires attunement by a creature of lawful alignment.",charges:"Plant 1/day",unlocks:[{"type":"locked","tierLabel":"Tier I — The Pass Holds","condition":"Survive an encounter in which 10 or more enemies attack you in a single round without moving from your starting position.","reward":"Plant ability now creates a 10-ft aura — creatures entering or starting their turn within 10 ft. take 3d6 bludgeoning and make DC 20 Strength save or be pushed back 10 ft."},{"type":"dormant","tierLabel":"Tier II — The Mountain","condition":"Hold a position — a bridge, a gate, a doorway — for a full in-game day against active opposition without retreating.","reward":"AC increases to 25. No longer need food, water, or air while wearing. Once per week: become literally immovable for 1 hour — cannot be moved by any means. Nothing can bypass you without first making DC 30 Strength check to move you."}]},
     {name:"The First Candle",desc:"A small white candle, slightly shorter than it was when first found, that has allegedly been burning since the first mortal ever learned what fire was. It smells like oak and old stone and something that might be memory. It has never dripped. The wax has never melted. It is somehow, inexplicably, getting shorter.",type:"misc",slotSize:1,gp:"—",effect:"While the candle is lit within 60 ft. of you: you cannot be surprised. All allies within 60 ft. of the candle have advantage on death saving throws. Any spell of 5th level or lower cast within the bright light radius (20 ft.) requires no spell slot — the candle fuels it. Spells cast this way are pulled from the candle's light; the candle shortens perceptibly each time. Once extinguished: the candle relights itself at the next dawn. Considered by some scholars to be less an item and more a surviving piece of a much older story. Requires no attunement.",charges:"Free spells ≤5th level while lit; self-relights each day",unlocks:[{"type":"locked","tierLabel":"Tier I — The Story Continues","condition":"Cast 15 spells fueled by the candle's light without it being extinguished.","reward":"The candle now fuels spells of 6th level or lower for free (up from 5th), and its bright light radius increases to 30 ft."},{"type":"locked","tierLabel":"Tier II — An Older Story Than Fire","condition":"Keep the candle lit continuously for 7 full in-game days.","reward":"While lit, you and all allies within its light have advantage on saving throws against being frightened, and no darkness, magical or otherwise, can extinguish it."}]},
     {name:"Shroud of the Silent Heaven",desc:"A plain white burial shroud taken from a celestial who chose to be interred rather than return to the heavens, on the grounds that they had become too attached to the place they were in. The fabric is impossibly fine. It is translucent but not see-through. It never gets dirty. If it is ever fully spread out, the pattern woven into it — invisible until then — depicts a map of a place no one has been able to identify.",type:"armor",slotSize:1,gp:"—",ac:"+4",effect:"+4 AC. Immune to necrotic damage and to the effects of dead magic zones — spells cast by the wearer function normally in antimagic fields and dead magic zones (the shroud sustains them). Once per day: become incorporeal for up to 10 minutes (can move through objects and creatures; immune to non-magical damage while incorporeal; end as a bonus action). While incorporeal: you can communicate telepathically with any creature within 120 ft. regardless of language. Once per long rest: a creature that dies within 30 ft. of you can be preserved — their soul is held in the shroud for up to 24 hours, during which they can be restored to life by any means without the soul first needing to be retrieved from another plane. Requires attunement.",charges:"Incorporeal 1/day; soul preservation 1/long rest",unlocks:[{"type":"locked","tierLabel":"Tier I — The Pattern Read","condition":"Fully decode the map woven into the shroud — the GM reveals the location and you must journey there and identify it.","reward":"Know direction and approximate distance of any location you have previously visited, on any plane. Incorporeal duration increases to 1 hour per day."},{"type":"dormant","tierLabel":"Tier II — Celestial's Rest","condition":"Travel to the location in the shroud's map and spend a long rest there with at least one person you trust completely.","reward":"Soul preservation becomes automatic — all creatures that die within 60 ft. are preserved for 7 days. Once per week: the shroud acts as a gate to a peaceful demiplane where long rests take 10 minutes and all conditions are removed on arrival."}]},
-    {name:"Fragment of a Fallen Star",desc:"Not quite a creature and not quite an object — a small mote of captured starlight that took on enough personality, over the centuries, to be considered a companion rather than a possession. It has no true form, only a shifting point of light about the size of a fist, and it seems to genuinely like whoever it's chosen to travel with, for reasons neither party has ever managed to explain.",type:"companion",subcategory:"pet",slotSize:1,gp:"—",effect:"Sheds bright light 60 ft., dim light 60 ft. beyond. Once per day, it can flare into a Guardian of Faith-like effect (a stationary spectral guardian, 60 HP, 20 radiant damage to enemies that approach) for 8 hours. Once per week, it can cast Wish on its owner's behalf for a single specific request related to light, guidance, or finding something lost (GM discretion on exact scope). It cannot be destroyed by mundane or even most magical means — if 'harmed,' it simply winks out and reforms a week later somewhere nearby."},
-    {name:"Celestial Steed of the Silver Path",desc:"Not born but summoned — a horse-shaped avatar of moonlight and old oaths, said to have carried heroes across the sky since before written history. It answers only one rider at a time, chosen not by worthiness exactly, but by some calculus of the heart that no scholar has ever successfully described.",type:"companion",subcategory:"mount",slotSize:1,gp:"—",ac:"18",effect:"Speed 80 ft., fly speed 120 ft., can also run across water, cloud, and open air as if they were solid ground. Rider gains +3 to attack rolls made while mounted. Immune to being frightened while mounted. Once per day, the steed can carry itself and up to 5 additional willing creatures through a Plane Shift-like leap to any location the rider has previously visited. Cannot be permanently killed — if reduced to 0 HP, it dissolves into moonlight and reforms at the next full moon."}
+    {name:"Fragment of a Fallen Star",desc:"Not quite a creature and not quite an object — a small mote of captured starlight that took on enough personality, over the centuries, to be considered a companion rather than a possession. It has no true form, only a shifting point of light about the size of a fist, and it seems to genuinely like whoever it's chosen to travel with, for reasons neither party has ever managed to explain.",type:"companion",subcategory:"pet",slotSize:1,gp:"—",effect:"Sheds bright light 60 ft., dim light 60 ft. beyond. +2 to all saving throws while it's within 30 ft. Twice per day, it can flare into a Guardian of Faith-like effect (a stationary spectral guardian, 60 HP, 20 radiant damage to enemies that approach) for 8 hours. Once per day, it can cast Wish on its owner's behalf for a single specific request related to light, guidance, or finding something lost (GM discretion on exact scope). It cannot be destroyed by mundane or even most magical means — if 'harmed,' it simply winks out and reforms a week later somewhere nearby."},
+    {name:"Celestial Steed of the Silver Path",desc:"Not born but summoned — a horse-shaped avatar of moonlight and old oaths, said to have carried heroes across the sky since before written history. It answers only one rider at a time, chosen not by worthiness exactly, but by some calculus of the heart that no scholar has ever successfully described.",type:"companion",subcategory:"mount",slotSize:1,gp:"—",ac:"18",effect:"Speed 80 ft., fly speed 120 ft., can also run across water, cloud, and open air as if they were solid ground. Rider gains +4 to attack rolls made while mounted and has resistance to all damage while mounted and above 0 HP. Immune to being frightened while mounted. Once per day, the steed can carry itself and up to 5 additional willing creatures through a Plane Shift-like leap to any location the rider has previously visited. Cannot be permanently killed — if reduced to 0 HP, it dissolves into moonlight and reforms at the next full moon."}
   ]
 };
 
@@ -3938,6 +3938,7 @@ const CHEST_ITEM_GROUPS = [
   { label: 'Armor',       types: ['armor'],      weight: 2 },
   { label: 'Consumable',  types: ['consumable'], weight: 2 },
   { label: 'Misc/Magic',  types: ['misc'],       weight: 3 },
+  { label: 'Companion',   types: ['companion'],  weight: 1 },
 ];
 
 // Rarity mixing rules — a chest of rarity X guarantees at least one item of tier X,
@@ -6886,6 +6887,7 @@ const STORE_ICONS = {
   potion: { viewBox:'0 0 8 10', rects:[[3,0,2,2],[2,2,4,2],[1,4,6,6]] },
   scroll: { viewBox:'0 0 10 6', rects:[[0,0,2,6],[8,0,2,6],[2,1,6,4]] },
   gem:    { viewBox:'0 0 8 8',  rects:[[2,0,4,2],[0,2,8,2],[1,4,6,2],[2,6,4,1],[3,7,2,1]] },
+  paw:    { viewBox:'0 0 8 8',  rects:[[1,0,2,2],[5,0,2,2],[0,2,2,2],[6,2,2,2],[2,3,4,4]] },
 };
 function storeIconSvg(category, color) {
   return pixelIconSvg(STORE_ICONS[category] || STORE_ICONS.gem, color);
@@ -6894,6 +6896,7 @@ function storeIconSvg(category, color) {
 // mirrors the spirit of inferSlotType() but for shop-icon purposes.
 function storeIconCategory(item) {
   const n = (item.name || '').toLowerCase();
+  if (item.type === 'companion') return 'paw';
   if (/dagger|knife/.test(n)) return 'dagger';
   if (/axe|hatchet/.test(n)) return 'axe';
   if (/mace|hammer|club|flail|maul|morningstar/.test(n)) return 'mace';
@@ -6961,6 +6964,16 @@ const MERCHANTS = {
       { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc' },
     ],
   },
+  // Sells every common-tier companion (pet or mount) as standing stock — computed straight
+  // from lootData.common so this list can never drift out of sync with the Item Compendium
+  // — plus 5 freshly rolled uncommon-or-better pets each day (see rollAnimalTamerDaily()).
+  animaltamer: {
+    name: 'Animal Tamer', icon: '🐾',
+    flavor: 'Cages, pens, and a low constant murmur of clucks, chirps, and growls. Everything here is alive, fed, and for sale.',
+    staples: lootData.common
+      .filter(it => it.type === 'companion')
+      .map(it => ({ name: it.name, desc: it.desc, gp: it.gp, effect: it.effect, icon: 'paw', type: 'companion' })),
+  },
   // The Fleshmancer isn't a normal shop — selecting him swaps in the whole limb-grafting
   // flow (see renderStoreTab/#storeFleshPanel) instead of a staples/daily-wares grid.
   // `staples` stays empty; it's unused for this entry but keeps the shape consistent
@@ -7013,11 +7026,28 @@ function generateStoreItem(merchantKey) {
 let currentMerchant = null;
 let storeDailyItems = [];
 
+// The Animal Tamer doesn't roll fully-procedural wares like every other merchant — she
+// sells real companions from lootData, so her "daily wares" are 5 distinct pets drawn from
+// the uncommon-and-above tiers instead (mounts stay staples-only; the daily rotation is
+// pets specifically, per how the shop was asked to work).
+function rollAnimalTamerDaily() {
+  const pool = [];
+  ['uncommon','rare','superrare','legendary','celestial'].forEach(rarity => {
+    (lootData[rarity] || []).forEach(it => {
+      if (it.type === 'companion' && it.subcategory === 'pet') pool.push({ ...it, rarity });
+    });
+  });
+  const shuffled = pool.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(5, shuffled.length));
+}
+
 function selectMerchant(key) {
   currentMerchant = key;
   // The Fleshmancer doesn't use the daily-wares mechanic — his "wares" are rolled fresh
   // via rollFleshCandidates() instead (see renderStoreTab()).
-  if (key !== 'fleshmancer') {
+  if (key === 'animaltamer') {
+    storeDailyItems = rollAnimalTamerDaily();
+  } else if (key !== 'fleshmancer') {
     storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
   }
   renderStoreTab();
@@ -7025,7 +7055,9 @@ function selectMerchant(key) {
 
 function rerollStoreDaily() {
   if (!currentMerchant || currentMerchant === 'fleshmancer') return;
-  storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
+  storeDailyItems = currentMerchant === 'animaltamer'
+    ? rollAnimalTamerDaily()
+    : Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
   renderStoreTab();
 }
 
@@ -7052,7 +7084,12 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
 function storeDailyCardHtml(item, idx) {
   const color = rarityColors[item.rarity] || '#a0a8b0';
   const icon = storeIconSvg(storeIconCategory(item), color);
-  const effectText = (item.mods || []).map(m => colorizeModifierText(m.text, m.type)).join(' ');
+  // Procedurally generated wares carry a mods[] array; hand-authored ones (like the Animal
+  // Tamer's daily pets, pulled straight from lootData) use a flat effect string instead —
+  // fall back to that so their card isn't left with no effect text at all.
+  const effectText = (item.mods && item.mods.length)
+    ? item.mods.map(m => colorizeModifierText(m.text, m.type)).join(' ')
+    : escapeHtml(item.effect || '');
   const statBits = [];
   if (item.dmg) statBits.push(`⚔ ${item.dmg}`);
   if (item.ac) statBits.push(`🛡 AC ${item.ac}`);
@@ -7095,6 +7132,11 @@ const MERCHANT_PORTRAITS = {
     [1,1,7,2,'#a06a30'],[2,3,5,4,'#c48a5a'],
     [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,6,3,1,'#8a5a30'],
     [0,7,9,4,'#6a4a2a'],[0,7,9,1,'#8a6a3a'],[1,2,7,1,'#c48a3a'],
+  ],
+  animaltamer: [
+    [1,0,7,2,'#8a6a3a'],[0,2,9,1,'#6a5028'],[2,3,5,4,'#d9a066'],
+    [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,6,3,1,'#a86a3a'],
+    [0,7,9,4,'#4a6a3a'],[0,7,9,1,'#6a8a4a'],[1,8,1,1,'#3a2a18'],[7,8,1,1,'#3a2a18'],
   ],
   fleshmancer: [
     [2,0,5,2,'#2a1010'],[1,2,7,1,'#1a0808'],[2,3,5,4,'#c9b8a8'],
@@ -9371,14 +9413,24 @@ function buildBattleEntry(monster) {
     else if (line.stat === 'Maximum Hit Points') hp = Math.max(1, hp + amt);
   });
 
-  let chaosGear = null;
+  // Rolling more than one piece of chaos gear at once — a weapon AND a spell, say — is
+  // itself gated by how high the slider is: the first item uses the full chaos chance,
+  // each additional item after that is progressively less likely (half the previous odds),
+  // capped at 3 total, so multi-item monsters only really show up once chaos is cranked up.
+  const chaosGearList = [];
   if (Math.random() * 100 < chaosChance) {
-    chaosGear = rollChaosGear(chaosChance);
-    if (chaosGear.kind === 'armor' && ac !== null) ac += chaosGear.acBonus;
+    let piece = rollChaosGear(chaosChance);
+    let extraChance = chaosChance;
+    while (piece && chaosGearList.length < 3) {
+      chaosGearList.push(piece);
+      if (piece.kind === 'armor' && ac !== null) ac += piece.acBonus;
+      extraChance *= 0.5;
+      piece = Math.random() * 100 < extraChance ? rollChaosGear(chaosChance) : null;
+    }
   }
 
   return {
-    uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGear,
+    uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGearList,
     hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
   };
 }
@@ -9445,8 +9497,8 @@ function battleEffectivenessLabel(roll) {
 // than always overriding them), then legendary/bonus actions, then traits, with a generic
 // fallback so this never comes up empty.
 function pickBattleAction(monster, entry) {
-  const chaosSpell = entry && entry.chaosGear && entry.chaosGear.kind === 'spell' ? [entry.chaosGear.spellAction] : [];
-  const pools = [[...(monster.actions || []), ...chaosSpell], monster.legendary, monster.bonusActions, monster.traits];
+  const chaosSpells = (entry?.chaosGearList || []).filter(g => g.kind === 'spell').map(g => g.spellAction);
+  const pools = [[...(monster.actions || []), ...chaosSpells], monster.legendary, monster.bonusActions, monster.traits];
   for (const pool of pools) {
     if (pool && pool.length) return ri(pool);
   }
@@ -9464,7 +9516,7 @@ function resolveBattleAttack(entry) {
   const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
   const atkMod = entry.atkMod || 0;
   const dmgMult = entry.dmgMult || 1;
-  const hasChaosWeapon = entry.chaosGear && entry.chaosGear.kind === 'weapon';
+  const chaosWeapons = (entry.chaosGearList || []).filter(g => g.kind === 'weapon');
   const d20 = rn(1, 20);
   let result;
 
@@ -9480,14 +9532,15 @@ function resolveBattleAttack(entry) {
       if (dmg) {
         let scaledTotal = Math.max(1, Math.round(dmg.total * dmgMult));
         const scaleNote = dmgMult !== 1 ? `, ×${dmgMult.toFixed(2).replace(/\.?0+$/, '')} variant scaling` : '';
+        // Every chaos weapon the monster is carrying adds its own damage dice on top.
         let weaponNote = '';
-        if (hasChaosWeapon) {
-          const wdmg = battleRollDamage(entry.chaosGear.dice, isCrit);
+        chaosWeapons.forEach(w => {
+          const wdmg = battleRollDamage(w.dice, isCrit);
           if (wdmg) {
             scaledTotal += wdmg.total;
-            weaponNote = ` + ${wdmg.rolls.join('+')}${wdmg.mod ? (wdmg.mod > 0 ? '+' + wdmg.mod : wdmg.mod) : ''} from ${escapeHtml(entry.chaosGear.name)}`;
+            weaponNote += ` + ${wdmg.rolls.join('+')}${wdmg.mod ? (wdmg.mod > 0 ? '+' + wdmg.mod : wdmg.mod) : ''} from ${escapeHtml(w.name)}`;
           }
-        }
+        });
         dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote}${weaponNote})`;
       }
     }
@@ -9548,19 +9601,20 @@ function renderCombatRoster() {
     const statLinesHtml = (entry.statLines && entry.statLines.length)
       ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
       : '';
-    const chaosBadge = entry.chaosGear ? `<span class="combat-chaos-badge ${entry.chaosGear.rarity}">${entry.chaosGear.kind === 'weapon' ? '⚔' : entry.chaosGear.kind === 'armor' ? '🛡' : '📖'} chaos</span>` : '';
-    const chaosLine = entry.chaosGear ? `<div class="combat-chaos-line">${entry.chaosGear.label}</div>` : '';
+    const chaosGearList = entry.chaosGearList || [];
+    const chaosBadges = chaosGearList.map(g => `<span class="combat-chaos-badge ${g.rarity}">${g.kind === 'weapon' ? '⚔' : g.kind === 'armor' ? '🛡' : '📖'} chaos</span>`).join('');
+    const chaosLines = chaosGearList.map(g => `<div class="combat-chaos-line">${g.label}</div>`).join('');
     return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadge}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
       </div>
       <div class="combat-card-stats"><span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(String(entry.hp))}${hpDiceNote}</span></div>
       ${statLinesHtml}
-      ${chaosLine}
+      ${chaosLines}
       <button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>
       ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
     </div>`;
