@@ -405,6 +405,13 @@
   .loot-item-text .item-name { font-weight: 600; }
   .loot-item-text .item-desc { font-size: 0.88rem; color: var(--text-dim); font-style: italic; line-height: 1.4; }
   .item-meta { display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.35rem; }
+  .loot-save-btn {
+    display: inline-block; margin-top: 0.35rem; background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-family: 'Crimson Text', serif; font-size: 0.78rem;
+    padding: 0.2rem 0.55rem; cursor: pointer; transition: all 0.2s;
+  }
+  .loot-save-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .loot-save-btn.saved { border-color: var(--uncommon); color: var(--uncommon); cursor: default; }
   .meta-tag { font-family:'Share Tech Mono',monospace; font-size:0.68rem; color:var(--gold-bright); border:1px solid var(--border); background:rgba(0,0,0,0.2); padding:0.1rem 0.35rem; text-transform:uppercase; }
   .meta-tag.slot { color:var(--text-dim); }
   .meta-tag.dmg { color:var(--danger); border-color: rgba(224,82,82,0.4); }
@@ -2323,9 +2330,9 @@
     <div class="edit-modal-body">
       <label>Item Name</label><input id="editItemName" type="text">
       <label>Description</label><textarea id="editItemDesc"></textarea>
-      <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="limb">Limb</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
+      <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
       <label>Value (GP)</label><input id="editItemGp" type="text" placeholder="e.g. 500 gp"><div id="editWeaponField"><label>Damage Dice</label><input id="editItemDmg" type="text" placeholder="e.g. 1d8+2"></div>
-      <div id="editArmorField"><label>Armor Class</label><input id="editItemAc" type="text" placeholder="e.g. 16 or +2"></div>
+      <div id="editArmorField"><label>Armor Class</label><input id="editItemAc" type="text" placeholder="e.g. 16 or +2 — for Companion, a mount's AC (leave blank for pets)"></div>
       <div id="editConsumableField"><label>Healing Dice</label><input id="editItemHp" type="text" placeholder="e.g. 2d4+2"></div>
       <label>Charges (optional)</label><input id="editItemCharges" type="text" placeholder="e.g. 7, 3/day, 1 use">
       <label>Effect / Special Ability</label><textarea id="editItemEffect" style="min-height:70px"></textarea>
@@ -2432,26 +2439,26 @@
 
       <div class="limbs-panel">
         <h3>🩸 Grafted Limbs</h3>
-        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab go here.</p>
+        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab go here. Any slot accepts any grafted body part — an eye, a heart, an extra arm, whatever you've got.</p>
         <div class="limbs-grid">
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Hand</span><div class="doll-slot limb" id="slot-limbHand1" data-slot="limbHand1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Hand</span><div class="doll-slot limb" id="slot-limbHand2" data-slot="limbHand2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Leg</span><div class="doll-slot limb" id="slot-limbLeg1" data-slot="limbLeg1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Leg</span><div class="doll-slot limb" id="slot-limbLeg2" data-slot="limbLeg2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Foot</span><div class="doll-slot limb" id="slot-limbFoot1" data-slot="limbFoot1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Foot</span><div class="doll-slot limb" id="slot-limbFoot2" data-slot="limbFoot2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Eye</span><div class="doll-slot limb" id="slot-limbEye1" data-slot="limbEye1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Eye</span><div class="doll-slot limb" id="slot-limbEye2" data-slot="limbEye2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Ear</span><div class="doll-slot limb" id="slot-limbEar1" data-slot="limbEar1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Ear</span><div class="doll-slot limb" id="slot-limbEar2" data-slot="limbEar2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger1" data-slot="limbFinger1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger2" data-slot="limbFinger2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger3" data-slot="limbFinger3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger3')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger4" data-slot="limbFinger4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger4')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Heart</span><div class="doll-slot limb" id="slot-limbHeart" data-slot="limbHeart" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHeart')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Tongue</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 1</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 2</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 3</span><div class="doll-slot limb" id="slot-limbHand1" data-slot="limbHand1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 4</span><div class="doll-slot limb" id="slot-limbHand2" data-slot="limbHand2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 5</span><div class="doll-slot limb" id="slot-limbLeg1" data-slot="limbLeg1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 6</span><div class="doll-slot limb" id="slot-limbLeg2" data-slot="limbLeg2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 7</span><div class="doll-slot limb" id="slot-limbFoot1" data-slot="limbFoot1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 8</span><div class="doll-slot limb" id="slot-limbFoot2" data-slot="limbFoot2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 9</span><div class="doll-slot limb" id="slot-limbEye1" data-slot="limbEye1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 10</span><div class="doll-slot limb" id="slot-limbEye2" data-slot="limbEye2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 11</span><div class="doll-slot limb" id="slot-limbEar1" data-slot="limbEar1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 12</span><div class="doll-slot limb" id="slot-limbEar2" data-slot="limbEar2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 13</span><div class="doll-slot limb" id="slot-limbFinger1" data-slot="limbFinger1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 14</span><div class="doll-slot limb" id="slot-limbFinger2" data-slot="limbFinger2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 15</span><div class="doll-slot limb" id="slot-limbFinger3" data-slot="limbFinger3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger3')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 16</span><div class="doll-slot limb" id="slot-limbFinger4" data-slot="limbFinger4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger4')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 17</span><div class="doll-slot limb" id="slot-limbHeart" data-slot="limbHeart" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHeart')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 18</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
         </div>
       </div>
 
@@ -3286,8 +3293,10 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   onehanded:'weapon', twohanded:'weapon',
   potion:'charm', scroll:'charm', food:'charm', throwable:'charm',
   ring:'ring', amulet:'amulet', charm:'charm',
-  arm:'limb-arm', hand:'limb-hand', leg:'limb-leg', foot:'limb-foot', eye:'limb-eye',
-  ear:'limb-ear', finger:'limb-finger', heart:'limb-heart', tongue:'limb-tongue',
+  // All grafted-limb subcategories share the single generic 'limb' slot category, so any
+  // body part can go in any of the 18 limb slots — the slots don't care what kind of limb.
+  arm:'limb', hand:'limb', leg:'limb', foot:'limb', eye:'limb',
+  ear:'limb', finger:'limb', heart:'limb', tongue:'limb',
   // Pets and mounts share the single Mount/Pet slot on the player doll.
   pet:'companion', mount:'companion',
 };
@@ -3866,6 +3875,7 @@ function renderResults() {
           <span class="rarity-label">[${rarityNames[it.rarity]}]</span>
           <div class="loot-item-text">
             ${renderItemWithInspection(it, inspectMode, `roll-${result.enemy}-${ii}`)}
+            <button class="loot-save-btn" onclick="saveSpinItem(${result.enemy-1},${ii},this)">💾 Save as Token</button>
           </div>
         </div>
       `).join('')}
@@ -4492,6 +4502,7 @@ function renderChestResults() {
           <span class="rarity-label">[${rarityNames[it.rarity]}]</span>
           <div class="loot-item-text">
             ${renderItemWithInspection(it, inspectMode, `chest-${chest.id}-${ii}`)}
+            <button class="loot-save-btn" onclick="saveChestItemToken(${chest.id-1},${ii},this)">💾 Save as Token</button>
           </div>
         </div>
       `).join('')}
@@ -4666,7 +4677,10 @@ function addItem() {
   if(!name) return;
   const type=document.getElementById('newItemType').value;
   const slotSize=parseInt(document.getElementById('newItemSlot').value);
-  const item={name,desc,type,slotSize};
+  // Compute subcategory up front (rather than leaving it to the legacy name-sniffing
+  // fallback in inferSlotType) so a Companion — or any type — routes to the right equip
+  // slot immediately, without waiting for a later pass to infer it.
+  const item={name,desc,type,slotSize,subcategory:classifySubcategory(name,type)};
   const dmg=document.getElementById('newItemDmg').value.trim();
   const ac=document.getElementById('newItemAc').value.trim();
   const hp=document.getElementById('newItemHp').value.trim();
@@ -4674,7 +4688,7 @@ function addItem() {
   const effect=document.getElementById('newItemEffect').value.trim();
   const gp=document.getElementById('newItemGp') ? document.getElementById('newItemGp').value.trim() : '';
   if(type==='weapon' && dmg) item.dmg=dmg;
-  if(type==='armor' && ac) item.ac=ac;
+  if((type==='armor' || type==='companion') && ac) item.ac=ac;
   if(type==='consumable' && hp) item.hp=hp;
   if(charges) item.charges=charges;
   if(gp) item.gp=gp;
@@ -4792,7 +4806,8 @@ function editItem(rarity, index) {
 function updateEditFormFields() {
   const t = document.getElementById('editItemType').value;
   document.getElementById('editWeaponField').style.display     = t === 'weapon'     ? 'block' : 'none';
-  document.getElementById('editArmorField').style.display      = t === 'armor'      ? 'block' : 'none';
+  // AC field doubles as a mount's Armor Class for the Companion type — pets can just leave it blank.
+  document.getElementById('editArmorField').style.display      = (t === 'armor' || t === 'companion') ? 'block' : 'none';
   document.getElementById('editConsumableField').style.display = t === 'consumable' ? 'block' : 'none';
 }
 
@@ -4809,6 +4824,10 @@ function saveEditedItem() {
   item.name     = document.getElementById('editItemName').value.trim()  || item.name;
   item.desc     = document.getElementById('editItemDesc').value.trim();
   item.type     = type;
+  // Re-derive subcategory from the (possibly just-changed) name/type — e.g. switching an
+  // item to Companion needs to pick pet vs. mount, and switching type in general shouldn't
+  // leave a stale subcategory pointing at the wrong equip slot.
+  item.subcategory = classifySubcategory(item.name, type);
   item.slotSize = parseInt(document.getElementById('editItemSlot').value) || 1;
   ['dmg','ac','hp','charges'].forEach(k => delete item[k]);
   const gp      = document.getElementById('editItemGp').value.trim();
@@ -4819,8 +4838,8 @@ function saveEditedItem() {
   const effect  = document.getElementById('editItemEffect').value.trim();
   const unlocks = readUnlockTiers();
   if (gp)      item.gp      = gp;      else delete item.gp;
-  if (type === 'weapon'     && dmg) item.dmg = dmg;
-  if (type === 'armor'      && ac)  item.ac  = ac;
+  if (type === 'weapon' && dmg) item.dmg = dmg;
+  if ((type === 'armor' || type === 'companion') && ac) item.ac = ac;
   if (type === 'consumable' && hp)  item.hp  = hp;
   if (charges) item.charges  = charges; else delete item.charges;
   if (effect)  item.effect   = effect;  else delete item.effect;
@@ -6238,6 +6257,25 @@ function syncGeneratedItemEdits() {
   }
 }
 
+// Lets any individually rolled loot item — from a wheel spin or a treasure chest, spell
+// scrolls included now that resolveScrollSpell() names a real spell on them — be saved into
+// the same savedGeneratedItems pool the Generate Item tab and Fleshmancer use, so it shows
+// up in the Token Library and can be dragged onto a player slot like anything else.
+function saveLootResultItem(item, btn) {
+  if (!item) return;
+  const saved = { ...item, id: Date.now() + Math.random() };
+  inferItemMetadata(saved);
+  savedGeneratedItems.unshift(saved);
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+  if (btn) { btn.textContent = '✓ Saved'; btn.disabled = true; btn.classList.add('saved'); }
+}
+function saveSpinItem(enemyIdx, itemIdx, btn) {
+  saveLootResultItem(spinResults[enemyIdx]?.items[itemIdx], btn);
+}
+function saveChestItemToken(chestIdx, itemIdx, btn) {
+  saveLootResultItem(chestResults[chestIdx]?.items[itemIdx], btn);
+}
+
 function saveGenItem() {
   syncGeneratedItemEdits();
   if (!window._lastGenItem) return;
@@ -7277,6 +7315,11 @@ setTimeout(() => renderChestSVG(), 150);
 // Deferred via setTimeout since monsterDatabase/loadMonsterDatabase are declared later in
 // this script (TDZ-safe: by the time this fires, the whole script has finished its first pass).
 setTimeout(() => { if (typeof loadMonsterDatabase === 'function') loadMonsterDatabase(false); }, 300);
+// Same reasoning for the Spell Compendium: resolveScrollSpell() (used by every wheel spin
+// and chest opening) needs spellDatabase populated to name an actual spell on a rolled
+// Spell Scroll — without this, scrolls beyond 1st level silently came back unnamed since
+// the database was previously only ever loaded lazily when the Spells sub-tab was opened.
+setTimeout(() => { if (typeof loadSpellDatabase === 'function') loadSpellDatabase(false); }, 450);
 
 // Double-click detection using native dblclick event.
 // Single click: start animation. Double-click: instant resolve.
@@ -8207,15 +8250,7 @@ const SLOT_TYPES = [
   { id:'boots',     label:'Boots' },
   { id:'leggings',  label:'Leggings' },
   { id:'charm',     label:'Charm / Misc' },
-  { id:'limb-arm',    label:'Limb: Arm' },
-  { id:'limb-hand',   label:'Limb: Hand' },
-  { id:'limb-leg',    label:'Limb: Leg' },
-  { id:'limb-foot',   label:'Limb: Foot' },
-  { id:'limb-eye',    label:'Limb: Eye' },
-  { id:'limb-ear',    label:'Limb: Ear' },
-  { id:'limb-finger', label:'Limb: Finger' },
-  { id:'limb-heart',  label:'Limb: Heart' },
-  { id:'limb-tongue', label:'Limb: Tongue' },
+  { id:'limb',        label:'Limb (any)' },
   { id:'companion',   label:'Mount / Pet' },
 ];
 
@@ -8228,15 +8263,16 @@ const SLOT_CATEGORY = {
   ring1:'ring', ring2:'ring', ring3:'ring', ring4:'ring',
   boots:'boots', leggings:'leggings',
   charm1:'charm', charm2:'charm', charm3:'charm', charm4:'charm', charm5:'charm',
-  // Grafted-limb slots (Fleshmancer) — one pair per paired body part, a few singles.
-  limbArm1:'limb-arm', limbArm2:'limb-arm',
-  limbHand1:'limb-hand', limbHand2:'limb-hand',
-  limbLeg1:'limb-leg', limbLeg2:'limb-leg',
-  limbFoot1:'limb-foot', limbFoot2:'limb-foot',
-  limbEye1:'limb-eye', limbEye2:'limb-eye',
-  limbEar1:'limb-ear', limbEar2:'limb-ear',
-  limbFinger1:'limb-finger', limbFinger2:'limb-finger', limbFinger3:'limb-finger', limbFinger4:'limb-finger',
-  limbHeart:'limb-heart', limbTongue:'limb-tongue',
+  // Grafted-limb slots (Fleshmancer) — 18 generic slots, all sharing the same 'limb' slot
+  // category so any grafted body part (arm, eye, heart, whatever) fits in any of them.
+  limbArm1:'limb', limbArm2:'limb',
+  limbHand1:'limb', limbHand2:'limb',
+  limbLeg1:'limb', limbLeg2:'limb',
+  limbFoot1:'limb', limbFoot2:'limb',
+  limbEye1:'limb', limbEye2:'limb',
+  limbEar1:'limb', limbEar2:'limb',
+  limbFinger1:'limb', limbFinger2:'limb', limbFinger3:'limb', limbFinger4:'limb',
+  limbHeart:'limb', limbTongue:'limb',
   // Single Mount/Pet slot — accepts either subcategory (see SUBCATEGORY_TO_SLOT_CATEGORY).
   companion:'companion',
 };
@@ -8248,14 +8284,14 @@ const SLOT_LABELS = {
   ring1:'Ring', ring2:'Ring', ring3:'Ring', ring4:'Ring',
   boots:'Boots', leggings:'Leggings',
   charm1:'Charm', charm2:'Charm', charm3:'Charm', charm4:'Charm', charm5:'Charm',
-  limbArm1:'Arm', limbArm2:'Arm',
-  limbHand1:'Hand', limbHand2:'Hand',
-  limbLeg1:'Leg', limbLeg2:'Leg',
-  limbFoot1:'Foot', limbFoot2:'Foot',
-  limbEye1:'Eye', limbEye2:'Eye',
-  limbEar1:'Ear', limbEar2:'Ear',
-  limbFinger1:'Finger', limbFinger2:'Finger', limbFinger3:'Finger', limbFinger4:'Finger',
-  limbHeart:'Heart', limbTongue:'Tongue',
+  limbArm1:'Limb 1', limbArm2:'Limb 2',
+  limbHand1:'Limb 3', limbHand2:'Limb 4',
+  limbLeg1:'Limb 5', limbLeg2:'Limb 6',
+  limbFoot1:'Limb 7', limbFoot2:'Limb 8',
+  limbEye1:'Limb 9', limbEye2:'Limb 10',
+  limbEar1:'Limb 11', limbEar2:'Limb 12',
+  limbFinger1:'Limb 13', limbFinger2:'Limb 14', limbFinger3:'Limb 15', limbFinger4:'Limb 16',
+  limbHeart:'Limb 17', limbTongue:'Limb 18',
   companion:'Mount / Pet',
 };
 
@@ -8551,11 +8587,12 @@ const SLOT_EMPTY_ICON = {
   charm1:'✨', charm2:'✨', charm3:'✨', charm4:'✨', charm5:'✨',
   facewear:'🥽', handwear:'🧤',
   cloak:'🧣', beltwaist:'🔘', offhand:'🛡️',
-  limbArm1:'💪', limbArm2:'💪', limbHand1:'🖐️', limbHand2:'🖐️',
-  limbLeg1:'🦵', limbLeg2:'🦵', limbFoot1:'🦶', limbFoot2:'🦶',
-  limbEye1:'👁️', limbEye2:'👁️', limbEar1:'👂', limbEar2:'👂',
-  limbFinger1:'☝️', limbFinger2:'☝️', limbFinger3:'☝️', limbFinger4:'☝️',
-  limbHeart:'❤️', limbTongue:'👅',
+  // All limb slots now use one generic icon since any body part can go in any slot.
+  limbArm1:'🩸', limbArm2:'🩸', limbHand1:'🩸', limbHand2:'🩸',
+  limbLeg1:'🩸', limbLeg2:'🩸', limbFoot1:'🩸', limbFoot2:'🩸',
+  limbEye1:'🩸', limbEye2:'🩸', limbEar1:'🩸', limbEar2:'🩸',
+  limbFinger1:'🩸', limbFinger2:'🩸', limbFinger3:'🩸', limbFinger4:'🩸',
+  limbHeart:'🩸', limbTongue:'🩸',
   companion:'🐾',
 };
 
