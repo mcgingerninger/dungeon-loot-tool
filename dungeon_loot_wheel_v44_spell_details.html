@@ -94,6 +94,26 @@
   .compendium-subpanel { display: none; }
   .compendium-subpanel.active { display: block; }
 
+  /* Effects & Traits reference sub-tab — a browsable list of every buff/debuff/condition/
+     named-trait pool the generators (items, Fleshmancer, Combat tab monster variants) draw
+     from, rather than a table of already-rolled results. */
+  .effects-search { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.55rem 0.7rem; margin-bottom: 1rem; }
+  .effects-search:focus { outline: none; border-color: var(--gold); }
+  .effects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+  .effects-card { background: var(--surface); border: 1px solid var(--border); padding: 1rem; }
+  .effects-card h3 { color: var(--gold); font-size: 1rem; margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+  .effects-card-sub { color: var(--text-dim); font-size: 0.78rem; font-style: italic; margin-bottom: 0.7rem; }
+  .effects-pill-group { margin-bottom: 0.6rem; }
+  .effects-pill-group:last-child { margin-bottom: 0; }
+  .effects-pill-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 0.35rem; display: block; }
+  .effects-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .effects-pill { background: var(--surface2); border: 1px solid var(--border); padding: 0.2rem 0.55rem; font-size: 0.78rem; color: var(--text); }
+  .effects-pill.buff { border-color: var(--uncommon); color: var(--uncommon); }
+  .effects-pill.debuff { border-color: var(--danger); color: var(--danger); }
+  .trait-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .trait-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.35rem 0.6rem; background: var(--surface2); border: 1px solid var(--border); flex-wrap: wrap; }
+  .trait-row-name { font-weight: 600; color: var(--gold-bright); min-width: 130px; }
+
   /* LOOT ROLL TAB */
   .wheel-layout {
     display: grid;
@@ -1478,6 +1498,7 @@
   .combat-card.has-variant.rare{border-color:var(--rare)}
   .combat-card.has-variant.superrare{border-color:var(--superrare)}
   .combat-card.has-variant.legendary{border-color:var(--legendary)}
+  .combat-card.has-trait{border-color:var(--gold)}
   .combat-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
   .combat-card-name{font-size:1.05rem;color:var(--gold-bright);font-weight:600}
   .combat-variant-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle}
@@ -1486,6 +1507,7 @@
   .combat-variant-badge.rare{color:var(--rare)}
   .combat-variant-badge.superrare{color:var(--superrare)}
   .combat-variant-badge.legendary{color:var(--legendary)}
+  .combat-trait-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--gold);color:var(--gold);vertical-align:middle}
   .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
   .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
   .combat-card-remove:hover{color:var(--danger)}
@@ -1825,6 +1847,7 @@
     <button class="compendium-subtab-btn active" onclick="showCompendiumSub('items',this)">🎒 Items</button>
     <button class="compendium-subtab-btn" onclick="showCompendiumSub('spells',this)">📖 Spells</button>
     <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsters',this)">🐉 Monsters</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('effects',this)">🎲 Effects &amp; Traits</button>
   </div>
 
   <div id="compendium-items" class="compendium-subpanel active">
@@ -1900,7 +1923,7 @@
   </div>
   <div class="spells-controls">
     <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
-    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both">Both rulesets</option></select>
+    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both" selected>Both rulesets</option></select>
     <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
     <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
     <select id="spellCastFilter" onchange="renderSpellTable()"><option value="all">All Casting Times</option><option>Action</option><option>Bonus Action</option><option>Reaction</option><option>Minute</option><option>10 Minutes</option><option>Hour</option><option>8 Hours</option><option>12 Hours</option><option>24 Hours</option></select>
@@ -1942,6 +1965,16 @@
   <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
   <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
   <div class="spell-detail" id="monsterDetail"></div>
+  </div>
+
+  <div id="compendium-effects" class="compendium-subpanel">
+  <p class="spells-intro">
+    A browsable reference of every buff, debuff, condition, and named personality trait the generators can roll —
+    used by the Generate Item tab, the Fleshmancer, and the Combat tab's monster variants alike. This shows the
+    full pool, not any specific rolled result.
+  </p>
+  <input id="effectsSearch" type="text" class="effects-search" placeholder="Search effects, conditions, traits…" oninput="renderEffectsCompendium()">
+  <div id="effectsCompendiumWrap"></div>
   </div>
 </div>
 
@@ -2304,7 +2337,7 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is the odds it also spawns as a modified version of itself — anywhere from a weakened Runt to a fully Legendary reskin — with stat swings drawn from the same buff/debuff pool used for item generation.</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled twice, independently: once for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and once for a named personality trait — the exact same traits players can roll on gear (Cautious, Feral, Bloody, etc.). The two can stack into something like a "Cautious Goblin Assassin," or either can show up on its own.</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -3231,12 +3264,13 @@ function showTab(tab, btn) {
   if (tab === 'store') { renderStoreTab(); }
 }
 
-// ===================== ITEM COMPENDIUM (Items / Spells / Monsters sub-tabs) =====================
+// ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
 let activeCompendiumSub = 'items';
 function initCompendiumSub(sub) {
   if (sub === 'items') renderItemsList();
   else if (sub === 'spells') loadSpellDatabase(false);
   else if (sub === 'monsters') loadMonsterDatabase(false);
+  else if (sub === 'effects') renderEffectsCompendium();
 }
 function showCompendiumSub(sub, btn) {
   activeCompendiumSub = sub;
@@ -3245,6 +3279,44 @@ function showCompendiumSub(sub, btn) {
   document.getElementById('compendium-' + sub).classList.add('active');
   btn.classList.add('active');
   initCompendiumSub(sub);
+}
+
+// Renders the full buff/debuff/condition/named-trait reference pools (GEN.buffsSelf,
+// GEN.buffsOther, GEN.debuffsSelf, GEN.debuffsOther, GEN.namedModifiers) as browsable lists,
+// filtered by the search box — this is the raw generation pool, not any rolled result.
+function renderEffectsCompendium() {
+  const wrap = document.getElementById('effectsCompendiumWrap'); if (!wrap) return;
+  const q = (document.getElementById('effectsSearch')?.value || '').toLowerCase().trim();
+  const matches = s => !q || String(s).toLowerCase().includes(q);
+
+  function pillGroup(label, list, cls) {
+    const filtered = list.filter(matches);
+    if (!filtered.length) return '';
+    return `<div class="effects-pill-group"><span class="effects-pill-label">${escapeHtml(label)}</span><div class="effects-pills">${filtered.map(s => `<span class="effects-pill ${cls}">${escapeHtml(s)}</span>`).join('')}</div></div>`;
+  }
+  function poolCard(title, sub, pool, cls) {
+    const body = pillGroup('Scalar (+N / -N)', pool.scalar, cls) + pillGroup('Conditions', pool.conditions, cls);
+    if (!body) return '';
+    return `<div class="effects-card"><h3>${escapeHtml(title)}</h3><p class="effects-card-sub">${escapeHtml(sub)}</p>${body}</div>`;
+  }
+
+  const cards = [
+    poolCard('⬆ Buffs — Self', 'Beneficial effects the bearer grants themselves.', GEN.buffsSelf, 'buff'),
+    poolCard('⬆ Buffs — Granted to Others', 'Beneficial effects the bearer can grant an ally.', GEN.buffsOther, 'buff'),
+    poolCard('⬇ Debuffs — Self (Cursed Items)', 'Harmful effects that afflict the bearer while attuned.', GEN.debuffsSelf, 'debuff'),
+    poolCard('⬇ Debuffs — Inflicted on Others', 'Harmful effects the bearer inflicts on a target.', GEN.debuffsOther, 'debuff'),
+  ].join('');
+
+  const traits = GEN.namedModifiers.filter(m => matches(m.name) || matches(m.buff) || matches(m.debuff));
+  const traitsHtml = traits.length ? `<div class="effects-card" style="grid-column:1/-1;">
+    <h3>🎭 Named Traits</h3>
+    <p class="effects-card-sub">Fixed personality pairs — always the same buff stat with a smaller matching debuff stat. Used by Trait-type item modifiers and the Combat tab's monster variant traits.</p>
+    <div class="trait-list">${traits.map(m => `<div class="trait-row"><span class="trait-row-name">${escapeHtml(m.name)}</span><span style="color:var(--uncommon)">+${escapeHtml(m.buff)}</span><span style="color:var(--text-dim)">/</span><span style="color:var(--danger)">-${escapeHtml(m.debuff)}</span></div>`).join('')}</div>
+  </div>` : '';
+
+  wrap.innerHTML = (cards || traitsHtml)
+    ? `<div class="effects-grid">${cards}${traitsHtml}</div>`
+    : '<div class="spell-loading">No effects, conditions, or traits match that search.</div>';
 }
 
 // ===================== WHEEL =====================
@@ -8650,15 +8722,36 @@ function rollMonsterHP(monster) {
   const flat = parseInt(raw, 10);
   return { total: Number.isFinite(flat) ? Math.max(1, flat) : 1, dice: null, rolls: [], mod: 0 };
 }
+// Occasionally layers one of the SAME named personality traits players can roll onto gear
+// (GEN.namedModifiers — "Bloody", "Cautious", "Feral", etc.) onto a monster, independently
+// of whatever shape-variant it got — so the two can stack into something like a "Cautious
+// Goblin Assassin" (Assassin shape variant + Cautious personality trait), or either can show
+// up on its own. Uses the exact same buff/debuff pairing ratio as pickNamedTrait() (the
+// player-item version): the debuff is deliberately smaller so the trait stays worth having.
+function rollMonsterNamedTrait(tier) {
+  const mod = ri(GEN.namedModifiers);
+  const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
+  const modest = Math.max(1, idx + 1);
+  const debuffAmt = Math.max(1, Math.round(modest * 0.6));
+  return {
+    name: mod.name,
+    lines: [
+      { stat: mod.buff, isCondition: false, positive: true, text: `+${modest} ${mod.buff}` },
+      { stat: mod.debuff, isCondition: false, positive: false, text: `-${debuffAmt} ${mod.debuff}` },
+    ],
+  };
+}
 // Builds the full roster entry for a newly-added monster: rolls real HP from its hit dice,
-// and — if the variant roll hits — reskins it as a weaker or stronger version, folding any
-// mechanically-relevant stat lines (Armor Class, Attack Bonus, Damage Dealt, Maximum Hit
+// and — if the variant/trait rolls hit — reskins it as a weaker or stronger version, folding
+// any mechanically-relevant stat lines (Armor Class, Attack Bonus, Damage Dealt, Maximum Hit
 // Points) directly into the numbers the Combat tab actually uses.
 function buildBattleEntry(monster) {
   const hpRoll = rollMonsterHP(monster);
   const baseAC = parseInt(monster.ac, 10);
   const variantChance = parseInt(document.getElementById('battleVariantChance')?.value, 10) || 0;
-  const variant = Math.random() * 100 < variantChance ? pickMonsterVariant() : null;
+  const roll = () => Math.random() * 100 < variantChance;
+  const variant = roll() ? pickMonsterVariant() : null;
+  const namedTrait = roll() ? rollMonsterNamedTrait(variant ? variant.tier : 'uncommon') : null;
 
   let hp = hpRoll.total;
   let ac = Number.isFinite(baseAC) ? baseAC : null;
@@ -8670,23 +8763,27 @@ function buildBattleEntry(monster) {
     atkMod += variant.atkDelta;
     dmgMult *= variant.dmgMult;
     displayName = variant.pattern === 'suffix' ? `${monster.name} ${variant.label}` : `${variant.label} ${monster.name}`;
-    statLines = [
+    statLines.push(
       ...rollMonsterStatLines(variant.buffs, true, variant.tier),
       ...rollMonsterStatLines(variant.debuffs, false, variant.tier),
-    ];
-    statLines.forEach(line => {
-      if (line.isCondition) return;
-      const amt = parseInt(line.text, 10);
-      if (!Number.isFinite(amt)) return;
-      if (line.stat === 'Armor Class' && ac !== null) ac += amt;
-      else if (line.stat === 'Attack Bonus') atkMod += amt;
-      else if (line.stat === 'Damage Dealt') dmgMult *= (1 + amt / 10);
-      else if (line.stat === 'Maximum Hit Points') hp = Math.max(1, hp + amt);
-    });
+    );
   }
+  if (namedTrait) {
+    displayName = `${namedTrait.name} ${displayName}`;
+    statLines.push(...namedTrait.lines);
+  }
+  statLines.forEach(line => {
+    if (line.isCondition) return;
+    const amt = parseInt(line.text, 10);
+    if (!Number.isFinite(amt)) return;
+    if (line.stat === 'Armor Class' && ac !== null) ac += amt;
+    else if (line.stat === 'Attack Bonus') atkMod += amt;
+    else if (line.stat === 'Damage Dealt') dmgMult *= (1 + amt / 10);
+    else if (line.stat === 'Maximum Hit Points') hp = Math.max(1, hp + amt);
+  });
 
   return {
-    uid: ++battleUidCounter, monster, displayName, variant,
+    uid: ++battleUidCounter, monster, displayName, variant, namedTrait,
     hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
   };
 }
@@ -8835,6 +8932,7 @@ function renderCombatRoster() {
     const r = entry.lastResult;
     const v = entry.variant;
     const variantBadge = v ? `<span class="combat-variant-badge ${v.tier}">${escapeHtml(v.label)}</span>` : '';
+    const traitBadge = entry.namedTrait ? `<span class="combat-trait-badge">${escapeHtml(entry.namedTrait.name)}</span>` : '';
     const hpDiceNote = entry.hpRoll && entry.hpRoll.dice ? ` <span class="combat-hp-dice">(rolled ${escapeHtml(entry.hpRoll.dice)})</span>` : '';
     // Colored from the monster's own perspective (green = this stat got stronger, red =
     // this stat got weaker) rather than colorizeModifierText's player-item "net effect on
@@ -8842,10 +8940,10 @@ function renderCombatRoster() {
     const statLinesHtml = (entry.statLines && entry.statLines.length)
       ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
       : '';
-    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}">
+    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${entry.namedTrait && !v ? ' has-trait' : ''}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${variantBadge}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadge}${variantBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
