@@ -402,6 +402,20 @@
     min-height: 300px;
   }
 
+  /* Reusable collapsible section — used to fold secondary controls (rarity chances,
+     modifier weights, etc.) into the tab where they're actually used instead of
+     burning a whole tab slot on them. */
+  details.collapsible { background: var(--surface); border: 1px solid var(--border); margin-top: 1.5rem; }
+  details.collapsible summary {
+    cursor: pointer; padding: 0.8rem 1rem; color: var(--gold); font-weight: 600;
+    letter-spacing: 0.05em; list-style: none; display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'Crimson Text', serif; font-size: 1.05rem;
+  }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before { content: '▶'; font-size: 0.65rem; transition: transform 0.15s; color: var(--text-dim); }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  details.collapsible .collapsible-body { padding: 0 1.1rem 1.1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+
   /* CHANCES TAB */
   .chances-grid {
     display: grid;
@@ -642,7 +656,7 @@
   /* PRINT STYLES */
   @media print {
     body { background: white; color: black; font-family: Georgia, serif; }
-    .tabs, h1, .subtitle, .print-controls, #tab-spin, #tab-chances, #tab-items { display: none !important; }
+    .tabs, h1, .subtitle, .print-controls, #tab-spin, #tab-items { display: none !important; }
     #tab-print { display: block !important; padding: 0; max-width: 100%; }
     .print-preview { background: white; border: none; }
     #printTable th { background: #eee; color: black; border-bottom: 2px solid #333; }
@@ -875,6 +889,53 @@
   .flesh-outcome.fail h4 { color: var(--danger); }
   .flesh-cost-note { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--text-dim); }
   @media (max-width: 700px) { .flesh-candidates { grid-template-columns: 1fr; } }
+
+  /* STORE TAB */
+  .store-layout { display: flex; flex-direction: column; gap: 1.2rem; }
+  .store-intro { color: var(--text-dim); font-size: 0.95rem; line-height: 1.65; max-width: 900px; }
+  .store-merchant-list { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+  .store-merchant-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'Crimson Text', serif; font-size: 1rem; padding: 0.7rem 1.2rem;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem;
+  }
+  .store-merchant-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .store-merchant-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
+  .store-merchant-icon { font-size: 1.3rem; }
+  .store-panel { min-height: 200px; }
+  .store-merchant-head { margin-bottom: 1rem; }
+  .store-merchant-title { font-size: 1.3rem; color: var(--gold-bright); font-weight: 600; }
+  .store-merchant-flavor { color: var(--text-dim); font-style: italic; font-size: 0.92rem; margin-top: 0.3rem; }
+  .store-section-label {
+    color: var(--gold); font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin: 1.2rem 0 0.8rem;
+    display: flex; align-items: center;
+  }
+  .store-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+  .store-card {
+    background: var(--surface); border: 2px solid var(--border); padding: 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.4rem; text-align: center;
+  }
+  .store-card.common    { border-color: var(--common); }
+  .store-card.uncommon  { border-color: var(--uncommon); }
+  .store-card.rare      { border-color: var(--rare); }
+  .store-card.superrare { border-color: var(--superrare); }
+  .store-card.legendary { border-color: var(--legendary); }
+  .store-card.celestial { border-color: var(--celestial); }
+  .store-card-name { font-weight: 600; font-size: 0.97rem; line-height: 1.25; }
+  .store-card.common    .store-card-name { color: var(--common); }
+  .store-card.uncommon  .store-card-name { color: var(--uncommon); }
+  .store-card.rare      .store-card-name { color: var(--rare); }
+  .store-card.superrare .store-card-name { color: var(--superrare); }
+  .store-card.legendary .store-card-name { color: var(--legendary); }
+  .store-card.celestial .store-card-name { color: var(--celestial); }
+  .store-card-rarity { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  .store-card-desc, .store-card-effect { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
+  .store-card-effect strong { color: var(--gold-bright); }
+  .store-card-gp { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--gold); margin-top: 0.2rem; }
+  .store-buy-msg { height: 1.4rem; margin-top: 0.6rem; color: var(--uncommon); font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; }
+  .store-buy-msg.show { opacity: 1; }
+  @media (max-width: 700px) { .store-grid { grid-template-columns: 1fr; } }
 
   /* MODIFIER WEIGHTS TAB */
   .modweights-intro { color:var(--text-dim); font-style:italic; font-size:0.95rem; margin-bottom:1.2rem; line-height:1.6; }
@@ -1387,14 +1448,13 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('spin',this)">Roll Loot</button>
   <button class="tab-btn" onclick="showTab('chest',this)">Treasure Chest</button>
-  <button class="tab-btn" onclick="showTab('chances',this)">Rarity Chances</button>
   <button class="tab-btn" onclick="showTab('items',this)">Edit Items</button>
   <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
-  <button class="tab-btn" onclick="showTab('modweights',this)">Modifier Weights</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
   <button class="tab-btn" onclick="showTab('flesh',this)">🩸 Fleshmancer</button>
+  <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
 
 <!-- LOOT ROLL TAB -->
@@ -1527,6 +1587,79 @@
       <div id="resultsList"></div>
     </div>
   </div>
+
+  <!-- Rarity Chances now lives here instead of its own tab, since it's only ever
+       adjusted right before/after a roll. -->
+  <details class="collapsible">
+    <summary>🎲 Rarity Chances</summary>
+    <div class="collapsible-body">
+      <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
+        Adjust the weight of each rarity with the slider or by typing an exact number. Weights do not need to sum to 100 — the percentage under each slider shows that rarity's actual chance of being rolled, based on its share of the total weight below.
+        These weights are also used to roll rarity for the Store's daily items.
+      </p>
+      <div class="chances-grid">
+        <div class="chance-card common">
+          <h3>Common</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wCommon" min="0" max="100" value="60" oninput="syncChanceFromSlider('Common')">
+            <input type="number" class="chance-num" id="nCommon" min="0" max="1000" step="any" value="60" oninput="syncChanceFromNumber('Common')">
+          </div>
+          <div class="chance-percent" id="pCommon">0%</div>
+          <p class="chance-note">Grey items. Everyday dungeon finds.</p>
+        </div>
+        <div class="chance-card uncommon">
+          <h3>Uncommon</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wUncommon" min="0" max="100" value="25" oninput="syncChanceFromSlider('Uncommon')">
+            <input type="number" class="chance-num" id="nUncommon" min="0" max="1000" step="any" value="25" oninput="syncChanceFromNumber('Uncommon')">
+          </div>
+          <div class="chance-percent" id="pUncommon">0%</div>
+          <p class="chance-note">Green items. Noteworthy finds.</p>
+        </div>
+        <div class="chance-card rare">
+          <h3>Rare</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wRare" min="0" max="100" value="12" oninput="syncChanceFromSlider('Rare')">
+            <input type="number" class="chance-num" id="nRare" min="0" max="1000" step="any" value="12" oninput="syncChanceFromNumber('Rare')">
+          </div>
+          <div class="chance-percent" id="pRare">0%</div>
+          <p class="chance-note">Blue items. Exceptional quality.</p>
+        </div>
+        <div class="chance-card superrare">
+          <h3>Super Rare</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wSuperRare" min="0" max="100" value="3" oninput="syncChanceFromSlider('SuperRare')">
+            <input type="number" class="chance-num" id="nSuperRare" min="0" max="1000" step="any" value="3" oninput="syncChanceFromNumber('SuperRare')">
+          </div>
+          <div class="chance-percent" id="pSuperRare">0%</div>
+          <p class="chance-note">Purple items. Legendary treasures.</p>
+        </div>
+        <div class="chance-card legendary">
+          <h3 style="color:var(--legendary)">Legendary</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wLegendary" min="0" max="100" value="1" oninput="syncChanceFromSlider('Legendary')">
+            <input type="number" class="chance-num" id="nLegendary" min="0" max="1000" step="any" value="1" oninput="syncChanceFromNumber('Legendary')">
+          </div>
+          <div class="chance-percent" id="pLegendary">0%</div>
+          <p class="chance-note">Orange items. Treasures worthy of songs.</p>
+        </div>
+        <div class="chance-card celestial">
+          <h3 style="color:var(--celestial)">Celestial</h3>
+          <div class="chance-input-wrap">
+            <input type="range" id="wCelestial" min="0" max="100" value="0" oninput="syncChanceFromSlider('Celestial')">
+            <input type="number" class="chance-num" id="nCelestial" min="0" max="1000" step="any" value="0" oninput="syncChanceFromNumber('Celestial')">
+          </div>
+          <div class="chance-percent" id="pCelestial">0%</div>
+          <p class="chance-note">Otherworldly relics touched by divine power.</p>
+        </div>
+      </div>
+      <div class="total-bar">
+        <span>Total weight:</span>
+        <span class="total-val" id="totalWeight">100</span>
+        <span class="total-warn" id="totalWarn"></span>
+      </div>
+    </div>
+  </details>
 </div>
 
 <!-- TREASURE CHEST TAB -->
@@ -1601,74 +1734,6 @@
       <div class="empty-results" id="chestEmptyMsg">No chest opened yet — pick a rarity and click the chest!</div>
       <div id="chestResultsList"></div>
     </div>
-  </div>
-</div>
-
-<!-- CHANCES TAB -->
-<div id="tab-chances" class="tab-content">
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Adjust the weight of each rarity with the slider or by typing an exact number. Weights do not need to sum to 100 — the percentage under each slider shows that rarity's actual chance of being rolled, based on its share of the total weight below.
-  </p>
-  <div class="chances-grid">
-    <div class="chance-card common">
-      <h3>Common</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wCommon" min="0" max="100" value="60" oninput="syncChanceFromSlider('Common')">
-        <input type="number" class="chance-num" id="nCommon" min="0" max="1000" step="any" value="60" oninput="syncChanceFromNumber('Common')">
-      </div>
-      <div class="chance-percent" id="pCommon">0%</div>
-      <p class="chance-note">Grey items. Everyday dungeon finds.</p>
-    </div>
-    <div class="chance-card uncommon">
-      <h3>Uncommon</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wUncommon" min="0" max="100" value="25" oninput="syncChanceFromSlider('Uncommon')">
-        <input type="number" class="chance-num" id="nUncommon" min="0" max="1000" step="any" value="25" oninput="syncChanceFromNumber('Uncommon')">
-      </div>
-      <div class="chance-percent" id="pUncommon">0%</div>
-      <p class="chance-note">Green items. Noteworthy finds.</p>
-    </div>
-    <div class="chance-card rare">
-      <h3>Rare</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wRare" min="0" max="100" value="12" oninput="syncChanceFromSlider('Rare')">
-        <input type="number" class="chance-num" id="nRare" min="0" max="1000" step="any" value="12" oninput="syncChanceFromNumber('Rare')">
-      </div>
-      <div class="chance-percent" id="pRare">0%</div>
-      <p class="chance-note">Blue items. Exceptional quality.</p>
-    </div>
-    <div class="chance-card superrare">
-      <h3>Super Rare</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wSuperRare" min="0" max="100" value="3" oninput="syncChanceFromSlider('SuperRare')">
-        <input type="number" class="chance-num" id="nSuperRare" min="0" max="1000" step="any" value="3" oninput="syncChanceFromNumber('SuperRare')">
-      </div>
-      <div class="chance-percent" id="pSuperRare">0%</div>
-      <p class="chance-note">Purple items. Legendary treasures.</p>
-    </div>
-    <div class="chance-card legendary">
-      <h3 style="color:var(--legendary)">Legendary</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wLegendary" min="0" max="100" value="1" oninput="syncChanceFromSlider('Legendary')">
-        <input type="number" class="chance-num" id="nLegendary" min="0" max="1000" step="any" value="1" oninput="syncChanceFromNumber('Legendary')">
-      </div>
-      <div class="chance-percent" id="pLegendary">0%</div>
-      <p class="chance-note">Orange items. Treasures worthy of songs.</p>
-    </div>
-    <div class="chance-card celestial">
-      <h3 style="color:var(--celestial)">Celestial</h3>
-      <div class="chance-input-wrap">
-        <input type="range" id="wCelestial" min="0" max="100" value="0" oninput="syncChanceFromSlider('Celestial')">
-        <input type="number" class="chance-num" id="nCelestial" min="0" max="1000" step="any" value="0" oninput="syncChanceFromNumber('Celestial')">
-      </div>
-      <div class="chance-percent" id="pCelestial">0%</div>
-      <p class="chance-note">Otherworldly relics touched by divine power.</p>
-    </div>
-  </div>
-  <div class="total-bar">
-    <span>Total weight:</span>
-    <span class="total-val" id="totalWeight">100</span>
-    <span class="total-warn" id="totalWarn"></span>
   </div>
 </div>
 
@@ -1822,6 +1887,134 @@
       <div id="genResult"></div>
     </div>
   </div>
+
+  <!-- Modifier Weights now lives here instead of its own tab, since it only ever
+       matters while generating items. -->
+  <details class="collapsible">
+    <summary>⚖ Modifier Weights</summary>
+    <div class="collapsible-body">
+      <p class="modweights-intro">
+        These sliders control how likely each <em>type</em> of modifier is to appear on a generated unique item.
+        Higher weight = appears more often. Weights are relative — they don't need to sum to 100.
+        Spells &amp; Buffs are weighted heavier by default to reward spellcasters and create more interesting items.
+        Changes apply immediately to new items generated above, and to the Store's daily items.
+      </p>
+      <div class="modweights-grid">
+        <div class="mw-card">
+          <h3>⚡ Power / Spell</h3>
+          <p class="mw-desc">Grants ability to cast a spell at a certain frequency. Scales with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-power" min="0" max="20" value="8" oninput="updateMWDisplay('power')">
+            <span class="mw-val" id="mv-power">8</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>⬆ Buff (Self / Ally)</h3>
+          <p class="mw-desc">Grants a stat bonus or advantage to the bearer, or lets the bearer grant one to an ally. Number of allied targets scales with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-buff" min="0" max="20" value="7" oninput="updateMWDisplay('buff')">
+            <span class="mw-val" id="mv-buff">7</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>⬇ Debuff (Enemy / Curse)</h3>
+          <p class="mw-desc">Usually inflicts a penalty or condition on an enemy; occasionally a curse the bearer suffers instead. Severity scales with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-debuff" min="0" max="20" value="5" oninput="updateMWDisplay('debuff')">
+            <span class="mw-val" id="mv-debuff">5</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>🎭 Named Trait</h3>
+          <p class="mw-desc">A fixed personality (e.g. "Bloody": +Strength, -Constitution) — always the same buff/debuff pair. Both amounts scale with rarity, and the buff is always the larger of the two.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-trait" min="0" max="20" value="4" oninput="updateMWDisplay('trait')">
+            <span class="mw-val" id="mv-trait">4</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>🌀 Transform</h3>
+          <p class="mw-desc">Allows bearer to transform into a creature. Duration and form scale with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-transform" min="0" max="20" value="3" oninput="updateMWDisplay('transform')">
+            <span class="mw-val" id="mv-transform">3</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>👁 Summon</h3>
+          <p class="mw-desc">Summons an entity to serve. Power and duration scale dramatically with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-summon" min="0" max="20" value="3" oninput="updateMWDisplay('summon')">
+            <span class="mw-val" id="mv-summon">3</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>🗺 Terrain</h3>
+          <p class="mw-desc">Alters the physical environment. Radius and permanence scale with rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-terrain" min="0" max="20" value="2" oninput="updateMWDisplay('terrain')">
+            <span class="mw-val" id="mv-terrain">2</span>
+          </div>
+        </div>
+        <div class="mw-card">
+          <h3>🗡 Skill</h3>
+          <p class="mw-desc">Grants mastery of a combat or utility skill with a proficiency bonus.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-skill" min="0" max="20" value="4" oninput="updateMWDisplay('skill')">
+            <span class="mw-val" id="mv-skill">4</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mw-total-row">
+        <span>Total weight pool:</span>
+        <span class="mw-total-val" id="mw-total">36</span>
+        <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
+        <button class="mw-reset-btn" onclick="resetModWeights()">Reset Defaults</button>
+      </div>
+
+      <div style="margin-top:1.5rem; background:var(--surface2); border:1px solid var(--border); padding:1.2rem;">
+        <h3 style="color:var(--gold);font-size:1rem;margin-bottom:0.8rem;letter-spacing:0.08em;">⚗ Tag Compatibility System</h3>
+        <p style="color:var(--text-dim);font-size:0.9rem;line-height:1.65;margin-bottom:0.8rem;">
+          The generator uses a <strong style="color:var(--text)">tag system</strong> to prevent nonsensical modifier combinations and promote thematic coherence.
+          Each base item is automatically assigned tags based on its name (fire, cold, storm, shadow, holy, arcane, nature, void, melee, ranged).
+          Modifiers are then drawn from a <strong style="color:var(--text)">synergy-weighted pool</strong> — modifiers that share a tag with the base item get a
+          <strong style="color:var(--gold)">bonus weight multiplier</strong>, while conflicting tags get suppressed.
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;font-size:0.85rem;">
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#ff7043;">Fire</strong> items → fire/burn/radiant buffs boosted, cold/storm suppressed
+          </div>
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#80d8ff;">Cold</strong> items → cold/frost/storm buffs boosted, fire suppressed
+          </div>
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#b0bec5;">Shadow</strong> items → necrotic/stealth/void boosted, holy suppressed
+          </div>
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#fff176;">Holy</strong> items → radiant/healing/divine boosted, shadow/void suppressed
+          </div>
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#80cbc4;">Arcane</strong> items → spell power/teleport/force boosted broadly
+          </div>
+          <div style="background:var(--surface);padding:0.6rem 0.8rem;border:1px solid var(--border);">
+            <strong style="color:#a5d6a7;">Nature</strong> items → beast/druid/terrain/healing boosted
+          </div>
+        </div>
+        <p style="color:var(--text-dim);font-size:0.82rem;margin-top:0.8rem;font-style:italic;">
+          Generated item cards show their detected tags and a synergy note explaining what the tag system did for that item.
+        </p>
+      </div>
+    </div>
+  </details>
 </div>
 
 <!-- FLESHMANCER TAB -->
@@ -1837,6 +2030,71 @@
     <div class="flesh-candidates" id="fleshCandidates"></div>
     <div class="flesh-confirm" id="fleshConfirm" style="display:none;"></div>
     <div class="flesh-result" id="fleshResult"></div>
+
+    <details class="collapsible">
+      <summary>⚖ Flesh Effect Weights</summary>
+      <div class="collapsible-body">
+        <p class="modweights-intro">
+          These control how likely each effect type is to be rolled onto a limb — independent of the Generate Item tab's weights, since
+          flesh magic favors different effects than crafted gear. Higher weight = appears more often.
+        </p>
+        <div class="modweights-grid">
+          <div class="mw-card">
+            <h3>⚡ Power / Spell</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-power" min="0" max="20" value="6" oninput="updateFleshMWDisplay('power')"><span class="mw-val" id="fmv-power">6</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>⬆ Buff (Self / Ally)</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-buff" min="0" max="20" value="8" oninput="updateFleshMWDisplay('buff')"><span class="mw-val" id="fmv-buff">8</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>⬇ Debuff (Enemy / Curse)</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-debuff" min="0" max="20" value="7" oninput="updateFleshMWDisplay('debuff')"><span class="mw-val" id="fmv-debuff">7</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>🎭 Named Trait</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-trait" min="0" max="20" value="8" oninput="updateFleshMWDisplay('trait')"><span class="mw-val" id="fmv-trait">8</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>🌀 Transform</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-transform" min="0" max="20" value="3" oninput="updateFleshMWDisplay('transform')"><span class="mw-val" id="fmv-transform">3</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>👁 Summon</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-summon" min="0" max="20" value="2" oninput="updateFleshMWDisplay('summon')"><span class="mw-val" id="fmv-summon">2</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>🗺 Terrain</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-terrain" min="0" max="20" value="1" oninput="updateFleshMWDisplay('terrain')"><span class="mw-val" id="fmv-terrain">1</span></div>
+          </div>
+          <div class="mw-card">
+            <h3>🗡 Skill</h3>
+            <div class="mw-row"><label>Weight</label><input type="range" id="fmw-skill" min="0" max="20" value="3" oninput="updateFleshMWDisplay('skill')"><span class="mw-val" id="fmv-skill">3</span></div>
+          </div>
+        </div>
+        <div class="mw-total-row">
+          <span>Total weight pool:</span>
+          <span class="mw-total-val" id="fmw-total">38</span>
+          <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
+          <button class="mw-reset-btn" onclick="resetFleshModWeights()">Reset Defaults</button>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- STORE TAB -->
+<div id="tab-store" class="tab-content">
+  <div class="store-layout">
+    <p class="store-intro">
+      Pick a merchant to see what they have for sale. Each one always carries the same handful of standing stock,
+      plus <strong style="color:var(--text)">5 daily wares</strong> — freshly rolled, any-rarity magic items generated the moment you select them.
+      Rerolling or switching merchants replaces the daily wares. Buying anything adds it straight to your item list.
+    </p>
+    <div class="store-merchant-list" id="storeMerchantList"></div>
+    <div class="store-panel" id="storePanel">
+      <div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>
+    </div>
   </div>
 </div>
 
@@ -1867,130 +2125,6 @@
 </div>
 
 <!-- MODIFIER WEIGHTS TAB -->
-<div id="tab-modweights" class="tab-content">
-  <p class="modweights-intro">
-    These sliders control how likely each <em>type</em> of modifier is to appear on a generated unique item.
-    Higher weight = appears more often. Weights are relative — they don't need to sum to 100.
-    Spells &amp; Buffs are weighted heavier by default to reward spellcasters and create more interesting items.
-    Changes apply immediately to new items generated on the <strong>Generate Unique Item</strong> tab.
-  </p>
-  <div class="modweights-grid">
-    <div class="mw-card">
-      <h3>⚡ Power / Spell</h3>
-      <p class="mw-desc">Grants ability to cast a spell at a certain frequency. Scales with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-power" min="0" max="20" value="8" oninput="updateMWDisplay('power')">
-        <span class="mw-val" id="mv-power">8</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>⬆ Buff (Self / Ally)</h3>
-      <p class="mw-desc">Grants a stat bonus or advantage to the bearer, or lets the bearer grant one to an ally. Number of allied targets scales with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-buff" min="0" max="20" value="7" oninput="updateMWDisplay('buff')">
-        <span class="mw-val" id="mv-buff">7</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>⬇ Debuff (Enemy / Curse)</h3>
-      <p class="mw-desc">Usually inflicts a penalty or condition on an enemy; occasionally a curse the bearer suffers instead. Severity scales with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-debuff" min="0" max="20" value="5" oninput="updateMWDisplay('debuff')">
-        <span class="mw-val" id="mv-debuff">5</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>🎭 Named Trait</h3>
-      <p class="mw-desc">A fixed personality (e.g. "Bloody": +Strength, -Constitution) — always the same buff/debuff pair. Both amounts scale with rarity, and the buff is always the larger of the two.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-trait" min="0" max="20" value="4" oninput="updateMWDisplay('trait')">
-        <span class="mw-val" id="mv-trait">4</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>🌀 Transform</h3>
-      <p class="mw-desc">Allows bearer to transform into a creature. Duration and form scale with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-transform" min="0" max="20" value="3" oninput="updateMWDisplay('transform')">
-        <span class="mw-val" id="mv-transform">3</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>👁 Summon</h3>
-      <p class="mw-desc">Summons an entity to serve. Power and duration scale dramatically with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-summon" min="0" max="20" value="3" oninput="updateMWDisplay('summon')">
-        <span class="mw-val" id="mv-summon">3</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>🗺 Terrain</h3>
-      <p class="mw-desc">Alters the physical environment. Radius and permanence scale with rarity.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-terrain" min="0" max="20" value="2" oninput="updateMWDisplay('terrain')">
-        <span class="mw-val" id="mv-terrain">2</span>
-      </div>
-    </div>
-    <div class="mw-card">
-      <h3>🗡 Skill</h3>
-      <p class="mw-desc">Grants mastery of a combat or utility skill with a proficiency bonus.</p>
-      <div class="mw-row">
-        <label>Weight</label>
-        <input type="range" id="mw-skill" min="0" max="20" value="4" oninput="updateMWDisplay('skill')">
-        <span class="mw-val" id="mv-skill">4</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="mw-total-row">
-    <span>Total weight pool:</span>
-    <span class="mw-total-val" id="mw-total">36</span>
-    <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
-    <button class="mw-reset-btn" onclick="resetModWeights()">Reset Defaults</button>
-  </div>
-
-  <div style="margin-top:1.5rem; background:var(--surface); border:1px solid var(--border); padding:1.2rem;">
-    <h3 style="color:var(--gold);font-size:1rem;margin-bottom:0.8rem;letter-spacing:0.08em;">⚗ Tag Compatibility System</h3>
-    <p style="color:var(--text-dim);font-size:0.9rem;line-height:1.65;margin-bottom:0.8rem;">
-      The generator uses a <strong style="color:var(--text)">tag system</strong> to prevent nonsensical modifier combinations and promote thematic coherence.
-      Each base item is automatically assigned tags based on its name (fire, cold, storm, shadow, holy, arcane, nature, void, melee, ranged).
-      Modifiers are then drawn from a <strong style="color:var(--text)">synergy-weighted pool</strong> — modifiers that share a tag with the base item get a
-      <strong style="color:var(--gold)">bonus weight multiplier</strong>, while conflicting tags get suppressed.
-    </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;font-size:0.85rem;">
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#ff7043;">Fire</strong> items → fire/burn/radiant buffs boosted, cold/storm suppressed
-      </div>
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#80d8ff;">Cold</strong> items → cold/frost/storm buffs boosted, fire suppressed
-      </div>
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#b0bec5;">Shadow</strong> items → necrotic/stealth/void boosted, holy suppressed
-      </div>
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#fff176;">Holy</strong> items → radiant/healing/divine boosted, shadow/void suppressed
-      </div>
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#80cbc4;">Arcane</strong> items → spell power/teleport/force boosted broadly
-      </div>
-      <div style="background:var(--surface2);padding:0.6rem 0.8rem;border:1px solid var(--border);">
-        <strong style="color:#a5d6a7;">Nature</strong> items → beast/druid/terrain/healing boosted
-      </div>
-    </div>
-    <p style="color:var(--text-dim);font-size:0.82rem;margin-top:0.8rem;font-style:italic;">
-      Generated item cards show their detected tags and a synergy note explaining what the tag system did for that item.
-    </p>
-  </div>
-</div>
-
-
 
 <!-- SPELL COMPENDIUM TAB -->
 <div id="tab-spells" class="tab-content">
@@ -2802,6 +2936,7 @@ function showTab(tab, btn) {
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   if (tab === 'spells') { loadSpellDatabase(false); }
   if (tab === 'flesh') { renderFleshCandidates(); }
+  if (tab === 'store') { renderStoreTab(); }
 }
 
 // ===================== WHEEL =====================
@@ -5371,10 +5506,15 @@ const FLESH_LIMB_ICONS = {
   heart:  { viewBox:'0 0 8 6',  rects:[[1,0,2,1],[5,0,2,1],[0,1,8,2],[1,3,6,1],[2,4,4,1],[3,5,2,1]] },
   tongue: { viewBox:'0 0 8 10', rects:[[2,0,4,3],[2,3,4,5],[3,8,2,2]] },
 };
-function fleshLimbIconSvg(category, color) {
-  const def = FLESH_LIMB_ICONS[category] || FLESH_LIMB_ICONS.finger;
+// Generic renderer shared by every pixel-icon set in the app (limbs, store goods, ...):
+// takes an {viewBox, rects:[[x,y,w,h],...]} definition and fills every rect with one color.
+function pixelIconSvg(def, color, px = 56) {
+  if (!def) return '';
   const rects = def.rects.map(([x,y,w,h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${color}"/>`).join('');
-  return `<svg class="pixel-svg" viewBox="${def.viewBox}" width="56" height="56" style="image-rendering:pixelated;">${rects}</svg>`;
+  return `<svg class="pixel-svg" viewBox="${def.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;">${rects}</svg>`;
+}
+function fleshLimbIconSvg(category, color) {
+  return pixelIconSvg(FLESH_LIMB_ICONS[category] || FLESH_LIMB_ICONS.finger, color);
 }
 
 // Rarity is scored from what actually got rolled: each modifier rolls its own power tier
@@ -5401,16 +5541,34 @@ function fleshRarityFromTiers(tiers) {
 function formatGpAmount(v) {
   return v >= 1000 ? (v % 1000 === 0 ? (v/1000)+'k gp' : (v/1000).toFixed(1)+'k gp') : v+' gp';
 }
-// Better limbs cost more to graft on — base cost tracks the rolled rarity's normal GP
-// band, nudged up for carrying multiple effects.
-function fleshAttachCost(rarity, modCount) {
-  const scale = GEN.scale[rarity];
+
+// ===================== COMMERCE PRICING =====================
+// Paying a specialist for a sure thing (a fleshmancer's graft, a merchant's stock) costs
+// far more than finding the same rarity of item as loot — this is a deliberately steep
+// scale, so even a "common" purchase is a serious sum, not pocket change.
+const COMMERCE_SCALE = {
+  common:    { gpMin:150,    gpMax:600 },
+  uncommon:  { gpMin:600,    gpMax:2500 },
+  rare:      { gpMin:2500,   gpMax:12000 },
+  superrare: { gpMin:12000,  gpMax:60000 },
+  legendary: { gpMin:60000,  gpMax:300000 },
+  celestial: { gpMin:300000, gpMax:1500000 },
+};
+function commercePrice(rarity, modCount = 1) {
+  const scale = COMMERCE_SCALE[rarity] || COMMERCE_SCALE.common;
   const base = rn(scale.gpMin, scale.gpMax);
-  return Math.round(base * (1 + (modCount - 1) * 0.25));
+  return Math.round(base * (1 + Math.max(0, modCount - 1) * 0.2));
+}
+// Better limbs cost more to graft on — base cost tracks the commerce GP band for the
+// rolled rarity, nudged up for carrying multiple effects. This is a specialized,
+// dangerous procedure, priced accordingly.
+function fleshAttachCost(rarity, modCount) {
+  return commercePrice(rarity, modCount);
 }
 
-// Rolls the limb's effects using the exact same modifier pools (and the user's Modifier
-// Weights settings) as the Unique Item Generator — just with each modifier's power tier
+// Rolls the limb's effects using the exact same modifier pools as the Unique Item
+// Generator, weighted by the Fleshmancer tab's own Flesh Effect Weights (fleshModWeights,
+// independent of the Generate Item tab's weights) — with each modifier's power tier
 // randomly rolled instead of fixed to one chosen rarity.
 function fleshGenerateEffects() {
   let modCount = 1;
@@ -5422,7 +5580,7 @@ function fleshGenerateEffects() {
   let attempts = 0;
   while (mods.length < modCount && attempts < 30) {
     attempts++;
-    const type = pickWeightedType(modWeights, usedTypes);
+    const type = pickWeightedType(fleshModWeights, usedTypes);
     if (!type) break;
     const tier = fleshRollEffectTier();
     const m = generateModifierOfType(type, tier, usedKeys);
@@ -5607,6 +5765,263 @@ function attemptFleshAttach() {
   fleshSelectedIndex = null;
 }
 
+// ===================== STORE =====================
+// Pixel icon set for shop goods, keyed by rough item category. Reuses the same
+// pixelIconSvg() renderer as the Fleshmancer limb icons.
+const STORE_ICONS = {
+  sword:  { viewBox:'0 0 8 14', rects:[[3,0,2,8],[1,8,6,1],[3,9,2,4],[2,13,4,1]] },
+  dagger: { viewBox:'0 0 6 10', rects:[[2,0,2,5],[0,5,6,1],[2,6,2,3],[1,9,4,1]] },
+  axe:    { viewBox:'0 0 8 12', rects:[[3,4,2,8],[0,0,4,2],[4,1,4,3],[0,2,4,2]] },
+  mace:   { viewBox:'0 0 8 12', rects:[[3,4,2,8],[1,0,6,4]] },
+  bow:    { viewBox:'0 0 8 14', rects:[[5,0,2,2],[4,2,2,2],[3,4,2,2],[2,6,2,2],[3,8,2,2],[4,10,2,2],[5,12,2,2],[1,1,1,12]] },
+  staff:  { viewBox:'0 0 8 14', rects:[[3,4,2,10],[2,0,4,4]] },
+  wand:   { viewBox:'0 0 4 10', rects:[[1,2,2,8],[0,0,4,2]] },
+  shield: { viewBox:'0 0 10 12', rects:[[0,0,10,6],[1,6,8,4],[3,10,4,2]] },
+  armor:  { viewBox:'0 0 10 10', rects:[[1,0,8,3],[0,3,10,5],[1,8,3,2],[6,8,3,2]] },
+  robe:   { viewBox:'0 0 10 14', rects:[[3,0,4,3],[2,3,6,4],[1,7,8,4],[0,11,10,3]] },
+  boots:  { viewBox:'0 0 8 8',  rects:[[1,0,3,5],[0,5,6,3],[5,3,3,3]] },
+  ring:   { viewBox:'0 0 8 8',  rects:[[2,0,4,2],[0,2,2,4],[6,2,2,4],[2,6,4,2]] },
+  amulet: { viewBox:'0 0 6 10', rects:[[0,0,6,1],[2,1,2,2],[1,3,4,4],[2,7,2,2]] },
+  potion: { viewBox:'0 0 8 10', rects:[[3,0,2,2],[2,2,4,2],[1,4,6,6]] },
+  scroll: { viewBox:'0 0 10 6', rects:[[0,0,2,6],[8,0,2,6],[2,1,6,4]] },
+  gem:    { viewBox:'0 0 8 8',  rects:[[2,0,4,2],[0,2,8,2],[1,4,6,2],[2,6,4,1],[3,7,2,1]] },
+};
+function storeIconSvg(category, color) {
+  return pixelIconSvg(STORE_ICONS[category] || STORE_ICONS.gem, color);
+}
+// Guesses which icon best fits a generated/staple item from its name and category —
+// mirrors the spirit of inferSlotType() but for shop-icon purposes.
+function storeIconCategory(item) {
+  const n = (item.name || '').toLowerCase();
+  if (/dagger|knife/.test(n)) return 'dagger';
+  if (/axe|hatchet/.test(n)) return 'axe';
+  if (/mace|hammer|club|flail|maul|morningstar/.test(n)) return 'mace';
+  if (/bow|crossbow/.test(n)) return 'bow';
+  if (/\bstaff\b/.test(n)) return 'staff';
+  if (/\bwand\b|\brod\b/.test(n)) return 'wand';
+  if (/shield/.test(n)) return 'shield';
+  if (/robe|vestment/.test(n)) return 'robe';
+  if (/boots|sandals|slippers|greaves/.test(n)) return 'boots';
+  if (/\bring\b/.test(n)) return 'ring';
+  if (/amulet|necklace|pendant|periapt|torc|gorget/.test(n)) return 'amulet';
+  if (/potion|draught|elixir|tonic|vial/.test(n)) return 'potion';
+  if (/scroll/.test(n)) return 'scroll';
+  if (/sword|blade|rapier|saber|falchion|scythe|glaive|halberd|spear|trident|pike|whip/.test(n)) return 'sword';
+  if (item.cat === 'armor' || /armor|mail|plate|cuirass|breastplate|vest|pauldron/.test(n)) return 'armor';
+  if (item.cat === 'weapon') return 'sword';
+  return 'gem';
+}
+
+// Every merchant always stocks the same handful of mundane staples (flat, non-magical
+// prices — these are ordinary goods, not rarity-scaled loot) plus 5 freshly rolled
+// "daily wares" generated fresh each time the merchant is selected.
+const MERCHANTS = {
+  alchemist: {
+    name: 'Alchemist', icon: '🧪',
+    flavor: "Shelves of bubbling vials and dried herbs line every wall. If it can be brewed, boiled, or bottled, it's probably in here somewhere.",
+    staples: [
+      { name:'Healing Potion', desc:'A ruby-red potion that mends flesh and bone.', gp:'50 gp', effect:'Restores 2d4+2 hit points when consumed.', icon:'potion', type:'consumable' },
+      { name:'Stamina Potion', desc:'A sharp, bitter draught that chases away fatigue.', gp:'40 gp', effect:'Removes one level of exhaustion.', icon:'potion', type:'consumable' },
+      { name:'Antidote', desc:'A thin green tincture with a medicinal bite.', gp:'30 gp', effect:'Cures one poison affecting the drinker.', icon:'potion', type:'consumable' },
+      { name:'Potion of Water Breathing', desc:'Smells faintly of brine and low tide.', gp:'80 gp', effect:'Grants water breathing for 1 hour.', icon:'potion', type:'consumable' },
+      { name:'Smoke Bomb', desc:'A fist-sized clay sphere, fragile and full of choking powder.', gp:'25 gp', effect:'Creates a 10-ft. cloud of thick smoke on impact.', icon:'gem', type:'misc' },
+    ],
+  },
+  blacksmith: {
+    name: 'Blacksmith', icon: '⚒',
+    flavor: 'The air smells of coal smoke and hot iron. Racks of honest, well-made steel line every wall.',
+    staples: [
+      { name:'Iron Sword', desc:'A plain, well-balanced longsword.', gp:'15 gp', effect:'1d8 slashing damage.', icon:'sword', type:'weapon' },
+      { name:'Iron Knife', desc:'A simple utility dagger.', gp:'2 gp', effect:'1d4 piercing damage.', icon:'dagger', type:'weapon' },
+      { name:'Iron Mace', desc:'A blunt, heavy head on an oak haft.', gp:'10 gp', effect:'1d6 bludgeoning damage.', icon:'mace', type:'weapon' },
+      { name:'Studded Leather Armor', desc:'Leather reinforced with rivets.', gp:'45 gp', effect:'AC 12 + Dex modifier.', icon:'armor', type:'armor' },
+      { name:'Chainmail', desc:'Interlocking iron rings, oiled against rust.', gp:'75 gp', effect:'AC 16.', icon:'armor', type:'armor' },
+    ],
+  },
+  mage: {
+    name: 'Arcanist', icon: '📜',
+    flavor: 'A cramped, cluttered shop that smells of ozone and old paper. Every surface holds something that hums faintly with magic.',
+    staples: [
+      { name:'Scroll of Magic Missile', desc:'A one-use scroll, ink still faintly glowing.', gp:'60 gp', effect:'Casts Magic Missile once.', icon:'scroll', type:'misc' },
+      { name:'Scroll of Shield', desc:'Smells of ash and static.', gp:'80 gp', effect:'Casts Shield once.', icon:'scroll', type:'misc' },
+      { name:"Apprentice's Staff", desc:'A plain ashwood staff, worn smooth by practice.', gp:'100 gp', effect:'+1 to spell attack rolls while wielded.', icon:'staff', type:'weapon' },
+      { name:"Traveler's Robe", desc:'Sturdy, unremarkable, faintly warm.', gp:'35 gp', effect:'AC 11 + Dex modifier.', icon:'robe', type:'armor' },
+      { name:'Component Pouch', desc:'A worn leather pouch, always stocked.', gp:'25 gp', effect:'Holds material components for spellcasting.', icon:'gem', type:'misc' },
+    ],
+  },
+  trader: {
+    name: 'General Trader', icon: '🎒',
+    flavor: "A little bit of everything, piled from floor to rafters. If you can't find it here, try somewhere less honest.",
+    staples: [
+      { name:'50 ft. Rope', desc:'Sturdy hempen rope.', gp:'2 gp', effect:'Standard adventuring rope.', icon:'gem', type:'misc' },
+      { name:'Torches (bundle of 5)', desc:'Pitch-soaked and ready to strike.', gp:'1 gp', effect:'Sheds bright light 20 ft., dim light 20 ft. further.', icon:'gem', type:'misc' },
+      { name:'Rations (1 week)', desc:'Dried meat, hard bread, and travel biscuit.', gp:'5 gp', effect:'Feeds one person for a week.', icon:'gem', type:'misc' },
+      { name:'Bedroll', desc:"A thin but serviceable bedroll.", gp:'3 gp', effect:"A place to sleep that isn't the ground.", icon:'gem', type:'misc' },
+      { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc' },
+    ],
+  },
+};
+
+// Rolls one fully random magic item for sale — reuses the exact same base-name pools,
+// tag/synergy system, and modifier generation as the Unique Item Generator, so shop
+// wares feel consistent with everything else the app produces. Rarity is rolled with
+// the same weighted Rarity Chances sliders used everywhere else (so any rarity, including
+// celestial, can turn up), and priced via the steeper commerce scale.
+function generateStoreItem(merchantKey) {
+  const rarity = pickRarity();
+  const cat = ri(['armor','weapon','consumable','misc']);
+  const baseName = ri(GEN[cat]);
+  const tags = detectTags(baseName);
+  const { pool: weightedPool } = buildWeightedModPool(tags);
+  const s = GEN.scale[rarity];
+
+  const slotSize = cat === 'weapon' ? rn(1,3) : cat === 'armor' ? rn(2,3) : 1;
+  let dmg = '', ac = '', hp = '', requirement = '';
+  if (cat === 'weapon') {
+    const dieSize = rarity==='celestial'?12:rarity==='legendary'?10:rarity==='superrare'?8:rarity==='rare'?6:rarity==='uncommon'?6:4;
+    const dieCount = rarity==='celestial'?rn(4,8):rarity==='legendary'?rn(3,6):rarity==='superrare'?rn(2,4):rarity==='rare'?rn(2,3):rn(1,2);
+    dmg = `${dieCount}d${dieSize}+${s.min}`;
+  }
+  if (cat === 'armor') {
+    const base = rarity==='celestial'?rn(22,26):rarity==='legendary'?rn(18,22):rarity==='superrare'?rn(16,18):rarity==='rare'?rn(14,16):rarity==='uncommon'?rn(13,15):rn(11,13);
+    ac = String(base);
+    requirement = base>=17?'Heavy armor proficiency':base>=14?'Medium armor proficiency':'No proficiency required';
+  }
+  if (cat === 'consumable') {
+    const dieCount = rarity==='celestial'?rn(15,30):rarity==='legendary'?rn(10,20):rarity==='superrare'?rn(6,12):rarity==='rare'?rn(4,8):rarity==='uncommon'?rn(2,4):rn(1,2);
+    hp = `${dieCount}d8+${rn(s.min*2, s.max*3)}`;
+  }
+
+  const r = Math.random();
+  const modCount = r > 0.85 ? 3 : r > 0.4 ? 2 : 1;
+  const mods = [], usedTypes = [], usedKeys = [];
+  let attempts = 0;
+  while (mods.length < modCount && attempts < 30) {
+    attempts++;
+    const type = pickWeightedType(weightedPool, usedTypes);
+    if (!type) break;
+    const m = generateModifierOfType(type, rarity, usedKeys);
+    if (!m || (m.key && usedKeys.includes(m.key))) continue;
+    mods.push(m); usedTypes.push(type);
+    if (m.key) usedKeys.push(m.key);
+  }
+
+  const itemName = buildItemName(baseName, rarity, { dmg, ac, hp }, mods);
+  const descParagraphs = buildDescParagraphs(baseName, cat, rarity, tags, mods, { dmg, ac, hp });
+  const flavor = descParagraphs.map(p => p.text).join('\n\n');
+  const gp = formatGpAmount(commercePrice(rarity, mods.length));
+
+  return { name:itemName, rarity, cat, gp, dmg, ac, hp, requirement, slotSize, mods, flavor, descParagraphs, tags, merchant:merchantKey };
+}
+
+let currentMerchant = null;
+let storeDailyItems = [];
+
+function selectMerchant(key) {
+  currentMerchant = key;
+  storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
+  renderStoreTab();
+}
+
+function rerollStoreDaily() {
+  if (!currentMerchant) return;
+  storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
+  renderStoreTab();
+}
+
+function storeStapleCardHtml(staple, merchantKey, idx) {
+  const icon = storeIconSvg(staple.icon || 'gem', '#c9a84c');
+  return `
+    <div class="store-card">
+      <div class="flesh-icon-box">${icon}</div>
+      <div class="store-card-name">${escapeHtml(staple.name)}</div>
+      <div class="store-card-desc">${escapeHtml(staple.desc)}</div>
+      <div class="store-card-effect">${escapeHtml(staple.effect)}</div>
+      <div class="store-card-gp">💰 ${escapeHtml(staple.gp)}</div>
+      <button class="ic-action-btn" onclick="buyStapleItem('${merchantKey}', ${idx})">🛒 Buy</button>
+    </div>
+  `;
+}
+function storeDailyCardHtml(item, idx) {
+  const color = rarityColors[item.rarity] || '#a0a8b0';
+  const icon = storeIconSvg(storeIconCategory(item), color);
+  const effectText = (item.mods || []).map(m => m.text).join(' ');
+  return `
+    <div class="store-card ${item.rarity}">
+      <div class="flesh-icon-box">${icon}</div>
+      <div class="store-card-name">${escapeHtml(item.name)}</div>
+      <div class="store-card-rarity">${rarityNames[item.rarity] || item.rarity}</div>
+      <div class="store-card-effect">${effectText}</div>
+      <div class="store-card-gp">💰 ${escapeHtml(item.gp)}</div>
+      <button class="ic-action-btn" onclick="buyStoreDailyItem(${idx})">🛒 Buy</button>
+    </div>
+  `;
+}
+
+function renderStoreTab() {
+  const listEl = document.getElementById('storeMerchantList');
+  if (listEl) {
+    listEl.innerHTML = Object.entries(MERCHANTS).map(([key, m]) => `
+      <button class="store-merchant-btn${key === currentMerchant ? ' active' : ''}" onclick="selectMerchant('${key}')">
+        <span class="store-merchant-icon">${m.icon}</span><span>${m.name}</span>
+      </button>
+    `).join('');
+  }
+  const panelEl = document.getElementById('storePanel');
+  if (!panelEl) return;
+  if (!currentMerchant) {
+    panelEl.innerHTML = '<div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>';
+    return;
+  }
+  const m = MERCHANTS[currentMerchant];
+  const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
+  const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
+  panelEl.innerHTML = `
+    <div class="store-merchant-head">
+      <div class="store-merchant-title">${m.icon} ${escapeHtml(m.name)}</div>
+      <p class="store-merchant-flavor">${escapeHtml(m.flavor)}</p>
+    </div>
+    <h4 class="store-section-label">Standing Stock</h4>
+    <div class="store-grid">${staplesHtml}</div>
+    <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Reroll</button></h4>
+    <div class="store-grid">${dailyHtml}</div>
+    <div class="store-buy-msg" id="storeBuyMsg"></div>
+  `;
+}
+
+function buyStapleItem(merchantKey, idx) {
+  const staple = MERCHANTS[merchantKey]?.staples?.[idx];
+  if (!staple) return;
+  const id = Date.now();
+  const type = staple.type || 'misc';
+  const item = {
+    id, name: staple.name, rarity: 'common', cat: type, type,
+    gp: staple.gp, dmg:'', ac:'', hp:'', requirement:'',
+    slotSize: 1, mods: [],
+    desc: staple.desc, flavor: staple.desc + (staple.effect ? '\n\n' + staple.effect : ''),
+    tags: [], effect: staple.effect,
+  };
+  savedGeneratedItems.unshift(item);
+  renderSavedItems();
+  flashStoreBuyMessage(`${staple.name} purchased for ${staple.gp}.`);
+}
+function buyStoreDailyItem(idx) {
+  const src = storeDailyItems[idx];
+  if (!src) return;
+  const item = { ...src, id: Date.now() };
+  savedGeneratedItems.unshift(item);
+  renderSavedItems();
+  flashStoreBuyMessage(`${src.name} purchased for ${src.gp}.`);
+}
+function flashStoreBuyMessage(msg) {
+  const el = document.getElementById('storeBuyMsg');
+  if (!el) return;
+  el.textContent = '✓ ' + msg;
+  el.classList.add('show');
+  clearTimeout(window._storeBuyMsgTimer);
+  window._storeBuyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
 
 
 // ---------- Spell detail normalization ----------
@@ -5764,6 +6179,29 @@ function resetModWeights() {
   });
   const total = Object.values(modWeights).reduce((a,b)=>a+b,0);
   document.getElementById('mw-total').textContent = total;
+}
+
+// Fleshmancer keeps its own independent set of effect weights (buffs/traits favored,
+// terrain/summon rare) rather than sharing the Generate Item tab's weights.
+const FLESH_MOD_WEIGHT_DEFAULTS = { power:6, buff:8, debuff:7, trait:8, skill:3, transform:3, summon:2, terrain:1 };
+let fleshModWeights = { ...FLESH_MOD_WEIGHT_DEFAULTS };
+
+function updateFleshMWDisplay(key) {
+  const val = parseInt(document.getElementById('fmw-' + key).value);
+  fleshModWeights[key] = val;
+  document.getElementById('fmv-' + key).textContent = val;
+  const total = Object.values(fleshModWeights).reduce((a,b)=>a+b,0);
+  document.getElementById('fmw-total').textContent = total;
+}
+
+function resetFleshModWeights() {
+  fleshModWeights = { ...FLESH_MOD_WEIGHT_DEFAULTS };
+  Object.entries(fleshModWeights).forEach(([k,v]) => {
+    const el = document.getElementById('fmw-' + k);
+    if (el) { el.value = v; document.getElementById('fmv-' + k).textContent = v; }
+  });
+  const total = Object.values(fleshModWeights).reduce((a,b)=>a+b,0);
+  document.getElementById('fmw-total').textContent = total;
 }
 
 // ===================== TAG SYSTEM =====================
