@@ -1197,13 +1197,13 @@
   /* ===================== ITEM TOKENS TAB ===================== */
   .player-tokens-layout {
     display:grid;
-    grid-template-columns:minmax(340px,420px) 1fr;
+    grid-template-columns:minmax(340px,620px) 1fr;
     gap:1.5rem;
     align-items:start;
   }
   .player-column { display:flex; flex-direction:column; gap:1.2rem; }
   .tokens-column { display:flex; flex-direction:column; gap:0.7rem; min-width:0; }
-  @media (max-width:900px) {
+  @media (max-width:1150px) {
     .player-tokens-layout { grid-template-columns:1fr; }
   }
   .token-toolbar { display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; }
@@ -1248,7 +1248,11 @@
   .token-card-effect { font-size:0.8rem; color:var(--text-dim); line-height:1.4; font-style:italic; }
 
   /* ===================== PLAYER TAB ===================== */
-  .player-board { display:flex; flex-direction:column; align-items:center; margin-bottom:2rem; }
+  /* Doll and grafted-limb slots sit side by side so limbs read as part of the same
+     equipment silhouette instead of a separate section further down the page. Wraps
+     to a stacked layout automatically on narrower widths. */
+  .player-equip-row { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:flex-start; justify-content:center; margin-bottom:1.5rem; }
+  .player-board { display:flex; flex-direction:column; align-items:center; }
   .player-doll {
     display:grid;
     grid-template-columns:130px 150px 130px;
@@ -1285,14 +1289,16 @@
   .slot-token.celestial { color:var(--celestial); }
 
   /* Grafted-limb slots — same doll-slot look, tinted toward the danger color so this
-     panel reads as visually distinct from ordinary equipment. */
-  .limbs-panel { background:var(--surface); border:1px solid var(--border); padding:1.2rem; margin-bottom:1.5rem; }
-  .limbs-panel h3 { color:var(--gold); font-size:1.05rem; letter-spacing:0.06em; margin-bottom:0.4rem; }
-  .limbs-panel-note { color:var(--text-dim); font-size:0.82rem; font-style:italic; margin-bottom:0.9rem; }
-  .limbs-grid { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+     panel reads as visually distinct from ordinary equipment. Laid out as a compact
+     2-wide grid (instead of a wide wrapping row) so the whole panel stays narrow
+     enough to sit right next to the equipment doll. */
+  .limbs-panel { background:var(--surface); border:1px solid var(--border); padding:1.2rem; width:auto; }
+  .limbs-panel h3 { color:var(--gold); font-size:1.05rem; letter-spacing:0.06em; margin-bottom:0.4rem; text-align:center; }
+  .limbs-panel-note { color:var(--text-dim); font-size:0.78rem; font-style:italic; margin-bottom:0.9rem; text-align:center; max-width:200px; }
+  .limbs-grid { display:grid; grid-template-columns:repeat(2,76px); gap:0.6rem 0.7rem; justify-content:center; }
   .limb-slot-wrap { display:flex; flex-direction:column; align-items:center; gap:0.3rem; }
   .limb-slot-label { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; }
-  .doll-slot.limb { width:72px; height:66px; border-color:rgba(224,82,82,0.4); }
+  .doll-slot.limb { width:72px; height:60px; border-color:rgba(224,82,82,0.4); }
   .doll-slot.limb.filled { border-color:var(--danger); }
 
   .active-effects-panel {
@@ -2296,6 +2302,7 @@
   </p>
   <div class="player-tokens-layout">
     <div class="player-column">
+      <div class="player-equip-row">
       <div class="player-board">
         <div class="player-doll">
           <div class="doll-slot" id="slot-facewear" data-slot="facewear" style="grid-column:1;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'facewear')"></div>
@@ -2336,7 +2343,7 @@
 
       <div class="limbs-panel">
         <h3>🩸 Grafted Limbs</h3>
-        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab (or any item whose slot is manually set to a Limb category) go here.</p>
+        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab go here.</p>
         <div class="limbs-grid">
           <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
           <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
@@ -2357,6 +2364,7 @@
           <div class="limb-slot-wrap"><span class="limb-slot-label">Heart</span><div class="doll-slot limb" id="slot-limbHeart" data-slot="limbHeart" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHeart')"></div></div>
           <div class="limb-slot-wrap"><span class="limb-slot-label">Tongue</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
         </div>
+      </div>
       </div>
 
       <div class="active-effects-panel">
@@ -4942,7 +4950,7 @@ const GEN = {
     scalar: [
       "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
       "Attack Bonus","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
-      "Critical Hit Range (lower by)","Damage Dealt","Initiative","Spell Slot Level",
+      "Critical Hit Range","Damage Dealt","Initiative","Spell Slot Level",
       "Darkvision Range (feet)","Tremorsense Range (feet)","Telepathy Range (feet)",
       "Fly Speed (feet)","Swim Speed (feet)","Burrow Speed (feet)","Carrying Capacity (lbs)",
       "Stealth","Perception","Persuasion","Intimidation","Deception","Insight",
@@ -5499,6 +5507,20 @@ function renderDescParagraphs(paragraphs) {
   }).join('');
 }
 
+// How often a temporary, activatable effect can be triggered, scaled by rarity tier.
+// Shared by Power/Spell casts, self/other Buffs, and inflicted Debuffs so none of them
+// read as an unlimited-use ability without saying so.
+function usesPerRarity(idx) {
+  return idx<=1?'1× per long rest':idx===2?'1× per day':idx===3?'2× per day':idx===4?'3× per day':'at will';
+}
+// BAL.durations includes "permanently" at the top of the celestial tier — everywhere that
+// splices a rolled duration into "for <dur>" phrasing needs to special-case it, since
+// "for permanently" doesn't read as English. Returns the correctly-phrased duration clause,
+// e.g. "for <strong>1 hour</strong>" or "<strong>permanently</strong>".
+function durationClause(dur) {
+  return dur === 'permanently' ? '<strong>permanently</strong>' : `for <strong>${dur}</strong>`;
+}
+
 // Shared buff/debuff selection — used by both generateModifierOfType() (unique item
 // generator) and generateModifier() (wheel-roll modifiers) so the self/other, scalar/
 // condition logic only lives in one place.
@@ -5517,9 +5539,10 @@ function pickBuffEffect(rarity, dur, modest, idx, usedKeys = []) {
   if (!picked) return null;
   const amount = picked.isCondition ? picked.stat : `+${modest} ${picked.stat}`;
   const otherTargets = idx<=1?'one willing ally':idx===2?'up to 2 willing allies':idx===3?'up to 3 allies':idx===4?'up to 6 allies':'all willing allies within 60 feet';
+  const uses = usesPerRarity(idx);
   const text = preferOther
-    ? `The bearer can grant <strong>${amount}</strong> to <strong>${otherTargets}</strong> for <strong>${dur}</strong>.`
-    : `Grants <strong>${amount}</strong> to <strong>the bearer</strong> for <strong>${dur}</strong>.`;
+    ? `The bearer can grant <strong>${amount}</strong> to <strong>${otherTargets}</strong> ${durationClause(dur)} (<strong>${uses}</strong>).`
+    : `Grants <strong>${amount}</strong> to <strong>the bearer</strong> ${durationClause(dur)} (<strong>${uses}</strong>).`;
   return { stat: picked.stat, key: 'buff:'+picked.stat, text };
 }
 // Picks from GEN.debuffsSelf (cursed effects that afflict the bearer) or GEN.debuffsOther
@@ -5538,7 +5561,7 @@ function pickDebuffEffect(rarity, dur, modest, idx, usedKeys = []) {
   const amount = picked.isCondition ? picked.stat : `-${modest} ${picked.stat}`;
   const text = preferSelf
     ? `While attuned, the bearer suffers <strong>${amount}</strong>.`
-    : `Inflicts <strong>${amount}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution saving throw to resist, DC ${10+idx*2}).`;
+    : `Usable <strong>${usesPerRarity(idx)}</strong>: inflicts <strong>${amount}</strong> on <strong>one target</strong> ${durationClause(dur)} (Constitution saving throw to resist, DC ${10+idx*2}).`;
   return { stat: picked.stat, key: 'debuff:'+picked.stat, text };
 }
 // Picks a named trait (GEN.namedModifiers) — a fixed personality like "Bloody" that
@@ -5626,6 +5649,19 @@ function pickSummonEntity(idx) {
   // Celestial fallback: draw from the epic named entities, same three-slice mix as before.
   return ri([ri(GEN.summonEntities.slice(10,20)), ri(GEN.summonEntities.slice(20,35)), ri(GEN.summonEntities.slice(0,10))]);
 }
+// Multi-summon count is only ever offered for generic "a/an X" entities (ordinary
+// creatures) — GEN.summonEntities' celestial fallback is a pool of proper-named unique
+// individuals ("Zyrath the Flame Tyrant"), and duplicating a named person doesn't make
+// sense, so those never roll above 1. Also fixes the "Summons 2 a wolf" grammar bug by
+// stripping the article and using "2× Wolf" instead of trying to pluralize an arbitrary
+// monster name (which "wolves"-style irregular plurals can't be done reliably).
+function summonCountFor(idx, entity) {
+  const hasArticle = /^(a|an)\s/i.test(entity);
+  return idx >= 4 && hasArticle && Math.random() < 0.3 ? 2 : 1;
+}
+function formatSummonLabel(entity, count) {
+  return count > 1 ? `${count}× ${entity.replace(/^(a|an)\s+/i, '')}` : entity;
+}
 // Summons are capped far shorter than other effects at every rarity below celestial — a
 // temporary ally shouldn't stick around nearly as long as a buff or transformation does.
 // Deliberately separate from BAL.durations (which is shared by buffs/debuffs/transform/
@@ -5654,7 +5690,7 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
     const pool = (BAL.powerTiers[rarity] || GEN.powers).filter(p => !usedKeys.includes('power:'+p));
     if (!pool.length) return null;
     const p = ri(pool);
-    const uses = idx<=1?'1× per long rest':idx===2?'1× per day':idx===3?'2× per day':idx===4?'3× per day':'at will';
+    const uses = usesPerRarity(idx);
     return { type:'Power/Spell', key:'power:'+p, text:`Grants the ability to cast <strong>${p}</strong> (<strong>${uses}</strong>). Spell save DC is <strong>${10+idx*2+rn(0,2)}</strong>.` };
   }
   if (type === 'buff') {
@@ -5686,13 +5722,13 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
   if (type === 'transform') {
     const monster = pickMonsterForRarity(rarity, false);
     const form = monster ? withArticle(monster.name) : pickTier(GEN.transformForms, rarity);
-    return { type:'Transform', key:'transform:'+form, text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.` };
+    return { type:'Transform', key:'transform:'+form, text:`The bearer transforms into <strong>${form}</strong> ${durationClause(dur)}, retaining their personality and memories. The transformation ends early if dismissed.` };
   }
   if (type === 'summon') {
     const entity = pickSummonEntity(idx);
-    const count = idx>=4&&Math.random()<0.3?2:1;
+    const count = summonCountFor(idx, entity);
     const summonDur = pickSummonDuration(rarity);
-    return { type:'Summon', key:'summon:'+entity, text:`Summons <strong>${count} ${entity}</strong> for <strong>${summonDur}</strong>. It follows reasonable commands and vanishes when the duration ends.` };
+    return { type:'Summon', key:'summon:'+entity, text:`Summons <strong>${formatSummonLabel(entity, count)}</strong> for <strong>${summonDur}</strong>. ${count>1?'They follow':'It follows'} reasonable commands and ${count>1?'vanish':'vanishes'} when the duration ends.` };
   }
   if (type === 'terrain') {
     const alts = GEN.terrainAlterations.filter(a => !usedKeys.includes('terrain:'+a));
@@ -6894,20 +6930,20 @@ function generateModifier(rarity) {
   const modest=rarity==='common'?1:rarity==='uncommon'?rn(1,2):rarity==='rare'?rn(2,3):rarity==='superrare'?rn(3,5):rarity==='legendary'?rn(5,8):rn(8,12);
   if(type==='power'){
     const p=ri(BAL.powerTiers[rarity]||GEN.powers);
-    const uses=idx<=1?'1× per long rest':idx===2?'1× per day':idx===3?'2× per day':idx===4?'3× per day':'at will';
+    const uses=usesPerRarity(idx);
     return {type:'Power/Spell',text:`Grants the ability to cast <strong>${p}</strong> (<strong>${uses}</strong>). Spell save DC is <strong>${10+idx*2+rn(0,2)}</strong>.`};
   }
   if(type==='transform'){
     const monster=pickMonsterForRarity(rarity, false);
     const form=monster ? withArticle(monster.name) : pickTier(GEN.transformForms,rarity);
-    return {type:'Transform',text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.`};
+    return {type:'Transform',text:`The bearer transforms into <strong>${form}</strong> ${durationClause(dur)}, retaining their personality and memories. The transformation ends early if dismissed.`};
   }
   if(type==='summon'){
     // Lower tiers summon mundane animals; apex tiers unlock major named entities.
     const entity=pickSummonEntity(idx);
-    const count=idx>=4&&Math.random()<0.3?2:1;
+    const count=summonCountFor(idx, entity);
     const summonDur=pickSummonDuration(rarity);
-    return {type:'Summon',text:`Summons <strong>${count} ${entity}</strong> for <strong>${summonDur}</strong>. It follows reasonable commands and vanishes when the duration ends.`};
+    return {type:'Summon',text:`Summons <strong>${formatSummonLabel(entity, count)}</strong> for <strong>${summonDur}</strong>. ${count>1?'They follow':'It follows'} reasonable commands and ${count>1?'vanish':'vanishes'} when the duration ends.`};
   }
   if(type==='terrain'){
     const alt=pickTier(GEN.terrainAlterations,rarity);
