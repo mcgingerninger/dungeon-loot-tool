@@ -1518,7 +1518,16 @@
   .combat-hp-dice{color:var(--text-dim);font-style:italic}
   .combat-card-mods{font-size:.78rem;line-height:1.5;color:var(--text-dim)}
   .combat-variant-chance-val{font-family:'Share Tech Mono',monospace;color:var(--gold);min-width:2.6em;display:inline-block}
+  .combat-chaos-chance-val{font-family:'Share Tech Mono',monospace;color:var(--superrare);min-width:2.6em;display:inline-block}
   .combat-variant-note{color:var(--text-dim);font-size:.82rem;font-style:italic;line-height:1.5}
+  .combat-chaos-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--superrare);color:var(--superrare);vertical-align:middle}
+  .combat-chaos-badge.common{border-color:var(--common);color:var(--common)}
+  .combat-chaos-badge.uncommon{border-color:var(--uncommon);color:var(--uncommon)}
+  .combat-chaos-badge.rare{border-color:var(--rare);color:var(--rare)}
+  .combat-chaos-badge.superrare{border-color:var(--superrare);color:var(--superrare)}
+  .combat-chaos-badge.legendary{border-color:var(--legendary);color:var(--legendary)}
+  .combat-chaos-badge.celestial{border-color:var(--celestial);color:var(--celestial)}
+  .combat-chaos-line{font-size:.78rem;line-height:1.5;color:var(--superrare);font-style:italic}
   .combat-roll-btn{background:var(--gold);color:var(--bg);border:none;padding:.5rem .8rem;font-family:'Crimson Text',serif;font-weight:600;cursor:pointer;letter-spacing:.03em}
   .combat-roll-btn:hover{background:var(--gold-bright)}
   .combat-result{border-left:3px solid var(--border);padding:.5rem .7rem;background:rgba(0,0,0,.2);font-size:.85rem;line-height:1.5}
@@ -2337,10 +2346,11 @@
     <div class="combat-settings">
       <label>Target AC to roll against: <input type="number" id="battleTargetAC" value="15" min="1" max="30"></label>
       <label>Variant chance: <input type="range" id="battleVariantChance" min="0" max="100" value="15" oninput="document.getElementById('battleVariantChanceVal').textContent=this.value+'%'"> <span id="battleVariantChanceVal" class="combat-variant-chance-val">15%</span></label>
+      <label>Chaos: <input type="range" id="battleChaosChance" min="0" max="100" value="10" oninput="document.getElementById('battleChaosChanceVal').textContent=this.value+'%'"> <span id="battleChaosChanceVal" class="combat-chaos-chance-val">10%</span></label>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. If traits hit, a separate roll decides how many stack (weaker tiers usually get 0-2 and lean toward curses; Elite/Legendary monsters reliably get several and lean toward blessings), so a battle can produce something like a triple-cursed common Weak Goblin or a Champion Alpha Legendary Goblin loaded with buffs.</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising the ceiling on how good that gear can roll.</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -8914,6 +8924,29 @@ function pickMonsterVariant() {
   for (const v of MONSTER_VARIANTS) { r -= v.weight; if (r <= 0) return v; }
   return MONSTER_VARIANTS[0];
 }
+// Monster stat-line magnitudes scale far more aggressively than the old flat "idx+1" (which
+// topped out around +5 even for a Legendary) — a random roll from a per-tier range instead,
+// so a legendary creature can swing as high as +10 on a stat instead of a barely-noticeable
+// +1. Shared by rollMonsterStatLines (variant buffs/debuffs) and buildTraitLines (named
+// traits) so both scale the same way.
+const MONSTER_STAT_MAGNITUDE_BY_TIER = {
+  common: [1, 3], uncommon: [2, 5], rare: [4, 7], superrare: [6, 9], legendary: [8, 10],
+};
+function monsterStatMagnitude(tier) {
+  const [lo, hi] = MONSTER_STAT_MAGNITUDE_BY_TIER[tier] || MONSTER_STAT_MAGNITUDE_BY_TIER.common;
+  return rn(lo, hi);
+}
+// Each monster instance leans toward being overall buffed or overall weakened — its rolled
+// traits mostly follow that lean (see pickWeightedTrait) — rather than every trait roll being
+// independently random, which would make a monster feel like a scattershot mixed bag instead
+// of reading as consistently strong or consistently a pushover. A minority roll "mixed" and
+// can still end up with a genuine blend of both buffs and debuffs.
+function rollMonsterLeaning() {
+  const r = Math.random();
+  if (r < 0.42) return 'buffed';
+  if (r < 0.84) return 'weakened';
+  return 'mixed';
+}
 // Rolls N stat lines from the same pools GEN.buffsSelf/GEN.debuffsSelf uses for player
 // item buffs/debuffs, formatted as short inherent-trait lines ("+3 Strength",
 // "Advantage on Saving Throws") rather than the "grants X to the bearer for Y" item
@@ -8921,8 +8954,7 @@ function pickMonsterVariant() {
 function rollMonsterStatLines(count, positive, tier) {
   if (!count) return [];
   const pool = positive ? GEN.buffsSelf : GEN.debuffsSelf;
-  const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
-  const modest = Math.max(1, idx + 1);
+  const magnitude = monsterStatMagnitude(tier);
   const used = [];
   const lines = [];
   for (let i = 0; i < count; i++) {
@@ -8935,7 +8967,7 @@ function rollMonsterStatLines(count, positive, tier) {
     else if (condPool.length) { stat = ri(condPool); isCondition = true; }
     if (!stat) continue;
     used.push(stat);
-    const text = isCondition ? stat : `${positive ? '+' : '-'}${scaledStatAmount(stat, tier, modest)} ${stat}`;
+    const text = isCondition ? stat : `${positive ? '+' : '-'}${scaledStatAmount(stat, tier, magnitude)} ${stat}`;
     lines.push({ stat, isCondition, positive, text });
   }
   return lines;
@@ -8976,11 +9008,12 @@ function rollMonsterTraitCount(tier) {
   return ri(TRAIT_COUNT_POOLS[tier] || TRAIT_COUNT_POOLS.common);
 }
 // Picks one trait from GEN.namedModifiers (excluding any already used on this monster),
-// weighted by tier: weaker tiers are biased toward curse-leaning traits (net debuffs), and
-// stronger tiers are biased toward blessing-leaning traits (net buffs) — balanced/mixed
-// traits are available everywhere. This is what makes "better monsters have more AND better
-// traits" true, not just a higher count.
-function pickWeightedTrait(tier, usedNames) {
+// weighted by tier (weaker tiers biased toward curse-leaning traits, stronger tiers biased
+// toward blessing-leaning traits — this is what makes "better monsters have more AND better
+// traits" true, not just a higher count) AND by this specific monster's overall leaning (see
+// rollMonsterLeaning) so a given monster mostly stays consistent — reads as "the strong one"
+// or "the pushover" — instead of every trait roll being independently random.
+function pickWeightedTrait(tier, usedNames, leaning) {
   const pool = GEN.namedModifiers.filter(m => !usedNames.includes(m.name));
   if (!pool.length) return null;
   const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
@@ -8989,6 +9022,9 @@ function pickWeightedTrait(tier, usedNames) {
     let w = 3; // balanced/mixed traits are always reasonably likely
     if (idx <= 1) { if (net < 0) w = 6; else if (net > 0) w = 1; }       // common/uncommon: favor curses
     else if (idx >= 3) { if (net > 0) w = 6; else if (net < 0) w = 1; }  // superrare/legendary: favor blessings
+    if (leaning === 'buffed') { if (net > 0) w *= 3; else if (net < 0) w *= 0.3; }
+    else if (leaning === 'weakened') { if (net < 0) w *= 3; else if (net > 0) w *= 0.3; }
+    // leaning === 'mixed': no extra adjustment, keep the tier-only bias above
     return { mod, w };
   });
   const total = weighted.reduce((s, x) => s + x.w, 0);
@@ -9000,28 +9036,69 @@ function pickWeightedTrait(tier, usedNames) {
 // monster rolling several traits (see rollMonsterTraitCount) can build each one the same way.
 // Uses the same buff/debuff magnitude ratio as pickNamedTrait() (the player-item version).
 function buildTraitLines(mod, tier) {
-  const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
-  const modest = Math.max(1, idx + 1);
-  const debuffAmt = Math.max(1, Math.round(modest * 0.6));
+  const magnitude = monsterStatMagnitude(tier);
+  const debuffAmt = Math.max(1, Math.round(magnitude * 0.6));
   return [
-    ...(mod.buffs || []).map(stat => ({ stat, isCondition: false, positive: true, text: `+${scaledStatAmount(stat, tier, modest)} ${stat}` })),
+    ...(mod.buffs || []).map(stat => ({ stat, isCondition: false, positive: true, text: `+${scaledStatAmount(stat, tier, magnitude)} ${stat}` })),
     ...(mod.debuffs || []).map(stat => ({ stat, isCondition: false, positive: false, text: `-${scaledStatAmount(stat, tier, debuffAmt)} ${stat}` })),
   ];
 }
+// ===================== CHAOS GEAR =====================
+// The "Chaos" slider grants a monster equipment it normally wouldn't have — a weapon
+// (bonus damage dice added to its attacks), armor (an AC bonus), or a spell-like attack it
+// can cast. Rolled independently of the variant/trait system. The higher the slider, the
+// better the gear that CAN come up — it raises the ceiling on the rarity roll, not a
+// guarantee, so low rolls are still possible even at a high slider setting.
+const CHAOS_WEAPON_DICE = { common:'1d6', uncommon:'1d8', rare:'2d6', superrare:'2d8', legendary:'3d8', celestial:'4d10' };
+const CHAOS_WEAPON_NAMES = ['a rusted blade','a jagged cleaver','a stolen shortsword','a wicked dagger','a heavy warhammer','a serrated axe','a bone spear','a crude morningstar','a notched battleaxe','a barbed trident'];
+// A flat AC bonus rather than the full "replacement" AC values used for generated armor
+// items — a dragon in a breastplate shouldn't jump to AC 19, it should just get modestly
+// harder to hit on top of its natural armor.
+const CHAOS_ARMOR_AC_BONUS = { common:1, uncommon:2, rare:3, superrare:4, legendary:5, celestial:6 };
+const CHAOS_ARMOR_NAMES = ['a patchwork hide vest','a dented breastplate','a scavenged chain shirt','a scrap-metal cuirass','banded plating','a rune-etched cuirass','a spiked pauldron rig','a salvaged shield harness'];
+// The same rarity-gated spell pools used for the Power/Spell item modifier, so a chaos-gear
+// spell is exactly as strong as a spell a player could find on a matching-rarity item.
+const CHAOS_SPELL_DAMAGE_DICE = ['1d6','2d6','2d8','3d8','4d8','6d8'];
+function rollChaosGearRarity(chaosChance) {
+  const ceilIdx = Math.min(5, Math.floor((chaosChance / 100) * 6));
+  return BAL.rarityOrder[rn(0, ceilIdx)];
+}
+function rollChaosGear(chaosChance) {
+  const kind = ri(['weapon', 'armor', 'spell']);
+  const rarity = rollChaosGearRarity(chaosChance);
+  const idx = Math.max(0, BAL.rarityOrder.indexOf(rarity));
+  if (kind === 'weapon') {
+    const name = ri(CHAOS_WEAPON_NAMES);
+    const dice = CHAOS_WEAPON_DICE[rarity];
+    return { kind, rarity, name, dice, label: `Wielding <strong>${escapeHtml(name)}</strong> — adds <strong>${dice}</strong> damage to hits.` };
+  }
+  if (kind === 'armor') {
+    const name = ri(CHAOS_ARMOR_NAMES);
+    const acBonus = CHAOS_ARMOR_AC_BONUS[rarity];
+    return { kind, rarity, name, acBonus, label: `Wearing <strong>${escapeHtml(name)}</strong> — <strong>+${acBonus} AC</strong>.` };
+  }
+  const spellName = ri((BAL.powerTiers && BAL.powerTiers[rarity]) || GEN.powers);
+  const spellAction = { name: spellName, text: `Ranged Spell Attack: +${4 + idx * 2} to hit, range 60 ft., one target. Hit: ${CHAOS_SPELL_DAMAGE_DICE[idx]} force damage.` };
+  return { kind, rarity, name: spellName, spellAction, label: `Has somehow learned to cast <strong>${escapeHtml(spellName)}</strong>.` };
+}
+
 // Builds the full roster entry for a newly-added monster: rolls real HP from its hit dice,
 // and — if the variant/trait rolls hit — reskins it as a weaker or stronger version, folding
 // any mechanically-relevant stat lines (Armor Class, Attack Bonus, Damage Dealt, Maximum Hit
 // Points) directly into the numbers the Combat tab actually uses. A monster can end up with
 // several named traits stacked (e.g. a Legendary Goblin that's also Alpha AND Champion), not
 // just one — how many is rolled first via rollMonsterTraitCount, then each is picked and
-// built individually.
+// built individually, biased by this monster's overall buffed/weakened leaning. Separately,
+// the Chaos slider can also hand it a weapon, armor, or spell it normally wouldn't have.
 function buildBattleEntry(monster) {
   const hpRoll = rollMonsterHP(monster);
   const baseAC = parseInt(monster.ac, 10);
   const variantChance = parseInt(document.getElementById('battleVariantChance')?.value, 10) || 0;
+  const chaosChance = parseInt(document.getElementById('battleChaosChance')?.value, 10) || 0;
   const roll = () => Math.random() * 100 < variantChance;
   const variant = roll() ? pickMonsterVariant() : null;
   const baseTier = variant ? variant.tier : 'common';
+  const leaning = rollMonsterLeaning();
 
   let hp = hpRoll.total;
   let ac = Number.isFinite(baseAC) ? baseAC : null;
@@ -9044,7 +9121,7 @@ function buildBattleEntry(monster) {
     const traitCount = rollMonsterTraitCount(baseTier);
     const usedNames = [];
     for (let i = 0; i < traitCount; i++) {
-      const mod = pickWeightedTrait(baseTier, usedNames);
+      const mod = pickWeightedTrait(baseTier, usedNames, leaning);
       if (!mod) break;
       usedNames.push(mod.name);
       const lines = buildTraitLines(mod, baseTier);
@@ -9064,8 +9141,14 @@ function buildBattleEntry(monster) {
     else if (line.stat === 'Maximum Hit Points') hp = Math.max(1, hp + amt);
   });
 
+  let chaosGear = null;
+  if (Math.random() * 100 < chaosChance) {
+    chaosGear = rollChaosGear(chaosChance);
+    if (chaosGear.kind === 'armor' && ac !== null) ac += chaosGear.acBonus;
+  }
+
   return {
-    uid: ++battleUidCounter, monster, displayName, variant, traits,
+    uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGear,
     hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
   };
 }
@@ -9127,10 +9210,13 @@ function battleEffectivenessLabel(roll) {
   return { label: 'Critical Failure', cls: 'miss' };
 }
 
-// Picks one attack for the creature to use: real actions first, then legendary/bonus
-// actions, then traits, with a generic fallback so this never comes up empty.
-function pickBattleAction(monster) {
-  const pools = [monster.actions, monster.legendary, monster.bonusActions, monster.traits];
+// Picks one attack for the creature to use: real actions first (mixed in with a chaos-gear
+// spell action, if it has one, so it's sometimes chosen alongside its normal attacks rather
+// than always overriding them), then legendary/bonus actions, then traits, with a generic
+// fallback so this never comes up empty.
+function pickBattleAction(monster, entry) {
+  const chaosSpell = entry && entry.chaosGear && entry.chaosGear.kind === 'spell' ? [entry.chaosGear.spellAction] : [];
+  const pools = [[...(monster.actions || []), ...chaosSpell], monster.legendary, monster.bonusActions, monster.traits];
   for (const pool of pools) {
     if (pool && pool.length) return ri(pool);
   }
@@ -9143,11 +9229,12 @@ function pickBattleAction(monster) {
 function resolveBattleAttack(entry) {
   const monster = entry.monster;
   const name = entry.displayName || monster.name;
-  const action = pickBattleAction(monster);
+  const action = pickBattleAction(monster, entry);
   const targetAC = parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15;
   const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
   const atkMod = entry.atkMod || 0;
   const dmgMult = entry.dmgMult || 1;
+  const hasChaosWeapon = entry.chaosGear && entry.chaosGear.kind === 'weapon';
   const d20 = rn(1, 20);
   let result;
 
@@ -9161,9 +9248,17 @@ function resolveBattleAttack(entry) {
     if (hit && damageDice) {
       const dmg = battleRollDamage(damageDice, isCrit);
       if (dmg) {
-        const scaledTotal = Math.max(1, Math.round(dmg.total * dmgMult));
+        let scaledTotal = Math.max(1, Math.round(dmg.total * dmgMult));
         const scaleNote = dmgMult !== 1 ? `, ×${dmgMult.toFixed(2).replace(/\.?0+$/, '')} variant scaling` : '';
-        dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote})`;
+        let weaponNote = '';
+        if (hasChaosWeapon) {
+          const wdmg = battleRollDamage(entry.chaosGear.dice, isCrit);
+          if (wdmg) {
+            scaledTotal += wdmg.total;
+            weaponNote = ` + ${wdmg.rolls.join('+')}${wdmg.mod ? (wdmg.mod > 0 ? '+' + wdmg.mod : wdmg.mod) : ''} from ${escapeHtml(entry.chaosGear.name)}`;
+          }
+        }
+        dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote}${weaponNote})`;
       }
     }
     const cls = isFumble ? 'miss' : isCrit ? 'crit' : hit ? 'hit' : 'miss';
@@ -9223,16 +9318,19 @@ function renderCombatRoster() {
     const statLinesHtml = (entry.statLines && entry.statLines.length)
       ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
       : '';
+    const chaosBadge = entry.chaosGear ? `<span class="combat-chaos-badge ${entry.chaosGear.rarity}">${entry.chaosGear.kind === 'weapon' ? '⚔' : entry.chaosGear.kind === 'armor' ? '🛡' : '📖'} chaos</span>` : '';
+    const chaosLine = entry.chaosGear ? `<div class="combat-chaos-line">${entry.chaosGear.label}</div>` : '';
     return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
       </div>
       <div class="combat-card-stats"><span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(String(entry.hp))}${hpDiceNote}</span></div>
       ${statLinesHtml}
+      ${chaosLine}
       <button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>
       ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
     </div>`;
