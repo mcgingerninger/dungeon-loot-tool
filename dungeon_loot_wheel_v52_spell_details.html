@@ -1280,6 +1280,7 @@
   .token-card.superrare { border-top-color:var(--superrare); }
   .token-card.legendary { border-top-color:var(--legendary); }
   .token-card.celestial { border-top-color:var(--celestial); }
+  .token-card-head { display:flex; align-items:center; gap:0.5rem; }
   .token-card-name { font-size:0.98rem; font-weight:600; color:var(--text); line-height:1.25; }
   .token-card-rarity { font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; }
   .token-slot-select {
@@ -1287,6 +1288,39 @@
     font-family:'Share Tech Mono',monospace; font-size:0.72rem; padding:0.2rem 0.3rem; cursor:pointer;
   }
   .token-card-effect { font-size:0.8rem; color:var(--text-dim); line-height:1.4; font-style:italic; }
+
+  /* ===================== INVENTORY TAB ===================== */
+  .inv-summary-bar { display:flex; align-items:center; gap:1.5rem; background:var(--surface); border:1px solid var(--border); padding:0.8rem 1rem; margin-bottom:1rem; flex-wrap:wrap; font-size:0.92rem; color:var(--text-dim); }
+  .inv-summary-bar strong { color:var(--gold); }
+  .inv-grid-wrap { background:var(--surface); border:1px solid var(--border); padding:0.8rem; overflow-x:auto; margin-bottom:1rem; }
+  .inv-grid { display:flex; flex-direction:column; gap:3px; width:max-content; }
+  .inv-row { display:flex; gap:3px; }
+  .inv-cell { width:44px; height:44px; background:var(--bg); border:1px dashed var(--border); transition:border-color 0.15s, background 0.15s; flex-shrink:0; }
+  .inv-cell:hover { border-color:var(--gold); }
+  .inv-cell.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
+  .inv-item {
+    height:44px; background:var(--surface2); border:2px solid var(--border); cursor:grab;
+    display:flex; align-items:center; gap:0.3rem; padding:0 0.4rem; overflow:hidden;
+    transition:border-color 0.15s; flex-shrink:0;
+  }
+  .inv-item:active { cursor:grabbing; }
+  .inv-item.common    { border-color:var(--common); }
+  .inv-item.uncommon  { border-color:var(--uncommon); }
+  .inv-item.rare      { border-color:var(--rare); }
+  .inv-item.superrare { border-color:var(--superrare); }
+  .inv-item.legendary { border-color:var(--legendary); }
+  .inv-item.celestial { border-color:var(--celestial); }
+  .inv-item-name { font-size:0.72rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* Trader sell zone (Store tab, General Trader only) — same visual language as the
+     Inventory grid's item cells so it reads as "the same kind of thing", just a
+     drop-only zone instead of a persistent grid. */
+  .trader-sell-zone {
+    border:2px dashed var(--border); background:var(--surface); padding:1.2rem;
+    text-align:center; color:var(--text-dim); font-style:italic; transition:border-color 0.15s, background 0.15s;
+    margin-top:0.8rem;
+  }
+  .trader-sell-zone.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
 
   /* ===================== PLAYER TAB ===================== */
   /* Doll, grafted limbs, AND active effects sit side by side in one top row so everything
@@ -1579,6 +1613,7 @@
   <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
+  <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
@@ -1586,6 +1621,10 @@
 
 <!-- LOOT ROLL TAB -->
 <div id="tab-spin" class="tab-content active">
+  <div class="inv-summary-bar" style="margin-bottom:1rem;">
+    <span>💰 Inventory Value: <strong id="rollInvGp">0 gp</strong></span>
+    <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
+  </div>
   <div class="wheel-layout">
     <div class="wheel-wrap">
 
@@ -2523,6 +2562,29 @@
   </div>
 </div>
 
+<!-- INVENTORY TAB (also single-view for the same drag-and-drop reason as Player & Tokens —
+     the token library it drags from has to be in the same tab as the drop target) -->
+<div id="tab-inventory" class="tab-content">
+  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
+    Drag a token from the library below onto the grid to store it. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Drag a placed item to move it, or click it to remove it.
+  </p>
+  <div class="inv-summary-bar">
+    <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
+    <span>🎒 Slots Used: <strong id="invSlotsUsed">0</strong> / <span id="invSlotsTotal">90</span></span>
+    <button class="action-btn" style="width:auto;max-width:none" onclick="clearInventory()">Clear Inventory</button>
+  </div>
+  <div class="inv-grid-wrap">
+    <div id="inventoryGrid" class="inv-grid"></div>
+  </div>
+
+  <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:0.05em;margin:1.5rem 0 0.6rem;">🎒 Token Library</h3>
+  <div class="token-toolbar">
+    <input type="text" id="invTokenSearch" class="token-search" placeholder="Search items…" oninput="renderInventoryTokenGrid()">
+    <span class="token-count" id="invTokenCount"></span>
+  </div>
+  <div class="token-grid" id="invTokenGrid"></div>
+</div>
+
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
@@ -3379,9 +3441,11 @@ function showTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   btn.classList.add('active');
+  if (tab === 'spin') updateInventorySummary();
   if (tab === 'print') renderPrintTable();
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
+  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); }
   // The Item Compendium tab holds three sub-panels (Items/Spells/Monsters, see
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
@@ -6460,6 +6524,21 @@ function fleshRarityFromTiers(tiers) {
 function formatGpAmount(v) {
   return v >= 1000 ? (v % 1000 === 0 ? (v/1000)+'k gp' : (v/1000).toFixed(1)+'k gp') : v+' gp';
 }
+// The reverse of formatGpAmount — converts ANY gp string found on an item ("50 gp",
+// "1.5k gp", "5 sp", "1 cp", "—") into a flat gold-piece-equivalent number, for totaling
+// up inventory value. Anything unrecognized (dice-roll strings, blank, etc.) is worth 0.
+function gpToNumber(gpStr) {
+  if (!gpStr) return 0;
+  const s = String(gpStr).trim();
+  if (s === '—' || s === '-') return 0;
+  const m = s.match(/^([\d.]+)\s*(k)?\s*(cp|sp|gp|pp)?/i);
+  if (!m) return 0;
+  let val = parseFloat(m[1]);
+  if (!Number.isFinite(val)) return 0;
+  if (m[2]) val *= 1000;
+  const unitMult = { cp:0.01, sp:0.1, gp:1, pp:10 };
+  return val * (unitMult[(m[3] || 'gp').toLowerCase()] ?? 1);
+}
 
 // ===================== COMMERCE PRICING =====================
 // Paying a specialist for a sure thing (a fleshmancer's graft, a merchant's stock) costs
@@ -6888,6 +6967,7 @@ const STORE_ICONS = {
   scroll: { viewBox:'0 0 10 6', rects:[[0,0,2,6],[8,0,2,6],[2,1,6,4]] },
   gem:    { viewBox:'0 0 8 8',  rects:[[2,0,4,2],[0,2,8,2],[1,4,6,2],[2,6,4,1],[3,7,2,1]] },
   paw:    { viewBox:'0 0 8 8',  rects:[[1,0,2,2],[5,0,2,2],[0,2,2,2],[6,2,2,2],[2,3,4,4]] },
+  limb:   { viewBox:'0 0 10 6', rects:[[0,0,3,2],[0,4,3,2],[3,2,4,2],[7,0,3,2],[7,4,3,2]] },
 };
 function storeIconSvg(category, color) {
   return pixelIconSvg(STORE_ICONS[category] || STORE_ICONS.gem, color);
@@ -6914,6 +6994,52 @@ function storeIconCategory(item) {
   if (item.cat === 'armor' || /armor|mail|plate|cuirass|breastplate|vest|pauldron/.test(n)) return 'armor';
   if (item.cat === 'weapon') return 'sword';
   return 'gem';
+}
+
+// ===================== UNIVERSAL ITEM ICONS =====================
+// Every item in the project — lootData, generated, Fleshmancer limbs, companions,
+// literally everything — gets a small 8-bit icon: a base pixel-art silhouette picked from
+// its type/name (the same STORE_ICONS shapes the Store already uses), tinted with a color
+// deterministically derived from the item's own name, plus a small accent pixel at a
+// hash-picked corner. Two swords still both look like swords, but never the same color or
+// accent — "mostly unique" without hand-drawing hundreds of individual sprites.
+function hashItemName(str) {
+  let h = 0;
+  const s = String(str || 'item');
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+// storeIconCategory() only checks item.cat (set by the procedural Store/Generate Item
+// generators) for its armor/weapon fallback — lootData items use item.type instead, so
+// this catches those before they fall through to the generic gem icon.
+function itemIconCategory(item) {
+  if (!item) return 'gem';
+  if (item.type === 'limb') return 'limb';
+  const cat = storeIconCategory(item);
+  if (cat === 'gem') {
+    if (item.type === 'armor') return 'armor';
+    if (item.type === 'weapon') return 'sword';
+  }
+  return cat;
+}
+function itemIconColor(item) {
+  const h = hashItemName(item && item.name);
+  return `hsl(${h % 360}, 58%, 58%)`;
+}
+function itemPixelIcon(item, size) {
+  const category = itemIconCategory(item);
+  const shape = STORE_ICONS[category] || STORE_ICONS.gem;
+  const color = itemIconColor(item);
+  const h = hashItemName(item && item.name);
+  const dims = shape.viewBox.split(' ').map(Number);
+  const vw = dims[2] || 8, vh = dims[3] || 8;
+  const ax = (h % 2) ? vw - 1 : 0;
+  const ay = ((h >> 1) % 2) ? vh - 1 : 0;
+  const accentColor = `hsl(${(h * 7) % 360}, 70%, 72%)`;
+  const rects = shape.rects.map(([x, y, w, rh]) => `<rect x="${x}" y="${y}" width="${w}" height="${rh}" fill="${color}"/>`).join('');
+  const accent = `<rect x="${ax}" y="${ay}" width="1" height="1" fill="${accentColor}"/>`;
+  const px = size || 28;
+  return `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}</svg>`;
 }
 
 // Every merchant always stocks the same handful of mundane staples (flat, non-magical
@@ -7197,8 +7323,19 @@ function renderStoreTab() {
     <div class="store-grid">${staplesHtml}</div>
     <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Reroll</button></h4>
     <div class="store-grid">${dailyHtml}</div>
+    ${currentMerchant === 'trader' ? `
+    <h4 class="store-section-label">💰 Sell Your Goods</h4>
+    <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a token from your inventory below onto the sell zone to trade it in for its gp value.</p>
+    <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to sell it</div>
+    <div class="token-toolbar" style="margin-top:0.8rem;">
+      <input type="text" id="traderSellSearch" class="token-search" placeholder="Search your items…" oninput="renderTraderSellTokenGrid()">
+      <span class="token-count" id="traderSellCount"></span>
+    </div>
+    <div class="token-grid" id="traderSellGrid"></div>
+    ` : ''}
     <div class="store-buy-msg" id="storeBuyMsg"></div>
   `;
+  if (currentMerchant === 'trader') renderTraderSellTokenGrid();
 }
 
 function buyStapleItem(merchantKey, idx) {
@@ -7237,6 +7374,52 @@ function flashStoreBuyMessage(msg) {
   el.classList.add('show');
   clearTimeout(window._storeBuyMsgTimer);
   window._storeBuyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
+// ---------- General Trader: sell zone ----------
+// Its own embedded token library, same reason the Inventory tab has one — drag-and-drop
+// only works within a single visible tab, so the drag source has to live here too.
+function renderTraderSellTokenGrid() {
+  buildTokenIndex();
+  const searchEl = document.getElementById('traderSellSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search));
+  const grid = document.getElementById('traderSellGrid');
+  const countEl = document.getElementById('traderSellCount');
+  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
+  if (!grid) return;
+  if (!entries.length) {
+    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(tokenCardHtml).join('');
+}
+// Accepts a drop from either the sell grid above (a plain token key) or the Inventory
+// tab's placed items (an "invplace:" id) — if it came from a placement, that placement is
+// also removed from the inventory grid, since the item has now actually been sold off.
+function traderSellDrop(evt) {
+  evt.preventDefault();
+  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
+  if (!raw) return;
+  let key = raw, placementId = null;
+  if (raw.indexOf('invplace:') === 0) {
+    placementId = raw.slice('invplace:'.length);
+    const p = inventoryPlacements[placementId];
+    if (!p) { flashTraderSellInvalid(); return; }
+    key = p.key;
+  }
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) { flashTraderSellInvalid(); return; }
+  const value = Math.round(gpToNumber(entry.item.gp) * 100) / 100;
+  if (placementId) removeFromInventory(placementId);
+  flashStoreBuyMessage(`Sold ${entry.item.name} for ${formatGpAmount(value)}.`);
+}
+function flashTraderSellInvalid() {
+  const el = document.getElementById('traderSellZone');
+  if (!el) return;
+  el.classList.add('slot-invalid');
+  setTimeout(() => el.classList.remove('slot-invalid'), 350);
 }
 
 
@@ -8485,7 +8668,7 @@ function tokenCardHtml(e) {
          onmouseenter="showTokenTooltip(event,'${e.key.replace(/'/g,"\\'")}')"
          onmousemove="moveTokenTooltip(event)"
          onmouseleave="hideTokenTooltip()">
-      <div class="token-card-name">${escapeHtml(item.name)}</div>
+      <div class="token-card-head">${itemPixelIcon(item, 30)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
       <div class="token-card-rarity">${rarityNames[e.rarity] || e.rarity}</div>
       <select class="token-slot-select" onclick="event.stopPropagation()" onchange="setTokenSlotOverride('${e.key.replace(/'/g,"\\'")}', this.value)">
         ${options}
@@ -8546,6 +8729,164 @@ function clearAllSlots() {
   Object.keys(playerSlots).forEach(k => playerSlots[k] = null);
   renderPlayerSlots();
   renderActiveEffects();
+}
+
+// ---------- Inventory tab ----------
+// Grid-based storage separate from the doll/limb equip slots: every item occupies a 1-row
+// footprint whose width is its slotSize (1, 2, or 3 — clamped, since slotSize never goes
+// higher than 3 anywhere in the project), laid out left-to-right, never rotated/stacked
+// vertically. inventoryGrid[row][col] holds the placement id occupying that cell (or null);
+// inventoryPlacements maps a placement id to where it lives and which token it is.
+const INV_ROWS = 5, INV_COLS = 18;
+let inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
+let inventoryPlacements = {};
+let inventoryPlacementCounter = 0;
+
+function invCanPlaceAt(row, col, w) {
+  if (row < 0 || row >= INV_ROWS || col < 0 || col + w > INV_COLS) return false;
+  for (let c = col; c < col + w; c++) { if (inventoryGrid[row][c]) return false; }
+  return true;
+}
+
+let _draggedInvPlacement = null;
+function inventoryItemDragStart(evt, placementId) {
+  _draggedInvPlacement = placementId;
+  evt.dataTransfer.setData('text/plain', 'invplace:' + placementId);
+  evt.dataTransfer.effectAllowed = 'move';
+}
+
+function flashInvCellInvalid(row, col) {
+  const el = document.getElementById('inv-cell-' + row + '-' + col);
+  if (!el) return;
+  el.classList.add('slot-invalid');
+  setTimeout(() => el.classList.remove('slot-invalid'), 350);
+}
+
+// Handles both a fresh token dragged in from the library (place it) and an existing
+// placement dragged to a new spot (move it, snapping back to its old spot if the new one
+// doesn't fit).
+function inventoryCellDrop(evt, row, col) {
+  evt.preventDefault();
+  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
+  if (!raw) return;
+
+  if (raw.indexOf('invplace:') === 0) {
+    const placementId = raw.slice('invplace:'.length);
+    const p = inventoryPlacements[placementId];
+    if (!p) return;
+    const oldRow = p.row, oldCol = p.col;
+    for (let c = oldCol; c < oldCol + p.w; c++) inventoryGrid[oldRow][c] = null;
+    if (invCanPlaceAt(row, col, p.w)) {
+      p.row = row; p.col = col;
+      for (let c = col; c < col + p.w; c++) inventoryGrid[row][c] = placementId;
+    } else {
+      for (let c = oldCol; c < oldCol + p.w; c++) inventoryGrid[oldRow][c] = placementId;
+      flashInvCellInvalid(row, col);
+    }
+    renderInventoryGrid();
+    return;
+  }
+
+  const key = raw;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) return;
+  const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+  if (!invCanPlaceAt(row, col, w)) { flashInvCellInvalid(row, col); return; }
+  const placementId = 'inv' + (++inventoryPlacementCounter);
+  inventoryPlacements[placementId] = { key, row, col, w };
+  for (let c = col; c < col + w; c++) inventoryGrid[row][c] = placementId;
+  renderInventoryGrid();
+}
+
+function removeFromInventory(placementId) {
+  const p = inventoryPlacements[placementId];
+  if (!p) return;
+  for (let c = p.col; c < p.col + p.w; c++) inventoryGrid[p.row][c] = null;
+  delete inventoryPlacements[placementId];
+  renderInventoryGrid();
+}
+
+function clearInventory() {
+  inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
+  inventoryPlacements = {};
+  renderInventoryGrid();
+}
+
+function renderInventoryGrid() {
+  const el = document.getElementById('inventoryGrid');
+  if (el) {
+    let html = '';
+    for (let row = 0; row < INV_ROWS; row++) {
+      html += `<div class="inv-row">`;
+      let col = 0;
+      while (col < INV_COLS) {
+        const placementId = inventoryGrid[row][col];
+        const p = placementId ? inventoryPlacements[placementId] : null;
+        if (p && p.col === col) {
+          const entry = TOKEN_INDEX[p.key];
+          const name = entry ? entry.item.name : '(missing item)';
+          const rarity = entry ? entry.rarity : 'common';
+          const icon = entry ? itemPixelIcon(entry.item, 22) : '';
+          const safeKey = p.key.replace(/'/g, "\\'");
+          html += `<div class="inv-item ${rarity}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
+            ondragstart="inventoryItemDragStart(event,'${placementId}')"
+            onclick="removeFromInventory('${placementId}')"
+            onmouseenter="showTokenTooltip(event,'${safeKey}')"
+            onmousemove="moveTokenTooltip(event)"
+            onmouseleave="hideTokenTooltip()">${icon}<span class="inv-item-name">${escapeHtml(name)}</span></div>`;
+          col += p.w;
+        } else {
+          html += `<div class="inv-cell" id="inv-cell-${row}-${col}" ondragover="slotDragOver(event)" ondrop="inventoryCellDrop(event,${row},${col})"></div>`;
+          col++;
+        }
+      }
+      html += `</div>`;
+    }
+    el.innerHTML = html;
+  }
+  updateInventorySummary();
+}
+
+function renderInventoryTokenGrid() {
+  buildTokenIndex();
+  const searchEl = document.getElementById('invTokenSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search));
+  const grid = document.getElementById('invTokenGrid');
+  const countEl = document.getElementById('invTokenCount');
+  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
+  if (!grid) return;
+  if (!entries.length) {
+    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(tokenCardHtml).join('');
+}
+
+// Totals up everything currently placed in the inventory grid and mirrors the result both
+// on the Inventory tab itself and in the summary bar at the top of the Roll Loot tab.
+function updateInventorySummary() {
+  let totalGp = 0, slotsUsed = 0;
+  Object.values(inventoryPlacements).forEach(p => {
+    const entry = TOKEN_INDEX[p.key];
+    if (entry) totalGp += gpToNumber(entry.item.gp);
+    slotsUsed += p.w;
+  });
+  totalGp = Math.round(totalGp * 100) / 100;
+  const totalSlots = INV_ROWS * INV_COLS;
+  const gpText = formatGpAmount(totalGp);
+  const slotsText = slotsUsed + ' / ' + totalSlots;
+  const invGpEl = document.getElementById('invTotalGp');
+  const invSlotsEl = document.getElementById('invSlotsUsed');
+  const invSlotsTotalEl = document.getElementById('invSlotsTotal');
+  if (invGpEl) invGpEl.textContent = gpText;
+  if (invSlotsEl) invSlotsEl.textContent = slotsUsed;
+  if (invSlotsTotalEl) invSlotsTotalEl.textContent = totalSlots;
+  const rollGpEl = document.getElementById('rollInvGp');
+  const rollSlotsEl = document.getElementById('rollInvSlots');
+  if (rollGpEl) rollGpEl.textContent = gpText;
+  if (rollSlotsEl) rollSlotsEl.textContent = slotsText;
 }
 
 // ---------- Saved loadouts ----------
@@ -8726,7 +9067,7 @@ function buildTooltipHtml(entry) {
     modsHtml = `<div class="tt-mods">${item.mods.map(m => `<div class="tt-mod"><b>${escapeHtml(m.type)}:</b> ${colorizeModifierText(m.text, m.type)}</div>`).join('')}</div>`;
   }
   return `
-    <div class="tt-header ${rarity}">${escapeHtml(item.name)}</div>
+    <div class="tt-header ${rarity}" style="display:flex;align-items:center;gap:0.5rem;">${itemPixelIcon(item, 24)}<span>${escapeHtml(item.name)}</span></div>
     <div class="tt-rarity">${rarityNames[rarity] || rarity}${typeLabel ? ' · ' + escapeHtml(typeLabel) : ''} · ${SLOT_TYPES.find(s=>s.id===getTokenSlotType(entry))?.label || ''}</div>
     ${statsLine}
     ${item.desc ? `<div class="tt-desc">${escapeHtml(item.desc)}</div>` : ''}
