@@ -1469,6 +1469,7 @@
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
+  <button class="tab-btn" onclick="showTab('monsters',this)">🐉 Monster Compendium</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
 
@@ -2177,6 +2178,32 @@
   <div class="spells-toolbar"><span class="spells-count" id="spellCount">Loading spell database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadSpellDatabase(true)">↻ Refresh Spell Data</button></div>
   <div class="spell-table-wrap" id="spellTableWrap"><div class="spell-loading">Loading the official-source spell catalog…</div></div>
   <div class="spell-detail" id="spellDetail"></div>
+</div>
+
+<!-- MONSTER COMPENDIUM TAB -->
+<div id="tab-monsters" class="tab-content">
+  <p class="spells-intro">
+    Official D&amp;D 5e monster stat blocks — the groundwork for an eventual combat simulator where you'll be able to pick a handful of
+    creatures and see every attack each one can make. Search, filter, and click a creature for its full stat block: AC, HP, hit dice,
+    ability scores, saves, skills, senses, and every trait/action/legendary action it has.
+  </p>
+  <div class="spell-warning">
+    <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
+    This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
+  </div>
+  <div class="spells-controls">
+    <input id="monsterSearch" type="text" placeholder="Search creature name, type, trait, action…" oninput="renderMonsterTable()">
+    <select id="monsterTypeFilter" onchange="renderMonsterTable()"><option value="all">All Types</option></select>
+    <select id="monsterSizeFilter" onchange="renderMonsterTable()">
+      <option value="all">All Sizes</option><option value="Tiny">Tiny</option><option value="Small">Small</option>
+      <option value="Medium">Medium</option><option value="Large">Large</option><option value="Huge">Huge</option><option value="Gargantuan">Gargantuan</option>
+    </select>
+    <select id="monsterSourceFilter" onchange="renderMonsterTable()"><option value="all">All Sources</option></select>
+    <label>Sort: <select id="monsterSort" onchange="renderMonsterTable()" style="width:auto;padding:.18rem .35rem"><option value="cr">Challenge Rating</option><option value="name">Name</option><option value="type">Type</option><option value="size">Size</option><option value="source">Source</option></select></label>
+  </div>
+  <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
+  <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
+  <div class="spell-detail" id="monsterDetail"></div>
 </div>
 
 <!-- PLAYER & TOKENS TAB (single view so drag-and-drop works — dragging between
@@ -3062,6 +3089,7 @@ function showTab(tab, btn) {
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   if (tab === 'spells') { loadSpellDatabase(false); }
+  if (tab === 'monsters') { loadMonsterDatabase(false); }
   if (tab === 'store') { renderStoreTab(); }
 }
 
@@ -5418,6 +5446,23 @@ function pickNamedTrait(rarity, modest, usedKeys = []) {
   return { key: 'trait:'+mod.name, name: mod.name, text };
 }
 
+// What a summon modifier actually conjures, by rarity tier — biased toward genuinely
+// mundane animals at the low end (a squirrel, a hawk, a wolf...) rather than escalating
+// straight to elementals and fiends. Only celestial reaches into GEN.summonEntities'
+// named epic entities (demon lords, solars, etc.) — see pickSummonEntity() below.
+const SUMMON_TIERS = [
+  ['a squirrel','a raven','a rat swarm','a stray dog','a barn owl','a tiny elemental spark'],
+  ['a wolf','a hawk','a black bear','a boar','a giant spider','a minor elemental'],
+  ['a dire wolf','a brown bear','a giant eagle','a swarm of hawks','a giant boar','a lesser elemental'],
+  ['a grizzly bear','a pack of 2 wolves','a giant elk','a hunting owlbear','a giant vulture','a greater elemental'],
+  ['a veteran war-bear','a young elemental drake','a dire wolf pack (3 wolves)','a formidable fiend','an ancient elemental','a planetar-like champion'],
+];
+function pickSummonEntity(idx) {
+  if (idx < SUMMON_TIERS.length) return ri(SUMMON_TIERS[idx]);
+  // Celestial: draw from the epic named entities, same three-slice mix as before.
+  return ri([ri(GEN.summonEntities.slice(10,20)), ri(GEN.summonEntities.slice(20,35)), ri(GEN.summonEntities.slice(0,10))]);
+}
+
 // Generates a single modifier of a SPECIFIC type (called by generateUniqueItem)
 // Returns { type, text, key } where key is used to deduplicate specific content
 function generateModifierOfType(type, rarity, usedKeys = []) {
@@ -5459,15 +5504,7 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
     return { type:'Transform', key:'transform:'+form, text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.` };
   }
   if (type === 'summon') {
-    const summons = [
-      ['a spectral scout','a trained wolf spirit','a minor elemental'],
-      ['a guardian spirit','a hunting beast','a minor elemental'],
-      ['a powerful beast spirit','a greater elemental','a celestial messenger'],
-      ['a greater elemental','a veteran celestial guardian','a formidable fiend'],
-      ['a planetar-like champion','an ancient elemental','a mighty extraplanar guardian'],
-      [ri(GEN.summonEntities.slice(10,20)),ri(GEN.summonEntities.slice(20,35)),ri(GEN.summonEntities.slice(0,10))]
-    ][idx] || ['a minor elemental'];
-    const entity = ri(summons);
+    const entity = pickSummonEntity(idx);
     const count = idx>=4&&Math.random()<0.3?2:1;
     return { type:'Summon', key:'summon:'+entity, text:`Summons <strong>${count} ${entity}</strong> for <strong>${dur}</strong>. It follows reasonable commands and vanishes when the duration ends.` };
   }
@@ -5818,7 +5855,7 @@ const FLESH_OUTCOMES = [
   { key:'unstable', label:'Unstable Graft', success:true, quality:'unstable',
     text:'The limb takes, but uneasily — visible seams, faint discoloration, occasional involuntary spasms. It works, but its granted power comes through muted and unreliable.' },
   { key:'partial', label:'Partial Success', success:true, quality:'partial',
-    text:'The graft holds and functions exactly as intended, though the join is visible and the limb never quite matches the rest of the body in tone or temperature.' },
+    text:'The graft holds and the limb is unmistakably alive, though the join is visible and it never quite matches the rest of the body in tone or temperature. Its power comes through a little dampened, like a signal through a wall.' },
   { key:'successful', label:'Successful Attachment', success:true, quality:'normal',
     text:'A clean graft. Within a day the limb responds to command as though it had always been there.' },
   { key:'seamless', label:'Seamless Attachment', success:true, quality:'seamless',
@@ -5846,13 +5883,54 @@ function fleshRollOutcome(rarity) {
 }
 // Applies the roll quality to the effects that actually get attached — a botched-but-
 // successful graft comes through weaker, an exceptional one comes through stronger.
+// Every duration string used anywhere in the app, ordered shortest to longest, so a
+// graft's outcome quality can shift a modifier's duration up or down the ladder instead
+// of just leaving it untouched. "permanently" sits at the very top, reachable only via
+// a transcendent graft pushing an already-celestial duration off the end.
+const DURATION_LADDER = ['1 minute','10 minutes','1 hour','8 hours','24 hours','3 days','7 days','30 days','1 year','permanently'];
+function shiftDuration(dur, shift) {
+  const idx = DURATION_LADDER.indexOf(dur);
+  if (idx === -1 || shift === 0) return dur;
+  const newIdx = Math.min(DURATION_LADDER.length - 1, Math.max(0, idx + shift));
+  return DURATION_LADDER[newIdx];
+}
+// Rewrites a modifier's already-built text in place: scales every "+N"/"-N" magnitude
+// (buff/debuff/skill/trait amounts — the only numbers in modifier text that ever carry a
+// leading sign) by magMult, and shifts any duration phrase up/down DURATION_LADDER by
+// durShift rungs. Deliberately does NOT touch unsigned numbers (DC values, summon counts,
+// dice notation), so it only affects the things a botched or exceptional graft should.
+function rescaleModifierText(text, magMult, durShift) {
+  let out = text;
+  if (magMult !== 1) {
+    out = out.replace(/([+-])(\d+)/g, (m, sign, numStr) => sign + Math.max(1, Math.round(parseInt(numStr, 10) * magMult)));
+  }
+  if (durShift !== 0) {
+    const byLengthDesc = [...DURATION_LADDER].sort((a, b) => b.length - a.length);
+    for (const d of byLengthDesc) {
+      if (out.includes(d)) { out = out.split(d).join(shiftDuration(d, durShift)); break; }
+    }
+  }
+  return out;
+}
+// How much a graft's success quality bends the numbers: a poorly-attached limb comes
+// through weaker and shorter-lived; an exceptional one comes through stronger and longer.
+const FLESH_QUALITY_SCALE = {
+  unstable:     { magMult: 0.35, durShift: -4 },
+  partial:      { magMult: 0.7,  durShift: -2 },
+  normal:       { magMult: 1,    durShift: 0  },
+  seamless:     { magMult: 1.15, durShift: 1  },
+  transcendent: { magMult: 1.4,  durShift: 2  },
+};
 function fleshApplyQuality(candidate, quality) {
-  let mods = candidate.mods.map(m => ({ ...m }));
+  const scale = FLESH_QUALITY_SCALE[quality] || FLESH_QUALITY_SCALE.normal;
+  let mods = candidate.mods.map(m => ({ ...m, text: rescaleModifierText(m.text, scale.magMult, scale.durShift) }));
   let rarity = candidate.rarity;
   let note = '';
   if (quality === 'unstable') {
-    mods = mods.map(m => ({ ...m, text: m.text + ' <em>(unstable — GM discretion: may lapse under stress)</em>' }));
-    note = 'This graft is unstable.';
+    mods = mods.map(m => ({ ...m, text: m.text + ' <em>(unstable — its power came through badly weakened and short-lived)</em>' }));
+    note = 'This graft is unstable — its rolled effects came through noticeably weaker than intended.';
+  } else if (quality === 'partial') {
+    note = 'The graft is functional but imperfect — its effects came through a little muted.';
   } else if (quality === 'seamless') {
     note = 'This graft is seamless, its effects performing slightly beyond their normal baseline.';
   } else if (quality === 'transcendent') {
@@ -6494,10 +6572,12 @@ function pickWeightedType(pool, exclude = []) {
 // Normalizes legacy wheel entries and gives every result a rarity-scaled value and appropriate basic qualities.
 const BAL = {
   rarityOrder:['common','uncommon','rare','superrare','legendary','celestial'],
+  // Only celestial-rarity effects can ever roll "permanently" — everything below that,
+  // including legendary, is long-lasting but still has a listed end date.
   durations:{
     common:['1 minute','10 minutes','1 hour'], uncommon:['10 minutes','1 hour','8 hours'],
     rare:['1 hour','8 hours','24 hours'], superrare:['24 hours','3 days','7 days'],
-    legendary:['permanently'], celestial:['permanently']
+    legendary:['7 days','30 days','1 year'], celestial:['30 days','1 year','permanently']
   },
   // Rarity-gated subsets of POWER_POOL (see above) — derived, not duplicated, so editing a
   // power's name or tier in POWER_POOL never leaves this out of sync.
@@ -6565,16 +6645,8 @@ function generateModifier(rarity) {
     return {type:'Transform',text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.`};
   }
   if(type==='summon'){
-    // Lower tiers summon only a single, temporary ally; apex tiers unlock major entities.
-    const summons=[
-      ['a spectral scout','a trained wolf spirit','a minor elemental'],
-      ['a guardian spirit','a hunting beast','a minor elemental'],
-      ['a powerful beast spirit','a greater elemental','a celestial messenger'],
-      ['a greater elemental','a veteran celestial guardian','a formidable fiend'],
-      ['a planetar-like champion','an ancient elemental','a mighty extraplanar guardian'],
-      [ri(GEN.summonEntities.slice(10,20)),ri(GEN.summonEntities.slice(20,35)),ri(GEN.summonEntities.slice(0,10))]
-    ][idx];
-    const entity=ri(summons);
+    // Lower tiers summon mundane animals; apex tiers unlock major named entities.
+    const entity=pickSummonEntity(idx);
     const count=idx>=4&&Math.random()<0.3?2:1;
     return {type:'Summon',text:`Summons <strong>${count} ${entity}</strong> for <strong>${dur}</strong>. It follows reasonable commands and vanishes when the duration ends.`};
   }
@@ -7788,11 +7860,13 @@ function spellFlattenEntries(entries){
   return '';
 }
 // Strips 5etools {@tag ...} reference markup down to its plain display text.
+const ATK_TYPE_LABELS = { mw:'Melee Weapon Attack', rw:'Ranged Weapon Attack', ms:'Melee Spell Attack', rs:'Ranged Spell Attack', mo:'Melee or Ranged Weapon Attack' };
 function spellCleanTags(text){
   if(!text) return '';
   return String(text)
     .replace(/\{@h\}/g, 'Hit: ')
     .replace(/\{@hit (-?\d+)\}/g, (m,n)=> (n.startsWith('-')?n:'+'+n))
+    .replace(/\{@atk ([a-z,]+)\}/g, (m,codes)=> codes.split(',').map(c=>ATK_TYPE_LABELS[c]||c).join(' or ') + ':')
     .replace(/\{@(?:dice|damage|scaledice|scaledamage) ([^}|]*)(?:\|[^}]*)*\}/g, (m,dice)=>dice)
     .replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)*\}/g, (m,label)=>label)
     .replace(/\{@\w+\}/g, '')
@@ -7905,6 +7979,181 @@ function copySpellMetadata(i){
   const s=spellDatabase[i];if(!s)return;
   const txt=[`${s.name} — ${spellLevelLabel(s.level)} ${s.schoolName}`,`Casting: ${s.casting}`,`Range: ${s.rangeLabel}`,`Duration: ${s.durationLabel}`,`Components: ${s.componentsLabel}`,`Concentration: ${s.concentration?'Yes':'No'} | Ritual: ${s.ritual?'Yes':'No'}`,`Save: ${s.save} | Attack: ${s.attack}`,`Damage: ${s.damage} | Conditions: ${s.conditions}`,`Hit Dice: ${s.hitDice}`,`Source: ${s.sourceLabel}${s.page?' p. '+s.page:''}`,``,s.description||''].join('\n');
   navigator.clipboard?.writeText(txt);
+}
+
+// ===================== MONSTER COMPENDIUM =====================
+// Same official-source pattern as the Spell Compendium above: fetch structured stat
+// blocks from the same 5etools mirror, normalize, and render as a searchable table plus
+// a detail view. This is the data foundation for an eventual combat simulator, so every
+// creature keeps its full action/attack list, not just headline stats.
+// Starting with just the core Monster Manual — add more `code: 'file.json'` entries here
+// to pull in additional source books later without touching anything else.
+const MONSTER_DATA_ROOT = 'https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-src/main/data/bestiary/';
+const MONSTER_SOURCE_FILES = { MM: 'bestiary-mm.json' };
+const MONSTER_SIZE_NAMES = { T:'Tiny', S:'Small', M:'Medium', L:'Large', H:'Huge', G:'Gargantuan' };
+
+let monsterDatabase = [];
+let monsterDatabaseLoaded = false;
+let monsterLoadToken = 0;
+
+function monsterAbilityMod(score) {
+  if (score == null) return '—';
+  const mod = Math.floor((score - 10) / 2);
+  return (mod >= 0 ? '+' : '') + mod;
+}
+// Traits/actions/bonus actions/reactions/legendary actions all share the same
+// {name, entries} shape in the source data.
+function monsterActionList(list) {
+  return (list || []).map(a => ({
+    name: a.name || 'Unnamed',
+    text: spellCleanTags(spellFlattenEntries(a.entries)),
+  }));
+}
+function monsterNormalize(raw) {
+  const acEntry = Array.isArray(raw.ac) ? raw.ac[0] : raw.ac;
+  const ac = acEntry == null ? '—' : (typeof acEntry === 'number' ? acEntry : (acEntry.ac ?? '—'));
+  const acFrom = (acEntry && acEntry.from) ? acEntry.from.map(x => spellCleanTags(String(x))).join(', ') : '';
+  const hp = raw.hp ? `${raw.hp.average ?? '—'}${raw.hp.formula ? ' (' + raw.hp.formula + ')' : ''}` : '—';
+  const size = Array.isArray(raw.size) ? raw.size.map(s => MONSTER_SIZE_NAMES[s] || s).join('/') : (MONSTER_SIZE_NAMES[raw.size] || raw.size || '—');
+  const type = typeof raw.type === 'string' ? spellCap(raw.type)
+    : (raw.type ? spellCap(raw.type.type || 'unknown') + (raw.type.tags && raw.type.tags.length ? ' (' + raw.type.tags.map(t => typeof t === 'string' ? t : t.tag).join(', ') + ')' : '') : 'Unknown');
+  const alignment = Array.isArray(raw.alignment) ? raw.alignment.map(a=>typeof a==='string'?a:(a.alignment||[]).join('')).join(' ') : (raw.alignment || '—');
+  const speed = raw.speed
+    ? (Object.entries(raw.speed).filter(([k]) => k !== 'canHover' && k !== 'choose')
+        .map(([k, v]) => (k === 'walk' ? '' : spellCap(k) + ' ') + (typeof v === 'object' ? v.number : v) + ' ft.').join(', ') || '—')
+    : '—';
+  const cr = raw.cr && typeof raw.cr === 'object' ? (raw.cr.cr || '—') : (raw.cr ?? '—');
+  const skills = raw.skill ? Object.entries(raw.skill).map(([k, v]) => spellCap(k) + ' ' + v).join(', ') : '—';
+  const saves = raw.save ? Object.entries(raw.save).map(([k, v]) => k.toUpperCase() + ' ' + v).join(', ') : '—';
+  const senses = [(raw.senses || []).join(', '), raw.passive ? `passive Perception ${raw.passive}` : ''].filter(Boolean).join(', ') || '—';
+  const languages = (raw.languages || []).join(', ') || '—';
+  return {
+    name: raw.name, source: raw.source, page: raw.page,
+    size, type, alignment, ac, acFrom, hp, speed, cr,
+    str: raw.str, dex: raw.dex, con: raw.con, int: raw.int, wis: raw.wis, cha: raw.cha,
+    skills, saves, senses, languages,
+    traits: monsterActionList(raw.trait),
+    actions: monsterActionList(raw.action),
+    bonusActions: monsterActionList(raw.bonus),
+    reactions: monsterActionList(raw.reaction),
+    legendary: monsterActionList(raw.legendary),
+    sourceLabel: spellSourceLabel(raw.source),
+  };
+}
+async function fetchMonsterSet() {
+  const results = await Promise.all(Object.entries(MONSTER_SOURCE_FILES).map(async ([code, file]) => {
+    try {
+      const j = await fetch(MONSTER_DATA_ROOT + file, { cache:'no-store' }).then(r => { if (!r.ok) throw new Error('Could not load ' + file); return r.json(); });
+      return (j.monster || []).map(monsterNormalize);
+    } catch (e) { console.warn('Monster source failed', code, e); return []; }
+  }));
+  return results.flat();
+}
+async function loadMonsterDatabase(force = false) {
+  const token = ++monsterLoadToken;
+  const wrap = document.getElementById('monsterTableWrap'); if (!wrap) return;
+  if (monsterDatabaseLoaded && !force) { renderMonsterTable(); return; }
+  wrap.innerHTML = '<div class="spell-loading">Loading monster source data…</div>';
+  try {
+    const all = await fetchMonsterSet();
+    if (token !== monsterLoadToken) return;
+    monsterDatabase = all;
+    monsterDatabaseLoaded = true;
+    populateMonsterFilters();
+    renderMonsterTable();
+  } catch (err) {
+    wrap.innerHTML = '<div class="spell-loading">Unable to load the monster database. This tab needs an internet connection to retrieve the structured source records. Try Refresh Monster Data.</div>';
+    const countEl = document.getElementById('monsterCount');
+    if (countEl) countEl.textContent = 'Monster database unavailable';
+    console.error(err);
+  }
+}
+function populateMonsterFilters() {
+  const typeEl = document.getElementById('monsterTypeFilter');
+  const srcEl = document.getElementById('monsterSourceFilter');
+  if (typeEl) {
+    const oldT = typeEl.value;
+    const types = [...new Set(monsterDatabase.map(m => m.type.split(' (')[0]))].sort();
+    typeEl.innerHTML = '<option value="all">All Types</option>' + types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    if (types.includes(oldT)) typeEl.value = oldT;
+  }
+  if (srcEl) {
+    const oldS = srcEl.value;
+    const sources = [...new Map(monsterDatabase.map(m => [m.source, m.sourceLabel])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    srcEl.innerHTML = '<option value="all">All Sources</option>' + sources.map(([code, label]) => `<option value="${escapeHtml(code)}">${escapeHtml(label)}</option>`).join('');
+    if (sources.some(x => x[0] === oldS)) srcEl.value = oldS;
+  }
+}
+// Sorts fractional CRs (e.g. "1/4", "1/8") correctly alongside whole numbers.
+function crSortValue(cr) {
+  if (cr == null || cr === '—') return -1;
+  const s = String(cr);
+  if (s.includes('/')) { const [a, b] = s.split('/').map(Number); return b ? a / b : 0; }
+  return Number(s) || 0;
+}
+function monsterMatches(m) {
+  const q = (document.getElementById('monsterSearch')?.value || '').toLowerCase().trim();
+  const typeFilter = document.getElementById('monsterTypeFilter')?.value || 'all';
+  const sizeFilter = document.getElementById('monsterSizeFilter')?.value || 'all';
+  const srcFilter = document.getElementById('monsterSourceFilter')?.value || 'all';
+  if (typeFilter !== 'all' && !m.type.startsWith(typeFilter)) return false;
+  if (sizeFilter !== 'all' && !m.size.includes(sizeFilter)) return false;
+  if (srcFilter !== 'all' && m.source !== srcFilter) return false;
+  if (q) {
+    const hay = [m.name, m.type, m.size, m.sourceLabel, m.alignment,
+      ...(m.traits||[]).map(t=>t.name+' '+t.text), ...(m.actions||[]).map(a=>a.name+' '+a.text)
+    ].join(' ').toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+function renderMonsterTable() {
+  const wrap = document.getElementById('monsterTableWrap'); if (!wrap) return;
+  const sort = document.getElementById('monsterSort')?.value || 'cr';
+  const rows = monsterDatabase.filter(monsterMatches).sort((a, b) => {
+    if (sort === 'cr') return crSortValue(a.cr) - crSortValue(b.cr) || a.name.localeCompare(b.name);
+    if (sort === 'name') return a.name.localeCompare(b.name);
+    if (sort === 'type') return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
+    if (sort === 'size') return a.size.localeCompare(b.size) || a.name.localeCompare(b.name);
+    return a.sourceLabel.localeCompare(b.sourceLabel) || a.name.localeCompare(b.name);
+  });
+  const countEl = document.getElementById('monsterCount');
+  if (countEl) countEl.textContent = `${rows.length.toLocaleString()} creature${rows.length===1?'':'s'} shown · ${monsterDatabase.length.toLocaleString()} loaded`;
+  if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match the current filters.</div>'; return; }
+  const html = `<table id="monsterTable"><thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Alignment</th><th>AC</th><th>HP</th><th>Speed</th><th>CR</th><th>Source</th></tr></thead><tbody>${rows.map((m,i)=>monsterRowHtml(m,i)).join('')}</tbody></table>`;
+  wrap.innerHTML = html;
+}
+function monsterRowHtml(m) {
+  return `<tr onclick="showMonsterDetail(${monsterDatabase.indexOf(m)})"><td><div class="spell-name">${escapeHtml(m.name)}</div></td><td>${escapeHtml(m.size)}</td><td><span class="spell-school">${escapeHtml(m.type)}</span></td><td>${escapeHtml(m.alignment)}</td><td>${escapeHtml(String(m.ac))}</td><td>${escapeHtml(m.hp)}</td><td>${escapeHtml(m.speed)}</td><td><span class="spell-level">${escapeHtml(String(m.cr))}</span></td><td><span class="spell-source">${escapeHtml(m.source)}</span></td></tr>`;
+}
+function monsterAbilityBlockHtml(m) {
+  return [['STR','str'],['DEX','dex'],['CON','con'],['INT','int'],['WIS','wis'],['CHA','cha']]
+    .map(([label,key]) => `<div class="spell-detail-field"><span class="spell-detail-label">${label}</span><span class="spell-detail-value">${m[key] ?? '—'} (${monsterAbilityMod(m[key])})</span></div>`).join('');
+}
+function monsterActionsHtml(list, label) {
+  if (!list || !list.length) return '';
+  return `<div class="ic-mod-group"><div class="ic-mod-label">${escapeHtml(label)}</div>${list.map(a => `<div class="ic-mod-entry"><strong>${escapeHtml(a.name)}.</strong> ${escapeHtml(a.text).replace(/\n/g,'<br>')}</div>`).join('')}</div>`;
+}
+function showMonsterDetail(i) {
+  const m = monsterDatabase[i]; const el = document.getElementById('monsterDetail'); if (!m || !el) return;
+  const fields = [
+    ['Size',m.size],['Type',m.type],['Alignment',m.alignment],
+    ['Armor Class', m.ac + (m.acFrom ? ' (' + m.acFrom + ')' : '')],
+    ['Hit Points',m.hp],['Speed',m.speed],['Challenge Rating',m.cr],
+    ['Saving Throws',m.saves],['Skills',m.skills],['Senses',m.senses],['Languages',m.languages],
+    ['Source',m.sourceLabel],['Page',m.page ?? '—'],
+  ];
+  const actionsHtml = [
+    monsterActionsHtml(m.traits, 'Traits'),
+    monsterActionsHtml(m.actions, 'Actions'),
+    monsterActionsHtml(m.bonusActions, 'Bonus Actions'),
+    monsterActionsHtml(m.reactions, 'Reactions'),
+    monsterActionsHtml(m.legendary, 'Legendary Actions'),
+  ].join('');
+  el.innerHTML = `<div class="spell-detail-head"><div><div class="spell-detail-name">${escapeHtml(m.name)}</div><div class="spell-detail-sub">${escapeHtml(m.sourceLabel)}</div></div><button class="edit-modal-close" onclick="document.getElementById('monsterDetail').classList.remove('open')">×</button></div>
+    <div class="spell-detail-grid">${monsterAbilityBlockHtml(m)}${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div>
+    <div class="ic-modifiers" style="margin-top:1rem;">${actionsHtml}</div>`;
+  el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 </script>
