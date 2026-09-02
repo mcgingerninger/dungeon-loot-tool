@@ -775,6 +775,7 @@
   .ic-stat.ac      { color: var(--rare); border-color: rgba(91,156,246,0.4); }
   .ic-stat.hp      { color: var(--uncommon); border-color: rgba(76,175,125,0.4); }
   .ic-stat.gp      { color: var(--gold); border-color: rgba(201,168,76,0.5); }
+  .ic-stat.charges { color: var(--superrare); border-color: rgba(196,124,245,0.4); }
 
   .ic-desc {
     font-size: 1rem; line-height: 1.65; color: var(--text);
@@ -902,8 +903,11 @@
   .store-merchant-btn:hover { border-color: var(--gold); color: var(--gold); }
   .store-merchant-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
   .store-merchant-icon { font-size: 1.3rem; }
+  .store-merchant-portrait { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); flex-shrink: 0; }
+  .store-merchant-portrait svg { width: 100%; height: 100%; }
+  .store-merchant-portrait.large { width: 64px; height: 64px; }
   .store-panel { min-height: 200px; }
-  .store-merchant-head { margin-bottom: 1rem; }
+  .store-merchant-head { margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; }
   .store-merchant-title { font-size: 1.3rem; color: var(--gold-bright); font-weight: 600; }
   .store-merchant-flavor { color: var(--text-dim); font-style: italic; font-size: 0.92rem; margin-top: 0.3rem; }
   .store-section-label {
@@ -1278,6 +1282,17 @@
   .slot-token.superrare { color:var(--superrare); }
   .slot-token.legendary { color:var(--legendary); }
   .slot-token.celestial { color:var(--celestial); }
+
+  /* Grafted-limb slots — same doll-slot look, tinted toward the danger color so this
+     panel reads as visually distinct from ordinary equipment. */
+  .limbs-panel { background:var(--surface); border:1px solid var(--border); padding:1.2rem; margin-bottom:1.5rem; }
+  .limbs-panel h3 { color:var(--gold); font-size:1.05rem; letter-spacing:0.06em; margin-bottom:0.4rem; }
+  .limbs-panel-note { color:var(--text-dim); font-size:0.82rem; font-style:italic; margin-bottom:0.9rem; }
+  .limbs-grid { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+  .limb-slot-wrap { display:flex; flex-direction:column; align-items:center; gap:0.3rem; }
+  .limb-slot-label { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; }
+  .doll-slot.limb { width:72px; height:66px; border-color:rgba(224,82,82,0.4); }
+  .doll-slot.limb.filled { border-color:var(--danger); }
 
   .active-effects-panel {
     background:var(--surface); border:1px solid var(--border); padding:1.2rem;
@@ -2203,6 +2218,31 @@
         <button class="action-btn" style="margin-top:1rem;" onclick="clearAllSlots()">Unequip All</button>
       </div>
 
+      <div class="limbs-panel">
+        <h3>🩸 Grafted Limbs</h3>
+        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab (or any item whose slot is manually set to a Limb category) go here.</p>
+        <div class="limbs-grid">
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Arm</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Hand</span><div class="doll-slot limb" id="slot-limbHand1" data-slot="limbHand1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Hand</span><div class="doll-slot limb" id="slot-limbHand2" data-slot="limbHand2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Leg</span><div class="doll-slot limb" id="slot-limbLeg1" data-slot="limbLeg1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Leg</span><div class="doll-slot limb" id="slot-limbLeg2" data-slot="limbLeg2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Foot</span><div class="doll-slot limb" id="slot-limbFoot1" data-slot="limbFoot1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Foot</span><div class="doll-slot limb" id="slot-limbFoot2" data-slot="limbFoot2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Eye</span><div class="doll-slot limb" id="slot-limbEye1" data-slot="limbEye1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Eye</span><div class="doll-slot limb" id="slot-limbEye2" data-slot="limbEye2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Ear</span><div class="doll-slot limb" id="slot-limbEar1" data-slot="limbEar1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Ear</span><div class="doll-slot limb" id="slot-limbEar2" data-slot="limbEar2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger1" data-slot="limbFinger1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger1')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger2" data-slot="limbFinger2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger2')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger3" data-slot="limbFinger3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger3')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Finger</span><div class="doll-slot limb" id="slot-limbFinger4" data-slot="limbFinger4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger4')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Heart</span><div class="doll-slot limb" id="slot-limbHeart" data-slot="limbHeart" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHeart')"></div></div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Tongue</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
+        </div>
+      </div>
+
       <div class="active-effects-panel">
         <h3>⚡ Active Effects</h3>
         <div id="activeEffectsList"></div>
@@ -2903,8 +2943,89 @@ let printFilter = 'all';
 
 const rarityColors = { common:'#a0a8b0', uncommon:'#4caf7d', rare:'#5b9cf6', superrare:'#c47cf5', legendary:'#ff9f43', celestial:'#7de7ff' };
 
-// ===================== ITEM METADATA =====================
+// ===================== ITEM SUBCATEGORY SYSTEM =====================
+// Every item in the project — lootData entries, generated unique items, store goods,
+// and Fleshmancer limbs alike — carries the SAME fields: type, subcategory, slotSize,
+// gp, and (when relevant) dmg/ac/hp/charges. `type` is the broad bucket
+// (armor/weapon/consumable/misc/unknown); `subcategory` is derived from the item's name
+// (never randomized) and determines both slotSize and which equipment slot it fits.
+// This is what makes "turn any item into a wearable token" work consistently everywhere.
 const itemTypes=['armor','weapon','consumable','misc','unknown'];
+const ITEM_SUBCATEGORIES = {
+  armor: ['head','facewear','chest','cloak','belt','boots','leggings','handwear','offhand'],
+  weapon: ['onehanded','twohanded'],
+  consumable: ['potion','scroll','food','throwable'],
+  misc: ['ring','amulet','charm','arm','hand','leg','foot','eye','ear','finger','heart','tongue'],
+  unknown: [],
+};
+const SUBCATEGORY_LABELS = {
+  head:'Head', facewear:'Face Wear', chest:'Chest', cloak:'Cloak / Back', belt:'Belt',
+  boots:'Boots', leggings:'Leggings', handwear:'Hand Wear', offhand:'Off-Hand',
+  onehanded:'One-Handed', twohanded:'Two-Handed',
+  potion:'Potion', scroll:'Scroll', food:'Food', throwable:'Throwable',
+  ring:'Ring', amulet:'Amulet', charm:'Charm / Misc',
+  arm:'Arm', hand:'Hand', leg:'Leg', foot:'Foot', eye:'Eye', ear:'Ear',
+  finger:'Finger', heart:'Heart', tongue:'Tongue',
+};
+// Slot size is a property of the subcategory, not something rolled per item — a chest
+// piece is always 2 slots, a ring is always 1, etc.
+const SUBCATEGORY_SLOT_SIZE = {
+  head:1, facewear:1, chest:2, cloak:1, belt:1, boots:1, leggings:1, handwear:1, offhand:2,
+  onehanded:1, twohanded:2,
+  potion:1, scroll:1, food:1, throwable:1,
+  ring:1, amulet:1, charm:1,
+  arm:2, hand:1, leg:2, foot:1, eye:1, ear:1, finger:1, heart:1, tongue:1,
+};
+// Maps a subcategory to the equipment-slot category it fits on the player doll.
+const SUBCATEGORY_TO_SLOT_CATEGORY = {
+  head:'helmet', facewear:'facewear', chest:'armor', cloak:'cloak', belt:'beltwaist',
+  boots:'boots', leggings:'leggings', handwear:'handwear', offhand:'offhand',
+  onehanded:'weapon', twohanded:'weapon',
+  potion:'charm', scroll:'charm', food:'charm', throwable:'charm',
+  ring:'ring', amulet:'amulet', charm:'charm',
+  arm:'limb-arm', hand:'limb-hand', leg:'limb-leg', foot:'limb-foot', eye:'limb-eye',
+  ear:'limb-ear', finger:'limb-finger', heart:'limb-heart', tongue:'limb-tongue',
+};
+// Derives a subcategory purely from the item's name and general type — this is the one
+// place that decides "what kind of armor/weapon/consumable/misc item is this", so every
+// generator in the app (lootData, Unique Item Generator, Store, Fleshmancer) agrees.
+function classifySubcategory(name, type) {
+  const n = (name || '').toLowerCase();
+  if (type === 'armor') {
+    if (/shield/.test(n)) return 'offhand';
+    if (/helm|crown|circlet|hood|diadem|tiara|coronet|headband|\bcap\b/.test(n)) return 'head';
+    if (/goggles|lens|spectacles|monocle|eyepatch|blindfold|veil|\bmask\b/.test(n)) return 'facewear';
+    if (/cloak|cape|mantle|wings/.test(n)) return 'cloak';
+    if (/belt|girdle|sash/.test(n)) return 'belt';
+    if (/boots|sandals|slippers/.test(n)) return 'boots';
+    if (/leggings|pants|greaves/.test(n)) return 'leggings';
+    if (/gauntlet|glove|bracer|handwrap/.test(n)) return 'handwear';
+    return 'chest';
+  }
+  if (type === 'weapon') {
+    if (/\bbow\b|crossbow|\bpike\b|halberd|glaive|trident|\bspear\b|warhammer|great.?axe|great.?sword|great.?club|\bmaul\b|zweihander|polearm|\blance\b/.test(n)) return 'twohanded';
+    return 'onehanded';
+  }
+  if (type === 'consumable') {
+    if (/scroll/.test(n)) return 'scroll';
+    if (/potion|draught|elixir|tonic|\bvial\b|\boil\b/.test(n)) return 'potion';
+    if (/bomb|grenade|flask|\bdart\b|\bdust\b|powder/.test(n)) return 'throwable';
+    return 'food';
+  }
+  if (type === 'misc') {
+    if (/\bring\b/.test(n)) return 'ring';
+    if (/amulet|necklace|pendant|periapt|torc|gorget|holy symbol/.test(n)) return 'amulet';
+    return 'charm';
+  }
+  return '';
+}
+// Consumables get a charges value whenever their subcategory implies limited uses —
+// potions/scrolls/food are single-use, throwables sometimes come in small stacks.
+function rollConsumableCharges(subcategory) {
+  if (subcategory === 'throwable') return ri(['1 use','2 uses','3 uses']);
+  if (subcategory === 'potion' || subcategory === 'scroll' || subcategory === 'food') return '1 use';
+  return '';
+}
 function inferItemMetadata(item){
   const n=item.name.toLowerCase();
   if(!item.type){
@@ -2913,11 +3034,9 @@ function inferItemMetadata(item){
     else if(/\bpotion\b|\boil\b|\brations\b|\bherbs\b|\bantitoxin\b|\bdust\b|\bscroll\b|\bfire\b|\btanglefoot\b|\bsmokestick\b/.test(n)) item.type='consumable';
     else item.type='misc';
   }
-  if(!item.slotSize){
-    if(/rope|armor|chain|pot|bedroll|boat|fortress|hole|crossbow|bow|staff|shield/.test(n)) item.slotSize=3;
-    else if(/sword|axe|lantern|helmet|cloak|boots|tool|quiver|crowbar/.test(n)) item.slotSize=2;
-    else item.slotSize=1;
-  }
+  if(!item.subcategory) item.subcategory=classifySubcategory(item.name, item.type);
+  if(!item.slotSize) item.slotSize=SUBCATEGORY_SLOT_SIZE[item.subcategory]||1;
+  if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
   return item;
 }
 Object.values(lootData).forEach(arr=>arr.forEach(inferItemMetadata));
@@ -4908,23 +5027,17 @@ function buildItemName(baseName, rarity, stats = {}, mods = []) {
   }
   return descriptor ? `${descriptor} ${baseName}` : baseName;
 }
-function generateUniqueItem() {
-  const rarity = genRarity;
+
+// Shared stat roller used by the Unique Item Generator, the Store, and anywhere else an
+// item gets generated from a base name — this is the ONE place slotSize/dmg/ac/hp/charges
+// get decided, so a "weapon" or "armor" of a given rarity is built the exact same way no
+// matter which tab produced it. Subcategory (and therefore slotSize) comes from the base
+// item's name, never randomized.
+function rollItemStats(cat, rarity, baseName) {
+  const subcategory = classifySubcategory(baseName, cat);
+  const slotSize = SUBCATEGORY_SLOT_SIZE[subcategory] || 1;
   const s = GEN.scale[rarity];
-  const catSel = document.getElementById('genCategory').value;
-  const catPool = catSel === 'random' ? ['armor','weapon','consumable','misc'] : [catSel];
-  const cat = ri(catPool);
-  const basePool = GEN[cat];
-  const baseName = ri(basePool);
-
-  // --- Tag detection + synergy-weighted modifier pool ---
-  const tags = detectTags(baseName);
-  const { pool: weightedPool, synergyNotes } = buildWeightedModPool(tags);
-
-  // Stats
-  const slotSize = cat === 'weapon' ? rn(1,3) : cat === 'armor' ? rn(2,3) : 1;
-  const gp = scaledGP(rarity);
-  let dmg = '', ac = '', hp = '', requirement = '';
+  let dmg = '', ac = '', hp = '', requirement = '', charges = '';
   if (cat === 'weapon') {
     const dieSize = rarity === 'celestial' ? 12 : rarity === 'legendary' ? 10 : rarity === 'superrare' ? 8 : rarity === 'rare' ? 6 : rarity === 'uncommon' ? 6 : 4;
     const dieCount = rarity === 'celestial' ? rn(4,8) : rarity === 'legendary' ? rn(3,6) : rarity === 'superrare' ? rn(2,4) : rarity === 'rare' ? rn(2,3) : rn(1,2);
@@ -4939,7 +5052,28 @@ function generateUniqueItem() {
   if (cat === 'consumable') {
     const dieCount = rarity === 'celestial' ? rn(15,30) : rarity === 'legendary' ? rn(10,20) : rarity === 'superrare' ? rn(6,12) : rarity === 'rare' ? rn(4,8) : rarity === 'uncommon' ? rn(2,4) : rn(1,2);
     hp = `${dieCount}d8+${rn(s.min * 2, s.max * 3)}`;
+    charges = rollConsumableCharges(subcategory);
   }
+  return { subcategory, slotSize, dmg, ac, hp, requirement, charges };
+}
+
+function generateUniqueItem() {
+  const rarity = genRarity;
+  const s = GEN.scale[rarity];
+  const catSel = document.getElementById('genCategory').value;
+  const catPool = catSel === 'random' ? ['armor','weapon','consumable','misc'] : [catSel];
+  const cat = ri(catPool);
+  const basePool = GEN[cat];
+  const baseName = ri(basePool);
+
+  // --- Tag detection + synergy-weighted modifier pool ---
+  const tags = detectTags(baseName);
+  const { pool: weightedPool, synergyNotes } = buildWeightedModPool(tags);
+
+  // Stats — subcategory/slotSize/dmg/ac/hp/charges all come from the shared roller so
+  // this matches the Store's items exactly.
+  const { subcategory, slotSize, dmg, ac, hp, requirement, charges } = rollItemStats(cat, rarity, baseName);
+  const gp = scaledGP(rarity);
 
   // --- Modifier generation: NO duplicates, synergy-weighted, spell/buff heavy ---
   const modCount = getModifierCount();
@@ -4975,15 +5109,17 @@ function generateUniqueItem() {
 
   const rarityLabel = s.label;
   const typeLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+  const subcategoryLabel = SUBCATEGORY_LABELS[subcategory] || '';
 
   const statsHtml = `
     <div class="ic-stats">
-      <span class="ic-stat type">📦 ${typeLabel}</span>
+      <span class="ic-stat type">📦 ${typeLabel}${subcategoryLabel ? ' · ' + subcategoryLabel : ''}</span>
       <span class="ic-stat slot">Slot ${slotSize}</span>
       <span class="ic-stat gp">💰 ${gp}</span>
       ${dmg ? `<span class="ic-stat dmg">⚔ ${dmg}</span>` : ''}
       ${ac  ? `<span class="ic-stat ac">🛡 AC ${ac}</span>` : ''}${requirement ? `<span class="ic-stat">Req: ${requirement}</span>` : ''}
       ${hp  ? `<span class="ic-stat hp">❤ Heals ${hp}</span>` : ''}
+      ${charges ? `<span class="ic-stat charges">✦ ${charges}</span>` : ''}
     </div>
   `;
 
@@ -4998,7 +5134,7 @@ function generateUniqueItem() {
 
   const descParagraphsHtml = renderDescParagraphs(descParagraphs);
 
-  const itemObj = { name: itemName, rarity, cat, gp, dmg, ac, hp, requirement, slotSize, mods, flavor, descParagraphs, tags };
+  const itemObj = { name: itemName, rarity, cat, type: cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, mods, flavor, descParagraphs, tags };
   window._lastGenItem = itemObj;
 
   const safeFlavorForTextarea = flavor.replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5489,10 +5625,10 @@ const FLESH_LIMB_DEFS = [
   { name:'Heart',      category:'heart',  slotSize:1 },
   { name:'Tongue',     category:'tongue', slotSize:1 },
 ];
-const FLESH_SLOT_MAP = {
-  arm:'offhand', hand:'handwear', leg:'leggings', foot:'boots',
-  eye:'facewear', ear:'facewear', finger:'ring', heart:'amulet', tongue:'charm'
-};
+// Note: limb `category` values (arm/hand/leg/foot/eye/ear/finger/heart/tongue) are the
+// same strings used as `subcategory` on the constructed item below — the canonical
+// subcategory system (see classifySubcategory/SUBCATEGORY_TO_SLOT_CATEGORY) routes them
+// straight to the matching Limb slot on the Player tab, no separate mapping needed here.
 // Simple 8-bit silhouettes, one per limb category, drawn as a rect grid and filled with
 // whatever color the rolled rarity uses elsewhere in the app.
 const FLESH_LIMB_ICONS = {
@@ -5741,16 +5877,18 @@ function attemptFleshAttach() {
 
   const { mods, rarity, note } = fleshApplyQuality(c, outcome.quality);
   const id = Date.now();
+  // type/cat = 'misc' (the canonical 5-type schema has no separate "limb" type), with
+  // subcategory carrying the specific body part — that's what routes it to the right
+  // Limb slot on the Player tab (see SUBCATEGORY_TO_SLOT_CATEGORY / inferSlotType).
   const item = {
-    id, name: c.name, rarity, cat: 'limb',
-    gp: formatGpAmount(c.gp), dmg:'', ac:'', hp:'', requirement:'',
+    id, name: c.name, rarity, cat: 'misc', type: 'misc', subcategory: c.limbDef.category,
+    gp: formatGpAmount(c.gp), dmg:'', ac:'', hp:'', requirement:'', charges:'',
     slotSize: c.limbDef.slotSize, mods,
     desc: c.desc,
     flavor: c.desc + (note ? '\n\n' + note : ''),
     tags: [],
   };
   savedGeneratedItems.unshift(item);
-  tokenSlotOverrides['gen:' + id] = FLESH_SLOT_MAP[c.limbDef.category];
   renderSavedItems();
 
   resultEl.innerHTML = `
@@ -5820,32 +5958,32 @@ const MERCHANTS = {
     name: 'Alchemist', icon: '🧪',
     flavor: "Shelves of bubbling vials and dried herbs line every wall. If it can be brewed, boiled, or bottled, it's probably in here somewhere.",
     staples: [
-      { name:'Healing Potion', desc:'A ruby-red potion that mends flesh and bone.', gp:'50 gp', effect:'Restores 2d4+2 hit points when consumed.', icon:'potion', type:'consumable' },
-      { name:'Stamina Potion', desc:'A sharp, bitter draught that chases away fatigue.', gp:'40 gp', effect:'Removes one level of exhaustion.', icon:'potion', type:'consumable' },
-      { name:'Antidote', desc:'A thin green tincture with a medicinal bite.', gp:'30 gp', effect:'Cures one poison affecting the drinker.', icon:'potion', type:'consumable' },
-      { name:'Potion of Water Breathing', desc:'Smells faintly of brine and low tide.', gp:'80 gp', effect:'Grants water breathing for 1 hour.', icon:'potion', type:'consumable' },
-      { name:'Smoke Bomb', desc:'A fist-sized clay sphere, fragile and full of choking powder.', gp:'25 gp', effect:'Creates a 10-ft. cloud of thick smoke on impact.', icon:'gem', type:'misc' },
+      { name:'Healing Potion', desc:'A ruby-red potion that mends flesh and bone.', gp:'50 gp', effect:'Restores hit points when consumed.', icon:'potion', type:'consumable', hp:'2d4+2', charges:'1 use' },
+      { name:'Stamina Potion', desc:'A sharp, bitter draught that chases away fatigue.', gp:'40 gp', effect:'Removes one level of exhaustion.', icon:'potion', type:'consumable', charges:'1 use' },
+      { name:'Antidote', desc:'A thin green tincture with a medicinal bite.', gp:'30 gp', effect:'Cures one poison affecting the drinker.', icon:'potion', type:'consumable', charges:'1 use' },
+      { name:'Potion of Water Breathing', desc:'Smells faintly of brine and low tide.', gp:'80 gp', effect:'Grants water breathing for 1 hour.', icon:'potion', type:'consumable', charges:'1 use' },
+      { name:'Smoke Bomb', desc:'A fist-sized clay sphere, fragile and full of choking powder.', gp:'25 gp', effect:'Creates a 10-ft. cloud of thick smoke on impact.', icon:'gem', type:'consumable', charges:'1 use' },
     ],
   },
   blacksmith: {
     name: 'Blacksmith', icon: '⚒',
     flavor: 'The air smells of coal smoke and hot iron. Racks of honest, well-made steel line every wall.',
     staples: [
-      { name:'Iron Sword', desc:'A plain, well-balanced longsword.', gp:'15 gp', effect:'1d8 slashing damage.', icon:'sword', type:'weapon' },
-      { name:'Iron Knife', desc:'A simple utility dagger.', gp:'2 gp', effect:'1d4 piercing damage.', icon:'dagger', type:'weapon' },
-      { name:'Iron Mace', desc:'A blunt, heavy head on an oak haft.', gp:'10 gp', effect:'1d6 bludgeoning damage.', icon:'mace', type:'weapon' },
-      { name:'Studded Leather Armor', desc:'Leather reinforced with rivets.', gp:'45 gp', effect:'AC 12 + Dex modifier.', icon:'armor', type:'armor' },
-      { name:'Chainmail', desc:'Interlocking iron rings, oiled against rust.', gp:'75 gp', effect:'AC 16.', icon:'armor', type:'armor' },
+      { name:'Iron Sword', desc:'A plain, well-balanced longsword.', gp:'15 gp', effect:'A dependable one-handed blade.', icon:'sword', type:'weapon', dmg:'1d8' },
+      { name:'Iron Knife', desc:'A simple utility dagger.', gp:'2 gp', effect:'Light and easy to conceal.', icon:'dagger', type:'weapon', dmg:'1d4' },
+      { name:'Iron Mace', desc:'A blunt, heavy head on an oak haft.', gp:'10 gp', effect:'Simple, sturdy, effective.', icon:'mace', type:'weapon', dmg:'1d6' },
+      { name:'Studded Leather Armor', desc:'Leather reinforced with rivets.', gp:'45 gp', effect:'Light armor, doesn\'t restrict movement.', icon:'armor', type:'armor', ac:'12' },
+      { name:'Chainmail', desc:'Interlocking iron rings, oiled against rust.', gp:'75 gp', effect:'Heavy armor, solid protection.', icon:'armor', type:'armor', ac:'16' },
     ],
   },
   mage: {
     name: 'Arcanist', icon: '📜',
     flavor: 'A cramped, cluttered shop that smells of ozone and old paper. Every surface holds something that hums faintly with magic.',
     staples: [
-      { name:'Scroll of Magic Missile', desc:'A one-use scroll, ink still faintly glowing.', gp:'60 gp', effect:'Casts Magic Missile once.', icon:'scroll', type:'misc' },
-      { name:'Scroll of Shield', desc:'Smells of ash and static.', gp:'80 gp', effect:'Casts Shield once.', icon:'scroll', type:'misc' },
-      { name:"Apprentice's Staff", desc:'A plain ashwood staff, worn smooth by practice.', gp:'100 gp', effect:'+1 to spell attack rolls while wielded.', icon:'staff', type:'weapon' },
-      { name:"Traveler's Robe", desc:'Sturdy, unremarkable, faintly warm.', gp:'35 gp', effect:'AC 11 + Dex modifier.', icon:'robe', type:'armor' },
+      { name:'Scroll of Magic Missile', desc:'A one-use scroll, ink still faintly glowing.', gp:'60 gp', effect:'Casts Magic Missile once.', icon:'scroll', type:'consumable', charges:'1 use' },
+      { name:'Scroll of Shield', desc:'Smells of ash and static.', gp:'80 gp', effect:'Casts Shield once.', icon:'scroll', type:'consumable', charges:'1 use' },
+      { name:"Apprentice's Staff", desc:'A plain ashwood staff, worn smooth by practice.', gp:'100 gp', effect:'+1 to spell attack rolls while wielded.', icon:'staff', type:'weapon', dmg:'1d6' },
+      { name:"Traveler's Robe", desc:'Sturdy, unremarkable, faintly warm.', gp:'35 gp', effect:'Light, unassuming spellcasting garb.', icon:'robe', type:'armor', ac:'11' },
       { name:'Component Pouch', desc:'A worn leather pouch, always stocked.', gp:'25 gp', effect:'Holds material components for spellcasting.', icon:'gem', type:'misc' },
     ],
   },
@@ -5855,7 +5993,7 @@ const MERCHANTS = {
     staples: [
       { name:'50 ft. Rope', desc:'Sturdy hempen rope.', gp:'2 gp', effect:'Standard adventuring rope.', icon:'gem', type:'misc' },
       { name:'Torches (bundle of 5)', desc:'Pitch-soaked and ready to strike.', gp:'1 gp', effect:'Sheds bright light 20 ft., dim light 20 ft. further.', icon:'gem', type:'misc' },
-      { name:'Rations (1 week)', desc:'Dried meat, hard bread, and travel biscuit.', gp:'5 gp', effect:'Feeds one person for a week.', icon:'gem', type:'misc' },
+      { name:'Rations (1 week)', desc:'Dried meat, hard bread, and travel biscuit.', gp:'5 gp', effect:'Feeds one person for a week.', icon:'gem', type:'consumable', charges:'7 days' },
       { name:'Bedroll', desc:"A thin but serviceable bedroll.", gp:'3 gp', effect:"A place to sleep that isn't the ground.", icon:'gem', type:'misc' },
       { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc' },
     ],
@@ -5873,24 +6011,10 @@ function generateStoreItem(merchantKey) {
   const baseName = ri(GEN[cat]);
   const tags = detectTags(baseName);
   const { pool: weightedPool } = buildWeightedModPool(tags);
-  const s = GEN.scale[rarity];
 
-  const slotSize = cat === 'weapon' ? rn(1,3) : cat === 'armor' ? rn(2,3) : 1;
-  let dmg = '', ac = '', hp = '', requirement = '';
-  if (cat === 'weapon') {
-    const dieSize = rarity==='celestial'?12:rarity==='legendary'?10:rarity==='superrare'?8:rarity==='rare'?6:rarity==='uncommon'?6:4;
-    const dieCount = rarity==='celestial'?rn(4,8):rarity==='legendary'?rn(3,6):rarity==='superrare'?rn(2,4):rarity==='rare'?rn(2,3):rn(1,2);
-    dmg = `${dieCount}d${dieSize}+${s.min}`;
-  }
-  if (cat === 'armor') {
-    const base = rarity==='celestial'?rn(22,26):rarity==='legendary'?rn(18,22):rarity==='superrare'?rn(16,18):rarity==='rare'?rn(14,16):rarity==='uncommon'?rn(13,15):rn(11,13);
-    ac = String(base);
-    requirement = base>=17?'Heavy armor proficiency':base>=14?'Medium armor proficiency':'No proficiency required';
-  }
-  if (cat === 'consumable') {
-    const dieCount = rarity==='celestial'?rn(15,30):rarity==='legendary'?rn(10,20):rarity==='superrare'?rn(6,12):rarity==='rare'?rn(4,8):rarity==='uncommon'?rn(2,4):rn(1,2);
-    hp = `${dieCount}d8+${rn(s.min*2, s.max*3)}`;
-  }
+  // Same shared stat roller the Unique Item Generator uses — subcategory/slotSize/
+  // dmg/ac/hp/charges are built identically regardless of which tab produced the item.
+  const { subcategory, slotSize, dmg, ac, hp, requirement, charges } = rollItemStats(cat, rarity, baseName);
 
   const r = Math.random();
   const modCount = r > 0.85 ? 3 : r > 0.4 ? 2 : 1;
@@ -5911,7 +6035,7 @@ function generateStoreItem(merchantKey) {
   const flavor = descParagraphs.map(p => p.text).join('\n\n');
   const gp = formatGpAmount(commercePrice(rarity, mods.length));
 
-  return { name:itemName, rarity, cat, gp, dmg, ac, hp, requirement, slotSize, mods, flavor, descParagraphs, tags, merchant:merchantKey };
+  return { name:itemName, rarity, cat, type:cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, mods, flavor, descParagraphs, tags, merchant:merchantKey };
 }
 
 let currentMerchant = null;
@@ -5931,12 +6055,19 @@ function rerollStoreDaily() {
 
 function storeStapleCardHtml(staple, merchantKey, idx) {
   const icon = storeIconSvg(staple.icon || 'gem', '#c9a84c');
+  const subcategory = classifySubcategory(staple.name, staple.type || 'misc');
+  const statBits = [];
+  if (staple.dmg) statBits.push(`⚔ ${staple.dmg}`);
+  if (staple.ac) statBits.push(`🛡 AC ${staple.ac}`);
+  if (staple.charges) statBits.push(`✦ ${staple.charges}`);
   return `
     <div class="store-card">
       <div class="flesh-icon-box">${icon}</div>
       <div class="store-card-name">${escapeHtml(staple.name)}</div>
+      <div class="store-card-rarity">${SUBCATEGORY_LABELS[subcategory] || ''}</div>
       <div class="store-card-desc">${escapeHtml(staple.desc)}</div>
       <div class="store-card-effect">${escapeHtml(staple.effect)}</div>
+      ${statBits.length ? `<div class="store-card-effect"><strong>${statBits.join(' · ')}</strong></div>` : ''}
       <div class="store-card-gp">💰 ${escapeHtml(staple.gp)}</div>
       <button class="ic-action-btn" onclick="buyStapleItem('${merchantKey}', ${idx})">🛒 Buy</button>
     </div>
@@ -5946,11 +6077,17 @@ function storeDailyCardHtml(item, idx) {
   const color = rarityColors[item.rarity] || '#a0a8b0';
   const icon = storeIconSvg(storeIconCategory(item), color);
   const effectText = (item.mods || []).map(m => m.text).join(' ');
+  const statBits = [];
+  if (item.dmg) statBits.push(`⚔ ${item.dmg}`);
+  if (item.ac) statBits.push(`🛡 AC ${item.ac}`);
+  if (item.hp) statBits.push(`❤ ${item.hp}`);
+  if (item.charges) statBits.push(`✦ ${item.charges}`);
   return `
     <div class="store-card ${item.rarity}">
       <div class="flesh-icon-box">${icon}</div>
       <div class="store-card-name">${escapeHtml(item.name)}</div>
-      <div class="store-card-rarity">${rarityNames[item.rarity] || item.rarity}</div>
+      <div class="store-card-rarity">${rarityNames[item.rarity] || item.rarity}${item.subcategory ? ' · ' + (SUBCATEGORY_LABELS[item.subcategory]||'') : ''}</div>
+      ${statBits.length ? `<div class="store-card-effect"><strong>${statBits.join(' · ')}</strong></div>` : ''}
       <div class="store-card-effect">${effectText}</div>
       <div class="store-card-gp">💰 ${escapeHtml(item.gp)}</div>
       <button class="ic-action-btn" onclick="buyStoreDailyItem(${idx})">🛒 Buy</button>
@@ -5958,12 +6095,44 @@ function storeDailyCardHtml(item, idx) {
   `;
 }
 
+// 8-bit bust portraits, one per merchant — same box-shadow/rect pixel-art technique as
+// the battle-stage adventurer/goblins, but each with its own distinguishing colors
+// (hood/hat, hair, apron) rather than a single flat rarity tint.
+const MERCHANT_PORTRAITS = {
+  alchemist: [
+    [2,0,5,2,'#3a8a5a'],[1,2,7,1,'#2a6040'],[2,3,5,4,'#e8c39e'],
+    [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,6,3,1,'#c48a5a'],
+    [0,7,9,4,'#4a7a5a'],[0,7,9,1,'#6aae7a'],[3,8,3,2,'#2a5a3a'],
+  ],
+  blacksmith: [
+    [2,1,5,1,'#2a2a2a'],[2,2,5,4,'#d9a066'],
+    [2,3,1,1,'#2a2a2a'],[6,3,1,1,'#2a2a2a'],[2,5,5,1,'#8a5a30'],
+    [3,6,3,1,'#c48a5a'],[0,7,9,4,'#5a3a20'],[0,7,9,1,'#7a5a30'],
+    [1,8,2,1,'#3a2a18'],[6,8,2,1,'#3a2a18'],
+  ],
+  mage: [
+    [1,0,7,3,'#6a4a9a'],[2,3,5,4,'#e8dcc8'],
+    [2,4,1,1,'#3a2a5a'],[6,4,1,1,'#3a2a5a'],[3,6,3,1,'#c48a5a'],
+    [0,7,9,4,'#4a3a7a'],[0,7,9,1,'#7a5aae'],[4,1,1,1,'#f0cc6a'],
+  ],
+  trader: [
+    [1,1,7,2,'#a06a30'],[2,3,5,4,'#c48a5a'],
+    [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,6,3,1,'#8a5a30'],
+    [0,7,9,4,'#6a4a2a'],[0,7,9,1,'#8a6a3a'],[1,2,7,1,'#c48a3a'],
+  ],
+};
+function merchantPortraitSvg(key) {
+  const rects = (MERCHANT_PORTRAITS[key] || []).map(([x,y,w,h,fill]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`).join('');
+  return `<svg class="pixel-svg" viewBox="0 0 9 11" width="56" height="56" style="image-rendering:pixelated;">${rects}</svg>`;
+}
+
 function renderStoreTab() {
   const listEl = document.getElementById('storeMerchantList');
   if (listEl) {
     listEl.innerHTML = Object.entries(MERCHANTS).map(([key, m]) => `
       <button class="store-merchant-btn${key === currentMerchant ? ' active' : ''}" onclick="selectMerchant('${key}')">
-        <span class="store-merchant-icon">${m.icon}</span><span>${m.name}</span>
+        <span class="store-merchant-portrait">${merchantPortraitSvg(key)}</span>
+        <span>${m.icon} ${m.name}</span>
       </button>
     `).join('');
   }
@@ -5978,8 +6147,11 @@ function renderStoreTab() {
   const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
   panelEl.innerHTML = `
     <div class="store-merchant-head">
-      <div class="store-merchant-title">${m.icon} ${escapeHtml(m.name)}</div>
-      <p class="store-merchant-flavor">${escapeHtml(m.flavor)}</p>
+      <span class="store-merchant-portrait large">${merchantPortraitSvg(currentMerchant)}</span>
+      <div>
+        <div class="store-merchant-title">${m.icon} ${escapeHtml(m.name)}</div>
+        <p class="store-merchant-flavor">${escapeHtml(m.flavor)}</p>
+      </div>
     </div>
     <h4 class="store-section-label">Standing Stock</h4>
     <div class="store-grid">${staplesHtml}</div>
@@ -5994,10 +6166,15 @@ function buyStapleItem(merchantKey, idx) {
   if (!staple) return;
   const id = Date.now();
   const type = staple.type || 'misc';
+  // Same canonical fields as every other item in the project: subcategory (derived from
+  // the name, same as everywhere else) drives slotSize instead of a hardcoded 1.
+  const subcategory = classifySubcategory(staple.name, type);
+  const slotSize = SUBCATEGORY_SLOT_SIZE[subcategory] || 1;
   const item = {
-    id, name: staple.name, rarity: 'common', cat: type, type,
-    gp: staple.gp, dmg:'', ac:'', hp:'', requirement:'',
-    slotSize: 1, mods: [],
+    id, name: staple.name, rarity: 'common', cat: type, type, subcategory,
+    gp: staple.gp, dmg: staple.dmg||'', ac: staple.ac||'', hp: staple.hp||'', requirement:'',
+    charges: staple.charges||'',
+    slotSize, mods: [],
     desc: staple.desc, flavor: staple.desc + (staple.effect ? '\n\n' + staple.effect : ''),
     tags: [], effect: staple.effect,
   };
@@ -7016,6 +7193,15 @@ const SLOT_TYPES = [
   { id:'boots',     label:'Boots' },
   { id:'leggings',  label:'Leggings' },
   { id:'charm',     label:'Charm / Misc' },
+  { id:'limb-arm',    label:'Limb: Arm' },
+  { id:'limb-hand',   label:'Limb: Hand' },
+  { id:'limb-leg',    label:'Limb: Leg' },
+  { id:'limb-foot',   label:'Limb: Foot' },
+  { id:'limb-eye',    label:'Limb: Eye' },
+  { id:'limb-ear',    label:'Limb: Ear' },
+  { id:'limb-finger', label:'Limb: Finger' },
+  { id:'limb-heart',  label:'Limb: Heart' },
+  { id:'limb-tongue', label:'Limb: Tongue' },
 ];
 
 // Maps each equipment slot on the player board to the token category it accepts.
@@ -7027,6 +7213,15 @@ const SLOT_CATEGORY = {
   ring1:'ring', ring2:'ring', ring3:'ring', ring4:'ring',
   boots:'boots', leggings:'leggings',
   charm1:'charm', charm2:'charm', charm3:'charm', charm4:'charm', charm5:'charm',
+  // Grafted-limb slots (Fleshmancer) — one pair per paired body part, a few singles.
+  limbArm1:'limb-arm', limbArm2:'limb-arm',
+  limbHand1:'limb-hand', limbHand2:'limb-hand',
+  limbLeg1:'limb-leg', limbLeg2:'limb-leg',
+  limbFoot1:'limb-foot', limbFoot2:'limb-foot',
+  limbEye1:'limb-eye', limbEye2:'limb-eye',
+  limbEar1:'limb-ear', limbEar2:'limb-ear',
+  limbFinger1:'limb-finger', limbFinger2:'limb-finger', limbFinger3:'limb-finger', limbFinger4:'limb-finger',
+  limbHeart:'limb-heart', limbTongue:'limb-tongue',
 };
 const SLOT_LABELS = {
   helmet:'Helmet', facewear:'Face Wear', armor:'Armor', handwear:'Hand Wear',
@@ -7036,6 +7231,14 @@ const SLOT_LABELS = {
   ring1:'Ring', ring2:'Ring', ring3:'Ring', ring4:'Ring',
   boots:'Boots', leggings:'Leggings',
   charm1:'Charm', charm2:'Charm', charm3:'Charm', charm4:'Charm', charm5:'Charm',
+  limbArm1:'Arm', limbArm2:'Arm',
+  limbHand1:'Hand', limbHand2:'Hand',
+  limbLeg1:'Leg', limbLeg2:'Leg',
+  limbFoot1:'Foot', limbFoot2:'Foot',
+  limbEye1:'Eye', limbEye2:'Eye',
+  limbEar1:'Ear', limbEar2:'Ear',
+  limbFinger1:'Finger', limbFinger2:'Finger', limbFinger3:'Finger', limbFinger4:'Finger',
+  limbHeart:'Heart', limbTongue:'Tongue',
 };
 
 // What's currently equipped: slotId -> token key (or null)
@@ -7068,6 +7271,13 @@ function buildTokenIndex() {
 // Guess an equipment slot category from an item's name/type. The person can override
 // this per-token from the dropdown on its card in the Tokens tab.
 function inferSlotType(item) {
+  // Canonical path: every item generated anywhere in the app now carries a `subcategory`
+  // (see classifySubcategory/inferItemMetadata), which maps directly to a slot category.
+  // Only items that somehow lack one fall through to the legacy name-sniffing below.
+  if (item.subcategory && SUBCATEGORY_TO_SLOT_CATEGORY[item.subcategory]) {
+    return SUBCATEGORY_TO_SLOT_CATEGORY[item.subcategory];
+  }
+
   const name = (item.name || '').toLowerCase();
   // Also scan the description — some items (e.g. "Eyes of Minute Seeing", which is
   // described as crystal lenses) only reveal what they actually are in the flavor text.
@@ -7321,6 +7531,11 @@ const SLOT_EMPTY_ICON = {
   charm1:'✨', charm2:'✨', charm3:'✨', charm4:'✨', charm5:'✨',
   facewear:'🥽', handwear:'🧤',
   cloak:'🧣', beltwaist:'🔘', offhand:'🛡️',
+  limbArm1:'💪', limbArm2:'💪', limbHand1:'🖐️', limbHand2:'🖐️',
+  limbLeg1:'🦵', limbLeg2:'🦵', limbFoot1:'🦶', limbFoot2:'🦶',
+  limbEye1:'👁️', limbEye2:'👁️', limbEar1:'👂', limbEar2:'👂',
+  limbFinger1:'☝️', limbFinger2:'☝️', limbFinger3:'☝️', limbFinger4:'☝️',
+  limbHeart:'❤️', limbTongue:'👅',
 };
 
 function renderPlayerSlots() {
