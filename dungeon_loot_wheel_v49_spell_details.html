@@ -1230,16 +1230,15 @@
   .unlock-section-note { font-size:0.78rem; color:var(--text-dim); font-style:italic; margin-top:0.3rem; }
 
   /* ===================== ITEM TOKENS TAB ===================== */
-  .player-tokens-layout {
-    display:grid;
-    grid-template-columns:minmax(340px,620px) 1fr;
-    gap:1.5rem;
-    align-items:start;
-  }
-  .player-column { display:flex; flex-direction:column; gap:1.2rem; }
+  /* Everything relevant to equipping (doll, limbs, active effects) lives in one row at the
+     top so it's all visible together without scrolling — that's the whole point, dragging a
+     token from below onto a limb slot shouldn't require hunting for it further down the
+     page. Browsing/saving (token library, loadouts) sits in its own row underneath. */
+  .player-tokens-layout { display:flex; flex-direction:column; gap:1.5rem; }
   .tokens-column { display:flex; flex-direction:column; gap:0.7rem; min-width:0; }
-  @media (max-width:1150px) {
-    .player-tokens-layout { grid-template-columns:1fr; }
+  .player-bottom-row { display:grid; grid-template-columns:1fr 320px; gap:1.5rem; align-items:start; }
+  @media (max-width:1000px) {
+    .player-bottom-row { grid-template-columns:1fr; }
   }
   .token-toolbar { display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; }
   .token-search {
@@ -1283,10 +1282,10 @@
   .token-card-effect { font-size:0.8rem; color:var(--text-dim); line-height:1.4; font-style:italic; }
 
   /* ===================== PLAYER TAB ===================== */
-  /* Doll and grafted-limb slots sit side by side so limbs read as part of the same
-     equipment silhouette instead of a separate section further down the page. Wraps
-     to a stacked layout automatically on narrower widths. */
-  .player-equip-row { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:flex-start; justify-content:center; margin-bottom:1.5rem; }
+  /* Doll, grafted limbs, AND active effects sit side by side in one top row so everything
+     you'd want visible while dragging a token is on screen together, instead of limbs/effects
+     being pushed down the page. Wraps to a stacked layout automatically on narrower widths. */
+  .player-top-row { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:flex-start; justify-content:center; }
   .player-board { display:flex; flex-direction:column; align-items:center; }
   .player-doll {
     display:grid;
@@ -1336,8 +1335,15 @@
   .doll-slot.limb { width:72px; height:60px; border-color:rgba(224,82,82,0.4); }
   .doll-slot.limb.filled { border-color:var(--danger); }
 
+  /* Mount/Pet slot — a single equip slot wider than a normal doll-slot since it represents
+     a whole creature, not a piece of gear. Sits under the doll, next to the Unequip button. */
+  .companion-slot-wrap { display:flex; flex-direction:column; align-items:center; gap:0.3rem; margin-top:0.9rem; }
+  .doll-slot.companion { width:170px; height:64px; border-color:rgba(201,168,76,0.4); }
+  .doll-slot.companion.filled { border-color:var(--gold); }
+
   .active-effects-panel {
     background:var(--surface); border:1px solid var(--border); padding:1.2rem;
+    flex:1 1 320px; min-width:280px; max-height:640px; overflow-y:auto;
   }
   .active-effects-panel h3 { color:var(--gold); font-size:1.05rem; letter-spacing:0.06em; margin-bottom:0.9rem; }
   .ae-row { border-left:3px solid var(--common); background:var(--surface2); padding:0.6rem 0.8rem; margin-bottom:0.6rem; }
@@ -1889,6 +1895,7 @@
           <option value="consumable">Consumable</option>
           <option value="misc">Misc</option>
           <option value="limb">Limb</option>
+          <option value="companion">Companion</option>
           <option value="unknown">Unknown</option>
         </select>
         <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
@@ -1910,11 +1917,11 @@
             <option value="legendary">Legendary</option>
             <option value="celestial">Celestial</option>
           </select>
-          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="unknown">Unknown</option></select>
+          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select>
           <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
         </div>
         <input type="text" id="newItemDmg" class="type-field" data-for="weapon" placeholder="Damage dice (e.g. 1d8+2)" style="display:none;">
-        <input type="text" id="newItemAc" class="type-field" data-for="armor" placeholder="Armor Class (e.g. 16 or +2)" style="display:none;">
+        <input type="text" id="newItemAc" class="type-field" data-for="armor companion" placeholder="Armor Class (e.g. 16 or +2) — mounts only, leave blank for pets" style="display:none;">
         <input type="text" id="newItemHp" class="type-field" data-for="consumable" placeholder="Healing dice (e.g. 2d4+2) — leave blank if non-healing" style="display:none;">
         <input type="text" id="newItemCharges" placeholder="Charges (optional — e.g. 7, 3/dawn, 1 use)">
         <textarea id="newItemEffect" placeholder="Effect / special ability (optional — for any item type)"></textarea>
@@ -2376,12 +2383,11 @@
      separate tabs isn't possible since only one tab is visible/interactive at a time) -->
 <div id="tab-player" class="tab-content">
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Drag a token from the library on the right onto a matching slot on the left. Click an equipped slot to remove it.
-    Every currently equipped item's effects appear in the Active Effects list underneath.
+    Drag a token from the library below onto a matching slot above. Click an equipped slot to remove it.
+    Every currently equipped item's effects appear in the Active Effects panel, right alongside your gear and limbs.
   </p>
   <div class="player-tokens-layout">
-    <div class="player-column">
-      <div class="player-equip-row">
+    <div class="player-top-row">
       <div class="player-board">
         <div class="player-doll">
           <div class="doll-slot" id="slot-facewear" data-slot="facewear" style="grid-column:1;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'facewear')"></div>
@@ -2417,6 +2423,10 @@
             <div class="doll-slot charm" id="slot-charm5" data-slot="charm5" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm5')"></div>
           </div>
         </div>
+        <div class="companion-slot-wrap">
+          <span class="limb-slot-label">Mount / Pet</span>
+          <div class="doll-slot companion" id="slot-companion" data-slot="companion" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'companion')"></div>
+        </div>
         <button class="action-btn" style="margin-top:1rem;" onclick="clearAllSlots()">Unequip All</button>
       </div>
 
@@ -2444,58 +2454,64 @@
           <div class="limb-slot-wrap"><span class="limb-slot-label">Tongue</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
         </div>
       </div>
-      </div>
 
       <div class="active-effects-panel">
         <h3>⚡ Active Effects</h3>
         <div id="activeEffectsList"></div>
       </div>
-
-      <div class="loadouts-panel">
-        <h3>💾 Saved Loadouts</h3>
-        <div class="loadout-save-row">
-          <input type="text" id="loadoutNameInput" class="loadout-name-input" placeholder="Name this loadout…" onkeydown="if(event.key==='Enter')saveLoadout()">
-          <button class="action-btn" onclick="saveLoadout()">Save Current</button>
-        </div>
-        <div id="loadoutSaveMsg" class="loadout-save-msg"></div>
-        <input type="text" id="loadoutSearch" class="loadout-search" placeholder="Search saved loadouts…" oninput="renderSavedLoadouts()">
-        <div id="loadoutList" class="loadout-list"></div>
-      </div>
     </div>
 
-    <div class="tokens-column">
-      <div class="token-toolbar">
-        <input type="text" id="tokenSearch" class="token-search" placeholder="Search items…" oninput="renderTokensTab()">
-        <span class="token-count" id="tokenCount"></span>
+    <div class="player-bottom-row">
+      <div class="tokens-column">
+        <div class="token-toolbar">
+          <input type="text" id="tokenSearch" class="token-search" placeholder="Search items…" oninput="renderTokensTab()">
+          <span class="token-count" id="tokenCount"></span>
+        </div>
+        <div class="token-toolbar">
+          <select id="tokenRarityFilter" class="token-filter" onchange="renderTokensTab()">
+            <option value="all">All Rarities</option>
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare">Rare</option>
+            <option value="superrare">Super Rare</option>
+            <option value="legendary">Legendary</option>
+            <option value="celestial">Celestial</option>
+          </select>
+          <select id="tokenSlotFilter" class="token-filter" onchange="renderTokensTab()">
+            <option value="all">All Slot Types</option>
+            <option value="helmet">Helmet</option>
+            <option value="facewear">Face Wear</option>
+            <option value="cloak">Cloak / Back</option>
+            <option value="armor">Armor</option>
+            <option value="weapon">Weapon</option>
+            <option value="offhand">Off-Hand</option>
+            <option value="amulet">Amulet</option>
+            <option value="ring">Ring</option>
+            <option value="handwear">Hand Wear</option>
+            <option value="beltwaist">Belt / Waist</option>
+            <option value="boots">Boots</option>
+            <option value="leggings">Leggings</option>
+            <option value="charm">Charm / Misc</option>
+            <option value="companion">Mount / Pet</option>
+          </select>
+        </div>
+        <div class="token-grid" id="tokenGrid"></div>
       </div>
-      <div class="token-toolbar">
-        <select id="tokenRarityFilter" class="token-filter" onchange="renderTokensTab()">
-          <option value="all">All Rarities</option>
-          <option value="common">Common</option>
-          <option value="uncommon">Uncommon</option>
-          <option value="rare">Rare</option>
-          <option value="superrare">Super Rare</option>
-          <option value="legendary">Legendary</option>
-          <option value="celestial">Celestial</option>
-        </select>
-        <select id="tokenSlotFilter" class="token-filter" onchange="renderTokensTab()">
-          <option value="all">All Slot Types</option>
-          <option value="helmet">Helmet</option>
-          <option value="facewear">Face Wear</option>
-          <option value="cloak">Cloak / Back</option>
-          <option value="armor">Armor</option>
-          <option value="weapon">Weapon</option>
-          <option value="offhand">Off-Hand</option>
-          <option value="amulet">Amulet</option>
-          <option value="ring">Ring</option>
-          <option value="handwear">Hand Wear</option>
-          <option value="beltwaist">Belt / Waist</option>
-          <option value="boots">Boots</option>
-          <option value="leggings">Leggings</option>
-          <option value="charm">Charm / Misc</option>
-        </select>
-      </div>
-      <div class="token-grid" id="tokenGrid"></div>
+
+      <details class="collapsible loadouts-collapsible">
+        <summary>💾 Saved Loadouts</summary>
+        <div class="collapsible-body">
+          <div class="loadouts-panel">
+            <div class="loadout-save-row">
+              <input type="text" id="loadoutNameInput" class="loadout-name-input" placeholder="Name this loadout…" onkeydown="if(event.key==='Enter')saveLoadout()">
+              <button class="action-btn" onclick="saveLoadout()">Save Current</button>
+            </div>
+            <div id="loadoutSaveMsg" class="loadout-save-msg"></div>
+            <input type="text" id="loadoutSearch" class="loadout-search" placeholder="Search saved loadouts…" oninput="renderSavedLoadouts()">
+            <div id="loadoutList" class="loadout-list"></div>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 </div>
@@ -2647,6 +2663,28 @@ const lootData = {
     {"name":"Iron Warhammer","desc":"A iron a heavy square hammerhead built for crushing blows.","type":"weapon","slotSize":2,"gp":"8 gp","dmg":"1d8","effect":"Versatile (1d10)."},
     {"name":"Iron Spear","desc":"A iron a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"8 gp","dmg":"1d6","effect":"Thrown (range 20/60), versatile (1d8)."},
     {"name":"Iron Arrows","desc":"A bundle of 20 arrows fletched and tipped in iron.","type":"weapon","slotSize":1,"gp":"1 gp","dmg":"No bonus","effect":"Ammunition (bundle of 20). Fired from any bow. No bonus to attack or damage — matches the damage die of the bow used."},
+    // ── COMPANIONS: PETS (common) ──
+    {name:"Barn Cat",desc:"A lean tabby cat that follows at a comfortable distance and only comes close when it wants something.",type:"companion",subcategory:"pet",slotSize:1,gp:"5 gp",effect:"Advantage on Wisdom (Perception) checks to notice rodents, insects, or small hidden compartments the cat investigates."},
+    {name:"Messenger Pigeon",desc:"A gray pigeon with a leg band, trained to fly to a known location and back.",type:"companion",subcategory:"pet",slotSize:1,gp:"3 gp",effect:"Can carry a written message up to 1 mile away and return within a day. Not durable in bad weather."},
+    {name:"Mutt Puppy",desc:"A scruffy mixed-breed puppy with floppy ears and boundless energy.",type:"companion",subcategory:"pet",slotSize:1,gp:"2 gp",effect:"Advantage on Charisma (Persuasion) checks made in its presence — hard to distrust someone with a happy dog."},
+    {name:"Field Mouse",desc:"A tiny brown mouse that rides in a pocket or sleeve without complaint.",type:"companion",subcategory:"pet",slotSize:1,gp:"1 gp",effect:"Can squeeze through gaps as small as 1 inch to retrieve small objects or scout tiny spaces."},
+    {name:"Garden Toad",desc:"A fat speckled toad that eats bugs and croaks when it senses rain.",type:"companion",subcategory:"pet",slotSize:1,gp:"1 gp",effect:"Reliably predicts weather changes up to 12 hours in advance."},
+    {name:"Weasel",desc:"A quick, curious weasel with sharp eyes and an opportunistic streak.",type:"companion",subcategory:"pet",slotSize:1,gp:"4 gp",effect:"Advantage on Dexterity (Sleight of Hand) checks — it's an excellent distraction and occasional accomplice."},
+    {name:"Crow",desc:"A glossy black crow that mimics sounds and remembers faces.",type:"companion",subcategory:"pet",slotSize:1,gp:"6 gp",effect:"Recognizes and reacts distinctly to up to 10 individual creatures it has met before."},
+    {name:"Hedgehog",desc:"A small spiny hedgehog that curls into a ball at the slightest provocation.",type:"companion",subcategory:"pet",slotSize:1,gp:"3 gp",effect:"While it's near you as you sleep, advantage on the first Perception check to wake if danger approaches."},
+    {name:"Tamed Housefly Swarm",desc:"An unsettling but harmless cloud of flies that hovers near its owner and no one else.",type:"companion",subcategory:"pet",slotSize:1,gp:"2 gp",effect:"Advantage on Constitution saves against disease — the flies, oddly, seem to eat the early signs."},
+    {name:"Ferret",desc:"A long, wriggly ferret that loves tunnels, sleeves, and other people's pockets.",type:"companion",subcategory:"pet",slotSize:1,gp:"5 gp",effect:"Can retrieve a small stashed item from a burrow or gap without disturbing the surrounding area."},
+    {name:"Imprinted Duckling",desc:"An imprinted duckling that believes its owner is its parent, permanently.",type:"companion",subcategory:"pet",slotSize:1,gp:"2 gp",effect:"Alerts (loud quacking) if a stranger approaches within 30 feet while you rest."},
+    {name:"Chicken",desc:"An unbothered hen that lays an egg most mornings, war or no war.",type:"companion",subcategory:"pet",slotSize:1,gp:"1 gp",effect:"Produces one fresh egg per day — negligible in most situations, occasionally exactly what's needed."},
+    {name:"Black Housecat",desc:"A sleek black cat with unnervingly intelligent eyes.",type:"companion",subcategory:"pet",slotSize:1,gp:"5 gp",effect:"Advantage on Charisma (Intimidation) checks against superstitious creatures."},
+    {name:"Old Tortoise",desc:"A slow, patient tortoise that has clearly seen a few things.",type:"companion",subcategory:"pet",slotSize:1,gp:"8 gp",effect:"Advantage on saving throws against being frightened while the tortoise is within reach — its calm is contagious."},
+    {name:"Songbird",desc:"A small finch with a surprisingly complex song.",type:"companion",subcategory:"pet",slotSize:1,gp:"3 gp",effect:"Its singing lifts a somber camp's spirits — advantage on the next Charisma check made to raise a group's morale."},
+    {name:"Clever Sewer Rat",desc:"A surprisingly sharp-eyed sewer rat that's learned a few tricks.",type:"companion",subcategory:"pet",slotSize:1,gp:"2 gp",effect:"Can navigate cramped tunnels and sewers to scout a path, reporting back in simple terms (barks, tugs, gestures)."},
+    // ── COMPANIONS: MOUNTS (common) ──
+    {name:"Riding Pony",desc:"A sturdy, even-tempered pony suited for a Small rider or light loads.",type:"companion",subcategory:"mount",slotSize:1,gp:"30 gp",ac:"10",effect:"Speed 40 ft. Suitable rider: Small or smaller. Carrying capacity 225 lbs."},
+    {name:"Draft Mule",desc:"A patient, hard-working mule, better suited to hauling than speed.",type:"companion",subcategory:"mount",slotSize:1,gp:"20 gp",ac:"10",effect:"Speed 40 ft. Exceptional load-bearer: carrying capacity 420 lbs. without penalty. Sure-footed on rough terrain — advantage on checks to avoid slipping or stumbling."},
+    {name:"Riding Horse",desc:"A calm, reliable horse, unremarkable except for its dependability.",type:"companion",subcategory:"mount",slotSize:1,gp:"50 gp",ac:"10",effect:"Speed 60 ft. Suitable rider: Medium or smaller. Carrying capacity 480 lbs."},
+    {name:"Mountain Goat",desc:"A surefooted mountain goat, small enough for a halfling or gnome to ride comfortably.",type:"companion",subcategory:"mount",slotSize:1,gp:"25 gp",ac:"10",effect:"Speed 40 ft. Climb speed 20 ft. Advantage on checks and saves to avoid falling or being knocked prone on rough or sloped terrain."},
   ],
   uncommon: [
     {name:"Potion of Healing",desc:"A glass vial of faintly glowing pink liquid with a sweet, coppery taste.",type:"consumable",slotSize:1,gp:"150 gp",hp:"2d4+2",effect:"Restores 2d4+2 hit points. Action to drink. The most common magical item in existence."},
@@ -2838,6 +2876,25 @@ const lootData = {
     {"name":"Silver Warhammer","desc":"A silver a heavy square hammerhead built for crushing blows.","type":"weapon","slotSize":2,"gp":"90 gp","dmg":"1d8+1","effect":"Versatile (1d10). +1 to attack and damage rolls. Counts as silvered — effective against lycanthropes and certain undead. Not fully magical."},
     {"name":"Silver Spear","desc":"A silver a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"90 gp","dmg":"1d6+1","effect":"Thrown (range 20/60), versatile (1d8). +1 to attack and damage rolls. Counts as silvered — effective against lycanthropes and certain undead. Not fully magical."},
     {"name":"Silver Arrows","desc":"A bundle of 20 arrows fletched and tipped in silver.","type":"weapon","slotSize":1,"gp":"30 gp","dmg":"+1 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +1 to attack and damage rolls when fired. Counts as silvered — effective against lycanthropes and certain undead. Not fully magical."},
+    // ── COMPANIONS: PETS (uncommon) ──
+    {name:"Trained Hawk",desc:"A red-tailed hawk trained to hunt and return to the wrist.",type:"companion",subcategory:"pet",slotSize:1,gp:"40 gp",effect:"Can scout an area from above; grants advantage on the next Survival check to navigate or track within the scouted area."},
+    {name:"Familiar-Trained Owl",desc:"A small owl with silent flight and unblinking focus.",type:"companion",subcategory:"pet",slotSize:1,gp:"45 gp",effect:"Advantage on Wisdom (Perception) checks made at night or in dim light while the owl is perched nearby."},
+    {name:"Fox Kit",desc:"A clever red fox raised from a kit, loyal but never quite tame.",type:"companion",subcategory:"pet",slotSize:1,gp:"35 gp",effect:"Advantage on Dexterity (Stealth) checks made while moving through natural terrain (forest, brush, tall grass)."},
+    {name:"Docile Giant Frog",desc:"A house-cat-sized frog by frog standards — thankfully harmless and mild-mannered.",type:"companion",subcategory:"pet",slotSize:1,gp:"50 gp",effect:"Its powerful legs can help haul a stuck cart or push open a heavy door — advantage on Strength checks to move heavy objects when it assists."},
+    {name:"Bonded Constrictor Snake",desc:"A calm snake that wraps around an arm or shoulder and stays put.",type:"companion",subcategory:"pet",slotSize:1,gp:"40 gp",effect:"Advantage on Intimidation checks — most people are unnerved by a large snake, regardless of temperament."},
+    {name:"Badger",desc:"A stout, short-tempered badger that digs first and asks questions never.",type:"companion",subcategory:"pet",slotSize:1,gp:"30 gp",effect:"Can dig a usable tunnel or foxhole (5-ft cube of loose earth) in about 10 minutes."},
+    {name:"Speaking Raven",desc:"A raven that has picked up a vocabulary of about a dozen words and uses them with unsettling intent.",type:"companion",subcategory:"pet",slotSize:1,gp:"60 gp",effect:"Can deliver a short (10-word) verbal message to a specified recipient it can find."},
+    {name:"Docile Giant Fire Beetle",desc:"A beetle the size of a dog with glowing glands above its eyes.",type:"companion",subcategory:"pet",slotSize:1,gp:"25 gp",effect:"Sheds bright light in a 10-ft radius and dim light for 10 ft. more, hands-free, indefinitely."},
+    {name:"Guard-Trained Mastiff",desc:"A large, steady mastiff trained to hold a position and warn of intruders.",type:"companion",subcategory:"pet",slotSize:1,gp:"45 gp",effect:"While it stands watch, advantage on the group's passive Perception against being surprised during a rest."},
+    {name:"Tide-Tamed Giant Crab",desc:"A dinner-table-sized crab with an even temperament, so long as it isn't cornered.",type:"companion",subcategory:"pet",slotSize:1,gp:"55 gp",effect:"Can carry up to 300 lbs. across shallow water or wet sand without slowing."},
+    {name:"Carrion-Trained Vulture",desc:"A bald, patient vulture that circles high and reports what it sees by landing nearby.",type:"companion",subcategory:"pet",slotSize:1,gp:"30 gp",effect:"Can identify the presence of nearby corpses, carrion, or recent death within a mile from the air."},
+    {name:"River Otter",desc:"A playful river otter that's more useful than it looks.",type:"companion",subcategory:"pet",slotSize:1,gp:"35 gp",effect:"Swim speed 30 ft. and can retrieve small sunken or submerged items on command."},
+    {name:"Muzzled Giant Centipede",desc:"A leg-heavy centipede kept docile by a specially fitted muzzle over its venom glands.",type:"companion",subcategory:"pet",slotSize:1,gp:"40 gp",effect:"Advantage on checks to squeeze through narrow gaps or navigate rubble it can burrow through first."},
+    // ── COMPANIONS: MOUNTS (uncommon) ──
+    {name:"Warhorse",desc:"A trained war charger, unbothered by the noise and chaos of combat.",type:"companion",subcategory:"mount",slotSize:1,gp:"400 gp",ac:"11",effect:"Speed 60 ft. Trained for combat: doesn't need a check to remain steady near battle. Rider gains +1 to attack rolls made while mounted on this horse (its footing and training make your strikes surer)."},
+    {name:"Desert Camel",desc:"A tall, ill-tempered but extremely hardy desert camel.",type:"companion",subcategory:"mount",slotSize:1,gp:"60 gp",ac:"10",effect:"Speed 50 ft. Can go up to 4 days without water. Rider has advantage on Constitution saves against extreme heat while mounted."},
+    {name:"Riding-Trained Elk",desc:"A broad-antlered elk, calm enough to bear a rider despite its size.",type:"companion",subcategory:"mount",slotSize:1,gp:"350 gp",ac:"11",effect:"Speed 60 ft. Rider gains advantage on Survival checks to navigate forests or tundra while mounted."},
+    {name:"Giant Goat",desc:"A goat the size of a small horse, bred in mountain holds for exactly this purpose.",type:"companion",subcategory:"mount",slotSize:1,gp:"500 gp",ac:"11",effect:"Speed 40 ft. Climb speed 40 ft. Never needs a check to climb even sheer, difficult surfaces at full speed."},
   ],
   rare: [
     {name:"Longsword +2",desc:"A longsword of exceptional craftsmanship, its blade inscribed with flowing runes.",type:"weapon",slotSize:2,gp:"4000 gp",dmg:"1d8+2",effect:"+2 to attack and damage rolls. Versatile (1d10+2). Counts as magical. Requires attunement.",unlocks:[{"type":"locked","tierLabel":"Hidden Power — Awakened","condition":"Score a critical hit against 10 different creatures with this sword.","reward":"The blade's edge sharpens permanently: its damage die increases to 1d10 (1d12 if used versatile)."}]},
@@ -2958,6 +3015,22 @@ const lootData = {
     {"name":"Mithral Warhammer","desc":"A mithral a heavy square hammerhead built for crushing blows.","type":"weapon","slotSize":2,"gp":"1200 gp","dmg":"1d8+1","effect":"Versatile (1d10). +1 to attack and damage rolls. Half the normal weight of a comparable weapon, without sacrificing durability."},
     {"name":"Mithral Spear","desc":"A mithral a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"1200 gp","dmg":"1d6+1","effect":"Thrown (range 20/60), versatile (1d8). +1 to attack and damage rolls. Half the normal weight of a comparable weapon, without sacrificing durability."},
     {"name":"Mithral Arrows","desc":"A bundle of 20 arrows fletched and tipped in mithral.","type":"weapon","slotSize":1,"gp":"400 gp","dmg":"+1 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +1 to attack and damage rolls when fired. Half the normal weight of a comparable weapon, without sacrificing durability."},
+    // ── COMPANIONS: PETS (rare) ──
+    {name:"Bonded Pseudodragon",desc:"A cat-sized dragon with a barbed tail and sharp, knowing eyes, telepathically bonded to one companion.",type:"companion",subcategory:"pet",slotSize:1,gp:"800 gp",effect:"Telepathic communication within 100 ft. Grants advantage on one Wisdom (Insight) or Perception check per short rest via its keen senses."},
+    {name:"Bound Imp",desc:"A small devil bound by a minor pact — technically obedient, constitutionally untrustworthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible (self only) once per short rest to scout unseen. Advantage on Deception checks made on its owner's behalf, when it feels like cooperating."},
+    {name:"Blink Dog",desc:"A loyal, fey-touched dog that teleports in short bursts and dislikes evil creatures on sight.",type:"companion",subcategory:"pet",slotSize:1,gp:"1200 gp",effect:"Once per short rest, teleport up to 40 ft. together with the dog as a reaction to avoid an attack (as if it pulled you out of the way)."},
+    {name:"Speaking Giant Owl",desc:"A car-sized owl that can speak Common and Sylvan, and judges you constantly.",type:"companion",subcategory:"pet",slotSize:1,gp:"1000 gp",effect:"Fly speed 60 ft. if ridden by a Small creature; grants advantage on Perception checks made at night."},
+    {name:"Bound Quasit",desc:"A small, cackling fiend bound to obedience, mostly.",type:"companion",subcategory:"pet",slotSize:1,gp:"900 gp",effect:"Can turn invisible for up to 1 hour per day (in increments). Resistance to poison damage rubs off faintly on its owner while it's within 5 ft."},
+    {name:"Crafted Homunculus",desc:"A small artificial servant built from clay, wax, and a drop of its creator's blood.",type:"companion",subcategory:"pet",slotSize:1,gp:"1500 gp",effect:"Shares its owner's senses when perched on them; can deliver a touch-range spell on its creator's behalf once per long rest."},
+    {name:"Loyal Giant Toad",desc:"A wagon-sized amphibian with a surprisingly gentle disposition toward its owner.",type:"companion",subcategory:"pet",slotSize:1,gp:"700 gp",effect:"Its tongue can retrieve a dropped or thrown item within 15 ft. as a reaction."},
+    {name:"Winter Wolf Pup",desc:"A young winter wolf, still more playful than predatory, with a breath that fogs even warm air.",type:"companion",subcategory:"pet",slotSize:1,gp:"1100 gp",effect:"Resistance to cold damage while the pup is within 10 ft. of you."},
+    {name:"Chaotic Faerie Dragon",desc:"A butterfly-winged dragon barely a foot long, invisible when it wants to be and always a little bored.",type:"companion",subcategory:"pet",slotSize:1,gp:"1300 gp",effect:"Can turn invisible for 10 minutes once per short rest — itself only, but can grant the same to its owner once per long rest."},
+    {name:"Trained Giant Weasel",desc:"A wolf-sized weasel, disconcertingly fast and unnervingly quiet for its size.",type:"companion",subcategory:"pet",slotSize:1,gp:"850 gp",effect:"Speed 40 ft.; advantage on the wearer's Stealth checks while moving alongside it at night."},
+    // ── COMPANIONS: MOUNTS (rare) ──
+    {name:"Saddle-Broken Dire Wolf",desc:"A massive wolf, broken to saddle through patience and mutual respect rather than force.",type:"companion",subcategory:"mount",slotSize:1,gp:"2500 gp",ac:"13",effect:"Speed 60 ft. Rider gains +1 to attack rolls while mounted. Advantage on the mount's own checks to track by scent."},
+    {name:"Riding Giant Lizard",desc:"A stocky, broad-backed lizard bred for stability on vertical and inverted surfaces.",type:"companion",subcategory:"mount",slotSize:1,gp:"3000 gp",ac:"13",effect:"Speed 40 ft. Climb speed 40 ft., including upside-down and on ceilings. Never needs a check to climb difficult surfaces."},
+    {name:"Giant Seahorse",desc:"A colorful, gentle seahorse the size of a warhorse, used for underwater travel by coastal folk.",type:"companion",subcategory:"mount",slotSize:1,gp:"3500 gp",ac:"12",effect:"Swim speed 60 ft. Cannot leave the water. Rider can breathe water while mounted (the seahorse's natural field extends this courtesy)."},
+    {name:"Broken Axe Beak",desc:"A flightless, big-beaked bird bred for speed across open ground, foul-tempered but fast.",type:"companion",subcategory:"mount",slotSize:1,gp:"2800 gp",ac:"12",effect:"Speed 70 ft. Rider gains advantage on checks to avoid being thrown or unhorsed at high speed."},
   ],
   superrare: [
     {name:"Vorpal Sword",desc:"A gleaming longsword of terrifying sharpness.",type:"weapon",slotSize:2,gp:"75000 gp",dmg:"1d8+3",effect:"+3 attack and damage. Natural 20: severs target's head (instantly killing most creatures). No effect on creatures that don't need heads. Ignores slashing resistance. Requires attunement.",unlocks:[{"type":"locked","tierLabel":"Hidden Power — Ascendant","condition":"Sever the head of 3 different creatures using the vorpal effect.","reward":"The vorpal effect now also triggers on a natural 19, and any creature slain this way cannot be raised as undead by means short of a Wish."}]},
@@ -3049,6 +3122,18 @@ const lootData = {
     {"name":"Orichalcum Warhammer","desc":"A orichalcum a heavy square hammerhead built for crushing blows.","type":"weapon","slotSize":2,"gp":"12000 gp","dmg":"1d8+2","effect":"Versatile (1d10). +2 to attack and damage rolls. The metal seems to hum faintly when swung in earnest."},
     {"name":"Orichalcum Spear","desc":"A orichalcum a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"12000 gp","dmg":"1d6+2","effect":"Thrown (range 20/60), versatile (1d8). +2 to attack and damage rolls. The metal seems to hum faintly when swung in earnest."},
     {"name":"Orichalcum Arrows","desc":"A bundle of 20 arrows fletched and tipped in orichalcum.","type":"weapon","slotSize":1,"gp":"4000 gp","dmg":"+2 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +2 to attack and damage rolls when fired. The metal seems to hum faintly when swung in earnest."},
+    // ── COMPANIONS: PETS (superrare) ──
+    {name:"Baby Griffon",desc:"A young griffon, still growing into its wings, fiercely loyal to whoever raised it from the egg.",type:"companion",subcategory:"pet",slotSize:1,gp:"8000 gp",effect:"Fly speed 50 ft. once fully grown (matures over roughly a year of ownership); until then, grants advantage on Animal Handling checks involving other flying beasts."},
+    {name:"Sworn Sprite",desc:"A tiny fey warrior no taller than a hand, armed with a sword and a longbow sized to match.",type:"companion",subcategory:"pet",slotSize:1,gp:"7500 gp",effect:"Can cast Heart Sight once per long rest on its owner's behalf (know a creature's alignment and strongest emotion). Advantage on saves vs. being charmed while it's within 10 ft."},
+    {name:"Pixie Bound by Favor",desc:"A mischievous, glowing fey no bigger than a sparrow, who owes a debt it intends to repay exactly once.",type:"companion",subcategory:"pet",slotSize:1,gp:"9000 gp",effect:"Can cast Polymorph on its owner once, ever, when the debt is called in (GM discretion on timing/target)."},
+    {name:"Displacer Beast Cub",desc:"A young displacer beast, its light-bending fur not yet fully reliable, tentacles still a bit clumsy.",type:"companion",subcategory:"pet",slotSize:1,gp:"12000 gp",effect:"Once per short rest, grant its owner the Displacement effect for 1 round (attacks against you have disadvantage) as a reaction."},
+    {name:"Sworn Young Couatl",desc:"A small feathered serpent, radiant and gentle, sworn to protect one mortal it has judged worthy.",type:"companion",subcategory:"pet",slotSize:1,gp:"15000 gp",effect:"Can cast Bless once per long rest, no material components. Resistance to psychic damage rubs off on its owner while within 10 ft."},
+    {name:"Shadow Mastiff Pup",desc:"A young mastiff-sized shadow beast, more curious than menacing, that can slip between patches of darkness.",type:"companion",subcategory:"pet",slotSize:1,gp:"10000 gp",effect:"Can teleport up to 30 ft. between two dim or dark areas once per short rest — itself only, but can carry a held item along."},
+    {name:"Tamed Giant Strider",desc:"A flightless bird the size of a draft horse, bred more for loyalty than speed, but plenty fast regardless.",type:"companion",subcategory:"pet",slotSize:1,gp:"9500 gp",effect:"Speed 50 ft.; advantage on Survival checks to navigate open plains or grassland while it's your guide."},
+    // ── COMPANIONS: MOUNTS (superrare) ──
+    {name:"Hippogriff",desc:"Half horse, half eagle, entirely proud — a hippogriff accepts a rider only after being genuinely impressed.",type:"companion",subcategory:"mount",slotSize:1,gp:"15000 gp",ac:"14",effect:"Speed 40 ft., fly speed 60 ft. Rider gains +1 to attack rolls made while mounted and airborne."},
+    {name:"Fey-Touched Giant Elk",desc:"An elk the size of a small building, antlers spanning wider than a wagon, faintly touched by the Feywild.",type:"companion",subcategory:"mount",slotSize:1,gp:"18000 gp",ac:"14",effect:"Speed 60 ft. Rider and mount both have advantage on saving throws against being charmed while mounted. Once per day, the elk can Misty Step (itself and rider together) up to 30 ft."},
+    {name:"Trained Giant Vulture",desc:"An enormous, patient vulture trained from the egg to accept a rider — unsettling to look at, dependable in the air.",type:"companion",subcategory:"mount",slotSize:1,gp:"14000 gp",ac:"13",effect:"Fly speed 60 ft. Advantage on checks to spot movement or death from high altitude while the rider scouts."},
   ],
   legendary: [
     {name:"Emberfang, the Wyrmslayer Blade",desc:"A massive greatsword forged from the fang of an ancient red wyrm and quenched in its own blood.",type:"weapon",slotSize:2,gp:"—",dmg:"2d6+4",effect:"+4 attack and damage. +2d6 fire damage against dragons and dragonkin. When a true dragon is within 100 ft., the blade hums and the hilt scales bristle. Requires attunement.",charges:"—",unlocks:[{"type":"locked","tierLabel":"Tier I — The Hungry Blade","condition":"Deal 500 total fire damage using this weapon across any number of encounters.","reward":"+1d6 fire damage permanently on all hits. The blade stays visibly orange-hot for 10 minutes after each kill."},{"type":"locked","tierLabel":"Tier II — Wyrmslayer","condition":"Kill a true dragon (CR 10+) with this blade as the killing blow.","reward":"Dragon Terror Aura: all dragons within 60 ft. make DC 16 Wisdom save or become Frightened until they leave the radius. You are permanently immune to dragon Frightful Presence."},{"type":"cursed","tierLabel":"Tier III — Wyrm's Hunger (Curse)","condition":"Kill 3 true dragons with this blade as the killing blow. The third dragon's soul is consumed.","reward":"The blade becomes Sentient (Int 14, Wis 10, Cha 18) and craves dragon blood. If no dragon is killed within 30 days, it attacks allies. When fed: advantage on all attack rolls for 1 hour after each dragon kill. +5 attack and damage against dragons permanently."}]},
@@ -3119,6 +3204,13 @@ const lootData = {
     {"name":"Adamantine Warhammer","desc":"A adamantine a heavy square hammerhead built for crushing blows.","type":"weapon","slotSize":2,"gp":"25000 gp","dmg":"1d8+2","effect":"Versatile (1d10). +2 to attack and damage rolls. Attacks made with this weapon that hit an object automatically score a critical hit against it."},
     {"name":"Adamantine Spear","desc":"A adamantine a long haft tipped with a leaf-shaped point.","type":"weapon","slotSize":2,"gp":"25000 gp","dmg":"1d6+2","effect":"Thrown (range 20/60), versatile (1d8). +2 to attack and damage rolls. Attacks made with this weapon that hit an object automatically score a critical hit against it."},
     {"name":"Adamantine Arrows","desc":"A bundle of 20 arrows fletched and tipped in adamantine.","type":"weapon","slotSize":1,"gp":"8000 gp","dmg":"+2 bonus","effect":"Ammunition (bundle of 20). Fired from any bow. +2 to attack and damage rolls when fired. Attacks made with this weapon that hit an object automatically score a critical hit against it."},
+    // ── COMPANIONS: PETS (legendary) ──
+    {name:"Sworn Bronze Wyrmling",desc:"A young bronze dragon, not yet full-grown, who has sworn an oath of protection over its chosen companion for reasons it considers private.",type:"companion",subcategory:"pet",slotSize:1,gp:"60000 gp",effect:"Breath weapon (once per short rest): 40-ft line, 6d8 lightning damage, DC 15 Dex save for half — usable to defend its owner. Water breathing while nearby."},
+    {name:"Phoenix Chick",desc:"A newly-hatched phoenix, small and unassuming, faintly warm to the touch, radiating quiet certainty that it cannot really die.",type:"companion",subcategory:"pet",slotSize:1,gp:"90000 gp",effect:"Once per long rest, if its owner drops to 0 HP, the chick can expend itself in a burst of restorative flame, healing the owner to half their maximum HP — then requires a week to be reborn from its own ashes before it can do so again."},
+    {name:"Bound Lantern Archon",desc:"A small sphere of gentle, ever-present light bound in perpetual service by an old and largely forgotten pact.",type:"companion",subcategory:"pet",slotSize:1,gp:"75000 gp",effect:"Sheds bright light 30 ft., dim light 30 ft. beyond, at will. Can cast Daylight once per long rest. Immune to being surprised by evil-aligned creatures while it's within 30 ft."},
+    // ── COMPANIONS: MOUNTS (legendary) ──
+    {name:"Pegasus",desc:"A winged horse of unmistakably noble bearing, who will only bear a rider it judges to be good at heart.",type:"companion",subcategory:"mount",slotSize:1,gp:"80000 gp",ac:"15",effect:"Speed 60 ft., fly speed 90 ft. Rider gains +2 to attack rolls made while mounted and airborne. Advantage on all saving throws against being frightened while mounted."},
+    {name:"Bonded Griffon",desc:"A full-grown griffon, eagle-headed and lion-bodied, bonded for life to one rider it chose itself.",type:"companion",subcategory:"mount",slotSize:1,gp:"95000 gp",ac:"15",effect:"Speed 50 ft., fly speed 80 ft. Rider gains +2 to attack rolls while mounted. The griffon fights alongside its rider in combat, attacking independently with its own claws and beak (2d6+5 slashing, 2d10+5 piercing)."},
   ],
   celestial: [
     {name:"Seraph's Wing Blade",desc:"A greatsword of living silver that has never fully decided whether it is a blade or a feather. The metal shifts like mercury when the light moves and the edge is too fine to see directly. It belonged to a seraph who chose to die defending something mortal, and the god who reforged it into a weapon did so without fully understanding what they were working with.",type:"weapon",slotSize:2,gp:"—",dmg:"2d6+5",effect:"+5 attack and damage. Deals radiant damage. +2d8 radiant on every hit; +4d8 radiant against fiends and undead. Fiends and undead that attempt to wield it take 4d6 radiant damage per round. Holy Aura: while attuned, you emit a 10-ft aura of divine light — fiends and undead within the aura have disadvantage on attack rolls against you. Once per day: cast Holy Aura (no spell slot, no components) centered on yourself for 1 minute. Requires attunement by a creature of good alignment.",charges:"Holy Aura 1/day",unlocks:[{"type":"locked","tierLabel":"Tier I — Seraph's Recognition","condition":"Deal the killing blow to 5 demon lords, archdevils, or CR 20+ fiends.","reward":"All celestials encountered are automatically friendly and will not attack unless attacked first. Holy Aura upgrade: allies within the 10-ft aura also gain +2 to attack and damage rolls."},{"type":"dormant","tierLabel":"Tier II — The Seraph's Name","condition":"Find and read the seraph's true name — requiring considerable research, divine favor, or a journey to the upper planes.","reward":"Once per week: summon the seraph's spirit for 1 hour (full Deva statistics, maximum HP). The +4d8 radiant vs. fiends/undead upgrades to +6d8. Immune to charm, fear, and possession by any means."}]},
@@ -3136,7 +3228,9 @@ const lootData = {
     {name:"Vessel of Returning Tides",desc:"A large ceramic urn glazed in deep blue and silver, depicting a coastline that does not correspond to any known coast. The ocean in the painting is moving. Looking at it for too long produces a sound like distant surf. It is always cold to the touch and always slightly damp.",type:"misc",slotSize:2,gp:"—",effect:"Once per day: pour any liquid into the vessel and speak a creature's name. If the creature is dead and their soul has not been claimed by a greater power (GM discretion), they are restored to life fully healed and free of all conditions — as per True Resurrection but with no material component. The liquid transforms into sea water that smells of the place the creature died. Once per long rest: the vessel can also act as a portal to any body of water the user has visited — step through and emerge from the surface of that water. The portal remains open for 1 minute.",charges:"True Resurrection 1/day; water portal 1/long rest",unlocks:[{"type":"locked","tierLabel":"Tier I — The Shore Remembers","condition":"Use the Vessel to return a creature to life 5 times.","reward":"True Resurrection upgrades: the vessel fills itself — no liquid needed. Once per day: cast Raise Dead on a creature that died up to 1 year ago, regardless of the condition of remains."},{"type":"dormant","tierLabel":"Tier II — The Coast the Map Shows","condition":"Identify and journey to the coastline depicted in the Vessel's glaze — the impossible coast that doesn't exist on any known map.","reward":"Water portal now reaches any body of water on any plane you have visited. Once per month: fill from the impossible coast — functions as a Potion of Supreme Healing for the next 30 creatures to drink from it."}]},
     {name:"Plate of the Immovable Saint",desc:"Full plate armor made from the melted-down weapons of every army that ever tried to take a particular mountain pass and failed. The smith who made it spent forty years on the project and died the morning after completing it, reportedly satisfied. The armor is heavier than any armor has a right to be, and yet the wearer never tires from wearing it.",type:"armor",slotSize:3,gp:"—",ac:"23",effect:"AC 23. Immune to forced movement — no spell, ability, or physical force can move you against your will. Immune to the Prone, Grappled, and Restrained conditions. Once per day as a bonus action: plant yourself — until the start of your next turn, you cannot be moved by any means and any creature that attempts to move through your space takes 4d10 bludgeoning damage and is knocked prone (Strength DC 20 to avoid the prone). Requires attunement by a creature of lawful alignment.",charges:"Plant 1/day",unlocks:[{"type":"locked","tierLabel":"Tier I — The Pass Holds","condition":"Survive an encounter in which 10 or more enemies attack you in a single round without moving from your starting position.","reward":"Plant ability now creates a 10-ft aura — creatures entering or starting their turn within 10 ft. take 3d6 bludgeoning and make DC 20 Strength save or be pushed back 10 ft."},{"type":"dormant","tierLabel":"Tier II — The Mountain","condition":"Hold a position — a bridge, a gate, a doorway — for a full in-game day against active opposition without retreating.","reward":"AC increases to 25. No longer need food, water, or air while wearing. Once per week: become literally immovable for 1 hour — cannot be moved by any means. Nothing can bypass you without first making DC 30 Strength check to move you."}]},
     {name:"The First Candle",desc:"A small white candle, slightly shorter than it was when first found, that has allegedly been burning since the first mortal ever learned what fire was. It smells like oak and old stone and something that might be memory. It has never dripped. The wax has never melted. It is somehow, inexplicably, getting shorter.",type:"misc",slotSize:1,gp:"—",effect:"While the candle is lit within 60 ft. of you: you cannot be surprised. All allies within 60 ft. of the candle have advantage on death saving throws. Any spell of 5th level or lower cast within the bright light radius (20 ft.) requires no spell slot — the candle fuels it. Spells cast this way are pulled from the candle's light; the candle shortens perceptibly each time. Once extinguished: the candle relights itself at the next dawn. Considered by some scholars to be less an item and more a surviving piece of a much older story. Requires no attunement.",charges:"Free spells ≤5th level while lit; self-relights each day",unlocks:[{"type":"locked","tierLabel":"Tier I — The Story Continues","condition":"Cast 15 spells fueled by the candle's light without it being extinguished.","reward":"The candle now fuels spells of 6th level or lower for free (up from 5th), and its bright light radius increases to 30 ft."},{"type":"locked","tierLabel":"Tier II — An Older Story Than Fire","condition":"Keep the candle lit continuously for 7 full in-game days.","reward":"While lit, you and all allies within its light have advantage on saving throws against being frightened, and no darkness, magical or otherwise, can extinguish it."}]},
-    {name:"Shroud of the Silent Heaven",desc:"A plain white burial shroud taken from a celestial who chose to be interred rather than return to the heavens, on the grounds that they had become too attached to the place they were in. The fabric is impossibly fine. It is translucent but not see-through. It never gets dirty. If it is ever fully spread out, the pattern woven into it — invisible until then — depicts a map of a place no one has been able to identify.",type:"armor",slotSize:1,gp:"—",ac:"+4",effect:"+4 AC. Immune to necrotic damage and to the effects of dead magic zones — spells cast by the wearer function normally in antimagic fields and dead magic zones (the shroud sustains them). Once per day: become incorporeal for up to 10 minutes (can move through objects and creatures; immune to non-magical damage while incorporeal; end as a bonus action). While incorporeal: you can communicate telepathically with any creature within 120 ft. regardless of language. Once per long rest: a creature that dies within 30 ft. of you can be preserved — their soul is held in the shroud for up to 24 hours, during which they can be restored to life by any means without the soul first needing to be retrieved from another plane. Requires attunement.",charges:"Incorporeal 1/day; soul preservation 1/long rest",unlocks:[{"type":"locked","tierLabel":"Tier I — The Pattern Read","condition":"Fully decode the map woven into the shroud — the GM reveals the location and you must journey there and identify it.","reward":"Know direction and approximate distance of any location you have previously visited, on any plane. Incorporeal duration increases to 1 hour per day."},{"type":"dormant","tierLabel":"Tier II — Celestial's Rest","condition":"Travel to the location in the shroud's map and spend a long rest there with at least one person you trust completely.","reward":"Soul preservation becomes automatic — all creatures that die within 60 ft. are preserved for 7 days. Once per week: the shroud acts as a gate to a peaceful demiplane where long rests take 10 minutes and all conditions are removed on arrival."}]}
+    {name:"Shroud of the Silent Heaven",desc:"A plain white burial shroud taken from a celestial who chose to be interred rather than return to the heavens, on the grounds that they had become too attached to the place they were in. The fabric is impossibly fine. It is translucent but not see-through. It never gets dirty. If it is ever fully spread out, the pattern woven into it — invisible until then — depicts a map of a place no one has been able to identify.",type:"armor",slotSize:1,gp:"—",ac:"+4",effect:"+4 AC. Immune to necrotic damage and to the effects of dead magic zones — spells cast by the wearer function normally in antimagic fields and dead magic zones (the shroud sustains them). Once per day: become incorporeal for up to 10 minutes (can move through objects and creatures; immune to non-magical damage while incorporeal; end as a bonus action). While incorporeal: you can communicate telepathically with any creature within 120 ft. regardless of language. Once per long rest: a creature that dies within 30 ft. of you can be preserved — their soul is held in the shroud for up to 24 hours, during which they can be restored to life by any means without the soul first needing to be retrieved from another plane. Requires attunement.",charges:"Incorporeal 1/day; soul preservation 1/long rest",unlocks:[{"type":"locked","tierLabel":"Tier I — The Pattern Read","condition":"Fully decode the map woven into the shroud — the GM reveals the location and you must journey there and identify it.","reward":"Know direction and approximate distance of any location you have previously visited, on any plane. Incorporeal duration increases to 1 hour per day."},{"type":"dormant","tierLabel":"Tier II — Celestial's Rest","condition":"Travel to the location in the shroud's map and spend a long rest there with at least one person you trust completely.","reward":"Soul preservation becomes automatic — all creatures that die within 60 ft. are preserved for 7 days. Once per week: the shroud acts as a gate to a peaceful demiplane where long rests take 10 minutes and all conditions are removed on arrival."}]},
+    {name:"Fragment of a Fallen Star",desc:"Not quite a creature and not quite an object — a small mote of captured starlight that took on enough personality, over the centuries, to be considered a companion rather than a possession. It has no true form, only a shifting point of light about the size of a fist, and it seems to genuinely like whoever it's chosen to travel with, for reasons neither party has ever managed to explain.",type:"companion",subcategory:"pet",slotSize:1,gp:"—",effect:"Sheds bright light 60 ft., dim light 60 ft. beyond. Once per day, it can flare into a Guardian of Faith-like effect (a stationary spectral guardian, 60 HP, 20 radiant damage to enemies that approach) for 8 hours. Once per week, it can cast Wish on its owner's behalf for a single specific request related to light, guidance, or finding something lost (GM discretion on exact scope). It cannot be destroyed by mundane or even most magical means — if 'harmed,' it simply winks out and reforms a week later somewhere nearby."},
+    {name:"Celestial Steed of the Silver Path",desc:"Not born but summoned — a horse-shaped avatar of moonlight and old oaths, said to have carried heroes across the sky since before written history. It answers only one rider at a time, chosen not by worthiness exactly, but by some calculus of the heart that no scholar has ever successfully described.",type:"companion",subcategory:"mount",slotSize:1,gp:"—",ac:"18",effect:"Speed 80 ft., fly speed 120 ft., can also run across water, cloud, and open air as if they were solid ground. Rider gains +3 to attack rolls made while mounted. Immune to being frightened while mounted. Once per day, the steed can carry itself and up to 5 additional willing creatures through a Plane Shift-like leap to any location the rider has previously visited. Cannot be permanently killed — if reduced to 0 HP, it dissolves into moonlight and reforms at the next full moon."}
   ]
 };
 
@@ -3153,7 +3247,7 @@ const rarityColors = { common:'#a0a8b0', uncommon:'#4caf7d', rare:'#5b9cf6', sup
 // (armor/weapon/consumable/misc/unknown); `subcategory` is derived from the item's name
 // (never randomized) and determines both slotSize and which equipment slot it fits.
 // This is what makes "turn any item into a wearable token" work consistently everywhere.
-const itemTypes=['armor','weapon','consumable','misc','limb','unknown'];
+const itemTypes=['armor','weapon','consumable','misc','limb','companion','unknown'];
 const ITEM_SUBCATEGORIES = {
   armor: ['head','facewear','chest','cloak','belt','boots','leggings','handwear','offhand'],
   weapon: ['onehanded','twohanded'],
@@ -3161,6 +3255,8 @@ const ITEM_SUBCATEGORIES = {
   misc: ['ring','amulet','charm'],
   // Fleshmancer-grafted body parts get their own top-level type instead of living under misc.
   limb: ['arm','hand','leg','foot','eye','ear','finger','heart','tongue'],
+  // Mounts and pets both equip to the single Mount/Pet slot — see SUBCATEGORY_TO_SLOT_CATEGORY.
+  companion: ['pet','mount'],
   unknown: [],
 };
 const SUBCATEGORY_LABELS = {
@@ -3171,6 +3267,7 @@ const SUBCATEGORY_LABELS = {
   ring:'Ring', amulet:'Amulet', charm:'Charm / Misc',
   arm:'Arm', hand:'Hand', leg:'Leg', foot:'Foot', eye:'Eye', ear:'Ear',
   finger:'Finger', heart:'Heart', tongue:'Tongue',
+  pet:'Pet', mount:'Mount',
 };
 // Slot size is a property of the subcategory, not something rolled per item — a chest
 // piece is always 2 slots, a ring is always 1, etc.
@@ -3179,6 +3276,7 @@ const SUBCATEGORY_SLOT_SIZE = {
   onehanded:1, twohanded:2,
   potion:1, scroll:1, food:1, throwable:1,
   ring:1, amulet:1, charm:1,
+  pet:1, mount:1,
   arm:2, hand:1, leg:2, foot:1, eye:1, ear:1, finger:1, heart:1, tongue:1,
 };
 // Maps a subcategory to the equipment-slot category it fits on the player doll.
@@ -3190,6 +3288,8 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   ring:'ring', amulet:'amulet', charm:'charm',
   arm:'limb-arm', hand:'limb-hand', leg:'limb-leg', foot:'limb-foot', eye:'limb-eye',
   ear:'limb-ear', finger:'limb-finger', heart:'limb-heart', tongue:'limb-tongue',
+  // Pets and mounts share the single Mount/Pet slot on the player doll.
+  pet:'companion', mount:'companion',
 };
 // Derives a subcategory purely from the item's name and general type — this is the one
 // place that decides "what kind of armor/weapon/consumable/misc item is this", so every
@@ -3233,6 +3333,10 @@ function classifySubcategory(name, type) {
     if (/\bheart\b/.test(n)) return 'heart';
     if (/\btongue\b/.test(n)) return 'tongue';
     return '';
+  }
+  if (type === 'companion') {
+    if (/mount|steed|charger|warhorse|destrier|palfrey|pony/.test(n)) return 'mount';
+    return 'pet';
   }
   return '';
 }
@@ -4550,7 +4654,9 @@ function renderItemsList() {
 function updateAddFormFields() {
   const type = document.getElementById('newItemType').value;
   document.querySelectorAll('#compendium-items .type-field').forEach(el=>{
-    el.style.display = (el.dataset.for === type) ? 'block' : 'none';
+    // data-for can list more than one type space-separated (e.g. "armor companion" — the AC
+    // field is relevant to both armor and mount-type companions).
+    el.style.display = (el.dataset.for || '').split(' ').includes(type) ? 'block' : 'none';
   });
 }
 
@@ -8110,6 +8216,7 @@ const SLOT_TYPES = [
   { id:'limb-finger', label:'Limb: Finger' },
   { id:'limb-heart',  label:'Limb: Heart' },
   { id:'limb-tongue', label:'Limb: Tongue' },
+  { id:'companion',   label:'Mount / Pet' },
 ];
 
 // Maps each equipment slot on the player board to the token category it accepts.
@@ -8130,6 +8237,8 @@ const SLOT_CATEGORY = {
   limbEar1:'limb-ear', limbEar2:'limb-ear',
   limbFinger1:'limb-finger', limbFinger2:'limb-finger', limbFinger3:'limb-finger', limbFinger4:'limb-finger',
   limbHeart:'limb-heart', limbTongue:'limb-tongue',
+  // Single Mount/Pet slot — accepts either subcategory (see SUBCATEGORY_TO_SLOT_CATEGORY).
+  companion:'companion',
 };
 const SLOT_LABELS = {
   helmet:'Helmet', facewear:'Face Wear', armor:'Armor', handwear:'Hand Wear',
@@ -8147,6 +8256,7 @@ const SLOT_LABELS = {
   limbEar1:'Ear', limbEar2:'Ear',
   limbFinger1:'Finger', limbFinger2:'Finger', limbFinger3:'Finger', limbFinger4:'Finger',
   limbHeart:'Heart', limbTongue:'Tongue',
+  companion:'Mount / Pet',
 };
 
 // What's currently equipped: slotId -> token key (or null)
@@ -8446,6 +8556,7 @@ const SLOT_EMPTY_ICON = {
   limbEye1:'👁️', limbEye2:'👁️', limbEar1:'👂', limbEar2:'👂',
   limbFinger1:'☝️', limbFinger2:'☝️', limbFinger3:'☝️', limbFinger4:'☝️',
   limbHeart:'❤️', limbTongue:'👅',
+  companion:'🐾',
 };
 
 function renderPlayerSlots() {
