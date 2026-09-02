@@ -4250,6 +4250,17 @@ function metaTagsFor(item, rarity){
   if(item.requirement) tags += `<span class="meta-tag">Req: ${item.requirement}</span>`;
   return tags;
 }
+// Items with a `mods` array (e.g. Fleshmancer limbs) render one colorized line per
+// modifier instead of the flattened `effect` string, so the Edit Items tab shows the
+// same green/red buff-debuff coloring as everywhere else. Hand-authored lootData items
+// have no `mods`, so they keep using the plain `effect` text as before.
+function itemEffectBlockHtml(item) {
+  if (item.mods && item.mods.length) {
+    return `<div class="item-effect">${item.mods.map(m => colorizeModifierText(m.text, m.type)).join(' ')}</div>`;
+  }
+  if (item.effect) return `<div class="item-effect">Effect: ${item.effect}</div>`;
+  return '';
+}
 
 function renderItemsList() {
   const list = document.getElementById('itemsList');
@@ -4292,7 +4303,7 @@ function renderItemsList() {
         <div class="item-name">${item.name}</div>
         <div class="item-desc">${item.desc}</div>
         <div class="item-meta">${metaTagsFor(item, rarity)}</div>
-        ${item.effect ? `<div class="item-effect">Effect: ${item.effect}</div>` : ''}
+        ${itemEffectBlockHtml(item)}
         ${item.unlocks && item.unlocks.length ? renderUnlocks(item, rarity) : ''}
       </div>
       <div class="item-actions">
@@ -5178,7 +5189,7 @@ function generateUniqueItem() {
   const modsHtml = mods.map(m => `
     <div class="ic-mod-group">
       <div class="ic-mod-label">${m.type}</div>
-      <div class="ic-mod-entry">${m.text}</div>
+      <div class="ic-mod-entry">${colorizeModifierText(m.text, m.type)}</div>
     </div>
   `).join('');
 
@@ -5613,7 +5624,7 @@ function loadSavedItem(id) {
     ${item.ac  ? `<span class="ic-stat ac">🛡 AC ${item.ac}</span>` : ''}${item.requirement ? `<span class="ic-stat">Req: ${item.requirement}</span>` : ''}
     ${item.hp  ? `<span class="ic-stat hp">❤ Heals ${item.hp}</span>` : ''}
   </div>`;
-  const modsHtml = item.mods.map(m => `<div class="ic-mod-group"><div class="ic-mod-label">${m.type}</div><div class="ic-mod-entry">${m.text}</div></div>`).join('');
+  const modsHtml = item.mods.map(m => `<div class="ic-mod-group"><div class="ic-mod-label">${m.type}</div><div class="ic-mod-entry">${colorizeModifierText(m.text, m.type)}</div></div>`).join('');
   const tagsHtml = (item.tags||[]).length ? `<div class="ic-tags">${item.tags.map(t=>`<span class="ic-tag t-${t}">${t}</span>`).join('')}</div>` : '';
 
   // Render description — use typed paragraphs if available, else split plain text
@@ -5837,6 +5848,7 @@ function fleshGenerateCandidate() {
 function rollFleshCandidates() {
   fleshCandidates = [0,1,2].map(fleshGenerateCandidate);
   fleshSelectedIndex = null;
+  _pendingFleshItem = null;
   document.getElementById('fleshConfirm').style.display = 'none';
   document.getElementById('fleshConfirm').innerHTML = '';
   document.getElementById('fleshResult').innerHTML = '';
@@ -5852,7 +5864,7 @@ function renderFleshCandidates() {
   }
   el.innerHTML = fleshCandidates.map((c, i) => {
     const color = rarityColors[c.rarity] || '#a0a8b0';
-    const effectsHtml = c.mods.map(m => `<div>${m.text}</div>`).join('');
+    const effectsHtml = c.mods.map(m => `<div>${colorizeModifierText(m.text, m.type)}</div>`).join('');
     const selected = i === fleshSelectedIndex ? ' selected' : '';
     return `
       <div class="flesh-card ${c.rarity}${selected}" onclick="selectFleshCandidate(${i})">
@@ -5868,6 +5880,7 @@ function renderFleshCandidates() {
 
 function selectFleshCandidate(i) {
   fleshSelectedIndex = i;
+  _pendingFleshItem = null;
   renderFleshCandidates();
   const c = fleshCandidates[i];
   const confirmEl = document.getElementById('fleshConfirm');
@@ -5979,11 +5992,29 @@ function fleshApplyQuality(candidate, quality) {
   return { mods, rarity, note };
 }
 
+// How the graft went shows up right in the limb's name, front and center — e.g. a
+// well-attached "Vital Right Ear" becomes "Clean Vital Right Ear", a badly-attached one
+// becomes "Mangled Vital Right Ear". ("Transcendent" is reserved as the celestial-rarity
+// name prefix already, so the transcendent-quality adjective is "Perfected" instead to
+// avoid "Transcendent Transcendent X".)
+const FLESH_QUALITY_ADJECTIVES = {
+  unstable: 'Mangled',
+  partial: 'Uneven',
+  normal: 'Clean',
+  seamless: 'Flawless',
+  transcendent: 'Perfected',
+};
+
+// Holds the most recently rolled (but not yet saved) successful graft, so the "Save
+// Item" button on the result card knows what to commit to lootData.
+let _pendingFleshItem = null;
+
 function attemptFleshAttach() {
   if (fleshSelectedIndex === null) return;
   const c = fleshCandidates[fleshSelectedIndex];
   const outcome = fleshRollOutcome(c.rarity);
   const resultEl = document.getElementById('fleshResult');
+  _pendingFleshItem = null;
 
   if (!outcome.success) {
     resultEl.innerHTML = `
@@ -5999,30 +6030,31 @@ function attemptFleshAttach() {
   }
 
   const { mods, rarity, note } = fleshApplyQuality(c, outcome.quality);
+  const qualityAdj = FLESH_QUALITY_ADJECTIVES[outcome.quality] || '';
+  const finalName = qualityAdj ? `${qualityAdj} ${c.name}` : c.name;
   // type = 'limb' (its own top-level item type — see ITEM_SUBCATEGORIES), subcategory
   // carries the specific body part, which is what routes it to the right Limb slot on
-  // the Player tab (see SUBCATEGORY_TO_SLOT_CATEGORY / inferSlotType). Pushed straight
-  // into lootData (not savedGeneratedItems) so it's a first-class citizen everywhere:
-  // visible and editable on the Edit Items tab, rollable by the wheel/chest, and
-  // tokenizable exactly like every other loot item.
+  // the Player tab (see SUBCATEGORY_TO_SLOT_CATEGORY / inferSlotType). Not saved until
+  // the player clicks "Save Item" below — see saveFleshItem().
   const effectText = mods.map(m => m.text).join(' ') + (note ? ` <em>${note}</em>` : '');
   const item = {
-    name: c.name, rarity, type: 'limb', subcategory: c.limbDef.category,
+    name: finalName, rarity, type: 'limb', subcategory: c.limbDef.category,
     gp: formatGpAmount(c.gp), dmg:'', ac:'', hp:'', requirement:'', charges:'',
     slotSize: c.limbDef.slotSize, mods, effect: effectText,
     desc: c.desc,
     flavor: c.desc + (note ? '\n\n' + note : ''),
     tags: [],
   };
-  lootData[rarity].unshift(item);
+  _pendingFleshItem = item;
 
   // The mods here are already the outcome-rescaled ones (see fleshApplyQuality above),
   // so this card shows the limb's actual final stats — not what it rolled before the
-  // attachment quality was applied.
+  // attachment quality was applied. Colored green/red per buff/debuff so the net effect
+  // reads at a glance.
   const modsHtml = mods.map(m => `
     <div class="ic-mod-group">
       <div class="ic-mod-label">${escapeHtml(m.type)}</div>
-      <div class="ic-mod-entry">${m.text}</div>
+      <div class="ic-mod-entry">${colorizeModifierText(m.text, m.type)}</div>
     </div>
   `).join('');
 
@@ -6045,13 +6077,23 @@ function attemptFleshAttach() {
         <div class="ic-desc">${escapeHtml(item.desc)}</div>
         <div class="ic-modifiers">${modsHtml}</div>
       </div>
-      <div class="item-card-actions">
-        <span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Added to your item list — find and edit it on the Edit Items tab, or equip it as a token from the Player &amp; Tokens tab.</span>
+      <div class="item-card-actions" id="fleshSaveActions">
+        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save Item</button>
       </div>
     </div>
   `;
   document.getElementById('fleshConfirm').style.display = 'none';
   fleshSelectedIndex = null;
+}
+
+function saveFleshItem() {
+  if (!_pendingFleshItem) return;
+  lootData[_pendingFleshItem.rarity].unshift(_pendingFleshItem);
+  const actionsEl = document.getElementById('fleshSaveActions');
+  if (actionsEl) {
+    actionsEl.innerHTML = `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved — find and edit it on the Edit Items tab, or equip it as a token from the Player &amp; Tokens tab.</span>`;
+  }
+  _pendingFleshItem = null;
 }
 
 // ===================== STORE =====================
@@ -6240,7 +6282,7 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
 function storeDailyCardHtml(item, idx) {
   const color = rarityColors[item.rarity] || '#a0a8b0';
   const icon = storeIconSvg(storeIconCategory(item), color);
-  const effectText = (item.mods || []).map(m => m.text).join(' ');
+  const effectText = (item.mods || []).map(m => colorizeModifierText(m.text, m.type)).join(' ');
   const statBits = [];
   if (item.dmg) statBits.push(`⚔ ${item.dmg}`);
   if (item.ac) statBits.push(`🛡 AC ${item.ac}`);
@@ -7358,6 +7400,22 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+// Colors a modifier's text so its effect reads at a glance — beneficial (Buff) in green,
+// harmful (Debuff) in red. Named Traits mix exactly one of each in a single line, so
+// those are colored per +N/-N sign instead of as one solid block. Everything else
+// (Power, Transform, Summon, Terrain, Skill) is left uncolored — this is scoped to
+// buffs/debuffs specifically. Only ever call this on text about to be inserted as HTML,
+// never on text headed for a plain-text export/copy.
+function colorizeModifierText(text, type) {
+  if (type === 'Buff') return `<span style="color:var(--uncommon)">${text}</span>`;
+  if (type === 'Debuff') return `<span style="color:var(--danger)">${text}</span>`;
+  if (type === 'Trait') {
+    return text.replace(/([+-])(\d+)/g, (m, sign, num) =>
+      sign === '+' ? `<span style="color:var(--uncommon)">+${num}</span>` : `<span style="color:var(--danger)">-${num}</span>`
+    );
+  }
+  return text;
 }
 
 const SLOT_TYPES = [
