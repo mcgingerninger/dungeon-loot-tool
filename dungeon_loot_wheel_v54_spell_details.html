@@ -8772,7 +8772,11 @@ let _draggedInvPlacement = null;
 function inventoryItemDragStart(evt, placementId) {
   _draggedInvPlacement = placementId;
   evt.dataTransfer.setData('text/plain', 'invplace:' + placementId);
-  evt.dataTransfer.effectAllowed = 'move';
+  // Every drop target's dragover handler (slotDragOver) sets dropEffect = 'copy' — that has
+  // to match effectAllowed or the browser shows a "not allowed" cursor and blocks the drop
+  // outright, even though preventDefault() was called. 'copyMove' is compatible with both
+  // 'copy' (matching every other drop target already on the page) and 'move'.
+  evt.dataTransfer.effectAllowed = 'copyMove';
 }
 
 function flashInvCellInvalid(row, col) {
