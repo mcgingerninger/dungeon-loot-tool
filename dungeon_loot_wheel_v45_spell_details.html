@@ -99,18 +99,21 @@
      from, rather than a table of already-rolled results. */
   .effects-search { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.55rem 0.7rem; margin-bottom: 1rem; }
   .effects-search:focus { outline: none; border-color: var(--gold); }
-  .effects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+  .effects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem; }
   .effects-card { background: var(--surface); border: 1px solid var(--border); padding: 1rem; }
   .effects-card h3 { color: var(--gold); font-size: 1rem; margin-bottom: 0.3rem; letter-spacing: 0.05em; }
   .effects-card-sub { color: var(--text-dim); font-size: 0.78rem; font-style: italic; margin-bottom: 0.7rem; }
   .effects-pill-group { margin-bottom: 0.6rem; }
   .effects-pill-group:last-child { margin-bottom: 0; }
   .effects-pill-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 0.35rem; display: block; }
-  .effects-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-  .effects-pill { background: var(--surface2); border: 1px solid var(--border); padding: 0.2rem 0.55rem; font-size: 0.78rem; color: var(--text); }
-  .effects-pill.buff { border-color: var(--uncommon); color: var(--uncommon); }
-  .effects-pill.debuff { border-color: var(--danger); color: var(--danger); }
-  .trait-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .effects-item-list { display: flex; flex-direction: column; gap: 0.3rem; max-height: 340px; overflow-y: auto; padding-right: 0.4rem; }
+  .effects-item-row { font-size: 0.8rem; line-height: 1.45; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.25rem; }
+  .effects-item-row:last-child { border-bottom: none; }
+  .effects-item-name { font-weight: 600; }
+  .effects-item-name.buff { color: var(--uncommon); }
+  .effects-item-name.debuff { color: var(--danger); }
+  .effects-item-desc { color: var(--text-dim); }
+  .trait-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 420px; overflow-y: auto; padding-right: 0.4rem; }
   .trait-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.35rem 0.6rem; background: var(--surface2); border: 1px solid var(--border); flex-wrap: wrap; }
   .trait-row-name { font-weight: 600; color: var(--gold-bright); min-width: 130px; }
 
@@ -3287,15 +3290,17 @@ function showCompendiumSub(sub, btn) {
 function renderEffectsCompendium() {
   const wrap = document.getElementById('effectsCompendiumWrap'); if (!wrap) return;
   const q = (document.getElementById('effectsSearch')?.value || '').toLowerCase().trim();
-  const matches = s => !q || String(s).toLowerCase().includes(q);
+  const desc = s => GEN.effectDescriptions[s] || '';
+  const matches = s => !q || String(s).toLowerCase().includes(q) || desc(s).toLowerCase().includes(q);
 
-  function pillGroup(label, list, cls) {
+  function itemGroup(label, list, cls) {
     const filtered = list.filter(matches);
     if (!filtered.length) return '';
-    return `<div class="effects-pill-group"><span class="effects-pill-label">${escapeHtml(label)}</span><div class="effects-pills">${filtered.map(s => `<span class="effects-pill ${cls}">${escapeHtml(s)}</span>`).join('')}</div></div>`;
+    const rows = filtered.map(s => `<div class="effects-item-row"><span class="effects-item-name ${cls}">${escapeHtml(s)}</span>${desc(s) ? ` — <span class="effects-item-desc">${escapeHtml(desc(s))}</span>` : ''}</div>`).join('');
+    return `<div class="effects-pill-group"><span class="effects-pill-label">${escapeHtml(label)}</span><div class="effects-item-list">${rows}</div></div>`;
   }
   function poolCard(title, sub, pool, cls) {
-    const body = pillGroup('Scalar (+N / -N)', pool.scalar, cls) + pillGroup('Conditions', pool.conditions, cls);
+    const body = itemGroup('Scalar (+N / -N)', pool.scalar, cls) + itemGroup('Conditions', pool.conditions, cls);
     if (!body) return '';
     return `<div class="effects-card"><h3>${escapeHtml(title)}</h3><p class="effects-card-sub">${escapeHtml(sub)}</p>${body}</div>`;
   }
@@ -3307,11 +3312,18 @@ function renderEffectsCompendium() {
     poolCard('⬇ Debuffs — Inflicted on Others', 'Harmful effects the bearer inflicts on a target.', GEN.debuffsOther, 'debuff'),
   ].join('');
 
-  const traits = GEN.namedModifiers.filter(m => matches(m.name) || matches(m.buff) || matches(m.debuff));
+  const traitMatches = m => matches(m.name) || (m.buffs || []).some(matches) || (m.debuffs || []).some(matches);
+  const traits = GEN.namedModifiers.filter(traitMatches);
+  const traitRow = m => {
+    const buffSpans = (m.buffs || []).map(s => `<span style="color:var(--uncommon)">+${escapeHtml(s)}</span>`).join(', ');
+    const debuffSpans = (m.debuffs || []).map(s => `<span style="color:var(--danger)">-${escapeHtml(s)}</span>`).join(', ');
+    const parts = [buffSpans, debuffSpans].filter(Boolean).join(' <span style="color:var(--text-dim)">/</span> ');
+    return `<div class="trait-row"><span class="trait-row-name">${escapeHtml(m.name)}</span>${parts}</div>`;
+  };
   const traitsHtml = traits.length ? `<div class="effects-card" style="grid-column:1/-1;">
     <h3>🎭 Named Traits</h3>
-    <p class="effects-card-sub">Fixed personality pairs — always the same buff stat with a smaller matching debuff stat. Used by Trait-type item modifiers and the Combat tab's monster variant traits.</p>
-    <div class="trait-list">${traits.map(m => `<div class="trait-row"><span class="trait-row-name">${escapeHtml(m.name)}</span><span style="color:var(--uncommon)">+${escapeHtml(m.buff)}</span><span style="color:var(--text-dim)">/</span><span style="color:var(--danger)">-${escapeHtml(m.debuff)}</span></div>`).join('')}</div>
+    <p class="effects-card-sub">Fixed personality pools — most pair a benefit with a cost, some are pure blessings, some are pure curses. Used by Trait-type item modifiers and the Combat tab's monster variant traits.</p>
+    <div class="trait-list">${traits.map(traitRow).join('')}</div>
   </div>` : '';
 
   wrap.innerHTML = (cards || traitsHtml)
@@ -5169,36 +5181,212 @@ const GEN = {
     ]
   },
 
-  // Named trait modifiers — a fixed personality/theme (e.g. "Bloody") that always pairs
-  // one specific buff stat with one specific debuff stat on the bearer. The buff and
-  // debuff amounts both scale with rarity (see pickNamedTrait), but the buff is always
-  // the larger of the two, so the trait is a net-positive trade-off rather than a curse.
+  // Named trait modifiers — a fixed personality/theme (e.g. "Bloody") that pairs one or
+  // more buff stats with one or more debuff stats on the bearer. Most are a balanced 1-for-1
+  // trade (the buff always the larger of the two, so it's a net-positive trade rather than a
+  // curse — see pickNamedTrait). Some traits are pure blessings (buffs only, no debuffs) and
+  // some are pure curses (debuffs only, no buffs) for more variety than a strict trade-off.
   namedModifiers: [
-    {name:"Bloody",         buff:"Strength",       debuff:"Constitution"},
-    {name:"Swift",          buff:"Dexterity",       debuff:"Strength"},
-    {name:"Stonehide",      buff:"Constitution",    debuff:"Dexterity"},
-    {name:"Sharp-Witted",   buff:"Intelligence",    debuff:"Wisdom"},
-    {name:"Zealous",        buff:"Wisdom",          debuff:"Charisma"},
-    {name:"Silver-Tongued", buff:"Charisma",        debuff:"Intelligence"},
-    {name:"Frenzied",       buff:"Attack Bonus",    debuff:"Armor Class"},
-    {name:"Fortified",      buff:"Armor Class",     debuff:"Movement Speed"},
-    {name:"Hasty",          buff:"Movement Speed",  debuff:"Maximum Hit Points"},
-    {name:"Vampiric",       buff:"Healing Received",debuff:"Saving Throws"},
-    {name:"Reckless",       buff:"Damage Dealt",    debuff:"Armor Class"},
-    {name:"Cautious",       buff:"Armor Class",     debuff:"Damage Dealt"},
-    {name:"Feral",          buff:"Strength",        debuff:"Intelligence"},
-    {name:"Scholarly",      buff:"Intelligence",    debuff:"Strength"},
-    {name:"Nimble",         buff:"Dexterity",       debuff:"Constitution"},
-    {name:"Resolute",       buff:"Constitution",    debuff:"Dexterity"},
-    {name:"Wrathful",       buff:"Attack Bonus",    debuff:"Saving Throws"},
-    {name:"Serene",         buff:"Saving Throws",   debuff:"Attack Bonus"},
-    {name:"Predatory",      buff:"Perception",      debuff:"Stealth"},
-    {name:"Shadowed",       buff:"Stealth",         debuff:"Perception"},
-    {name:"Domineering",    buff:"Intimidation",    debuff:"Persuasion"},
-    {name:"Diplomatic",     buff:"Persuasion",      debuff:"Intimidation"},
-    {name:"Volatile",       buff:"Spell Save DC",   debuff:"Maximum Hit Points"},
-    {name:"Enduring",       buff:"Maximum Hit Points",debuff:"Spell Save DC"}
+    // ── Balanced trade-offs (one buff, one debuff) ──
+    {name:"Bloody",         buffs:["Strength"],        debuffs:["Constitution"]},
+    {name:"Swift",          buffs:["Dexterity"],       debuffs:["Strength"]},
+    {name:"Stonehide",      buffs:["Constitution"],    debuffs:["Dexterity"]},
+    {name:"Sharp-Witted",   buffs:["Intelligence"],    debuffs:["Wisdom"]},
+    {name:"Zealous",        buffs:["Wisdom"],          debuffs:["Charisma"]},
+    {name:"Silver-Tongued", buffs:["Charisma"],        debuffs:["Intelligence"]},
+    {name:"Frenzied",       buffs:["Attack Bonus"],    debuffs:["Armor Class"]},
+    {name:"Fortified",      buffs:["Armor Class"],     debuffs:["Movement Speed"]},
+    {name:"Hasty",          buffs:["Movement Speed"],  debuffs:["Maximum Hit Points"]},
+    {name:"Vampiric",       buffs:["Healing Received"],debuffs:["Saving Throws"]},
+    {name:"Reckless",       buffs:["Damage Dealt"],    debuffs:["Armor Class"]},
+    {name:"Cautious",       buffs:["Armor Class"],     debuffs:["Damage Dealt"]},
+    {name:"Feral",          buffs:["Strength"],        debuffs:["Intelligence"]},
+    {name:"Scholarly",      buffs:["Intelligence"],    debuffs:["Strength"]},
+    {name:"Nimble",         buffs:["Dexterity"],       debuffs:["Constitution"]},
+    {name:"Resolute",       buffs:["Constitution"],    debuffs:["Dexterity"]},
+    {name:"Wrathful",       buffs:["Attack Bonus"],    debuffs:["Saving Throws"]},
+    {name:"Serene",         buffs:["Saving Throws"],   debuffs:["Attack Bonus"]},
+    {name:"Predatory",      buffs:["Perception"],      debuffs:["Stealth"]},
+    {name:"Shadowed",       buffs:["Stealth"],         debuffs:["Perception"]},
+    {name:"Domineering",    buffs:["Intimidation"],    debuffs:["Persuasion"]},
+    {name:"Diplomatic",     buffs:["Persuasion"],      debuffs:["Intimidation"]},
+    {name:"Volatile",       buffs:["Spell Save DC"],   debuffs:["Maximum Hit Points"]},
+    {name:"Enduring",       buffs:["Maximum Hit Points"],debuffs:["Spell Save DC"]},
+    // ── Multi-stat trade-offs (two buffs, two debuffs — a bigger swing both ways) ──
+    {name:"Berserk",        buffs:["Attack Bonus","Damage Dealt"],       debuffs:["Armor Class","Saving Throws"]},
+    {name:"Guardian",       buffs:["Armor Class","Maximum Hit Points"],  debuffs:["Attack Bonus","Movement Speed"]},
+    {name:"Trickster",      buffs:["Stealth","Sleight of Hand"],         debuffs:["Intimidation","Maximum Hit Points"]},
+    // ── Pure blessings (buffs only, no trade-off) ──
+    {name:"Alpha",          buffs:["Strength","Intimidation","Attack Bonus"], debuffs:[]},
+    {name:"Blessed",        buffs:["Saving Throws","Maximum Hit Points"],     debuffs:[]},
+    {name:"Gifted",         buffs:["Intelligence","Wisdom"],                  debuffs:[]},
+    {name:"Lucky",          buffs:["Armor Class","Saving Throws"],            debuffs:[]},
+    {name:"Radiant",        buffs:["Charisma","Persuasion"],                  debuffs:[]},
+    {name:"Vigorous",       buffs:["Constitution","Maximum Hit Points"],      debuffs:[]},
+    {name:"Sharpened",      buffs:["Attack Bonus","Damage Dealt"],            debuffs:[]},
+    // ── Pure curses (debuffs only, no compensating buff) ──
+    {name:"Sickly",         buffs:[], debuffs:["Intelligence","Strength","Movement Speed"]},
+    {name:"Cursed",         buffs:[], debuffs:["Saving Throws","Maximum Hit Points"]},
+    {name:"Clumsy",         buffs:[], debuffs:["Dexterity","Stealth"]},
+    {name:"Withered",       buffs:[], debuffs:["Constitution","Attack Bonus"]},
+    {name:"Timid",          buffs:[], debuffs:["Intimidation","Attack Bonus"]},
+    {name:"Fragile",        buffs:[], debuffs:["Armor Class","Maximum Hit Points"]},
+    {name:"Hollow",         buffs:[], debuffs:["Charisma","Persuasion"]}
   ],
+
+  // One-line mechanical descriptions for every buff/debuff/condition string used across
+  // buffsSelf, buffsOther, debuffsSelf, and debuffsOther above, keyed by the exact string so
+  // one entry covers every pool that uses it. Shown in the Item Compendium's Effects & Traits
+  // sub-tab so a rolled modifier's exact mechanical effect is never a guess.
+  effectDescriptions: {
+    "Strength": "Governs melee damage, carrying capacity, and Strength-based checks and saves.",
+    "Dexterity": "Governs Armor Class in light or no armor, initiative, ranged attacks, and Dexterity-based checks and saves.",
+    "Constitution": "Governs hit point totals and Constitution-based checks and saves, including concentration.",
+    "Intelligence": "Governs Intelligence-based checks, saves, and spellcasting for Intelligence-based casters.",
+    "Wisdom": "Governs Wisdom-based checks, saves, and spellcasting for Wisdom-based casters.",
+    "Charisma": "Governs Charisma-based checks, saves, and spellcasting for Charisma-based casters.",
+    "Attack Bonus": "A flat bonus added to attack rolls, on top of proficiency and ability modifier.",
+    "Attack Rolls": "A flat penalty subtracted from attack rolls.",
+    "Armor Class": "How hard the creature is to hit — added directly to its total AC.",
+    "Maximum Hit Points": "A flat change to the creature's total hit point pool.",
+    "Movement Speed": "Base walking speed, in feet per round.",
+    "Saving Throws": "A flat bonus or penalty applied to all saving throws.",
+    "Saving Throws vs Magic": "A flat penalty applied specifically to saving throws against spells and magical effects.",
+    "Spell Save DC": "The difficulty class targets must beat to resist the bearer's spells.",
+    "Critical Hit Range": "Widens the roll range that counts as a critical hit (e.g. 19-20 instead of just 20).",
+    "Critical Hit Damage": "A flat penalty to damage dealt specifically on a critical hit.",
+    "Damage Dealt": "A flat bonus or penalty added to damage rolls.",
+    "Initiative": "A flat bonus or penalty to the initiative roll that determines turn order in combat.",
+    "Spell Slot Level": "Allows a known spell to be cast as if using a higher-level spell slot.",
+    "Darkvision Range (feet)": "The distance the bearer can see in darkness as if it were dim light.",
+    "Tremorsense Range (feet)": "The distance the bearer can sense creatures and objects in contact with the ground, without needing to see them.",
+    "Telepathy Range (feet)": "The distance at which the bearer can communicate mentally with a willing creature.",
+    "Fly Speed (feet)": "Grants or increases a flying speed, in feet per round.",
+    "Swim Speed (feet)": "Grants or increases a swimming speed, in feet per round.",
+    "Burrow Speed (feet)": "Grants or increases a burrowing speed, in feet per round.",
+    "Carrying Capacity (lbs)": "How much additional weight the bearer can carry before becoming encumbered.",
+    "Stealth": "A flat bonus or penalty to Dexterity (Stealth) checks.",
+    "Perception": "A flat bonus or penalty to Wisdom (Perception) checks, including passive Perception.",
+    "Persuasion": "A flat bonus or penalty to Charisma (Persuasion) checks.",
+    "Intimidation": "A flat bonus or penalty to Charisma (Intimidation) checks.",
+    "Deception": "A flat bonus or penalty to Charisma (Deception) checks.",
+    "Insight": "A flat bonus or penalty to Wisdom (Insight) checks.",
+    "Athletics": "A flat bonus or penalty to Strength (Athletics) checks.",
+    "Acrobatics": "A flat bonus or penalty to Dexterity (Acrobatics) checks.",
+    "Arcana": "A flat bonus or penalty to Intelligence (Arcana) checks.",
+    "History": "A flat bonus or penalty to Intelligence (History) checks.",
+    "Medicine": "A flat bonus or penalty to Wisdom (Medicine) checks.",
+    "Nature": "A flat bonus or penalty to Intelligence (Nature) checks.",
+    "Religion": "A flat bonus or penalty to Intelligence (Religion) checks.",
+    "Survival": "A flat bonus or penalty to Wisdom (Survival) checks.",
+    "Animal Handling": "A flat bonus or penalty to Wisdom (Animal Handling) checks.",
+    "Sleight of Hand": "A flat bonus or penalty to Dexterity (Sleight of Hand) checks.",
+    "Number of Attacks": "Grants extra weapon attacks when taking the Attack action.",
+    "Healing Received": "A flat bonus or penalty added to any hit points the creature regains from healing.",
+    "Aura Radius (feet)": "The radius of any aura-type effect the bearer projects.",
+    "Weapon Range (feet)": "Extends the normal or long range of the bearer's weapon.",
+    "Cantrip Damage Dice": "Adds extra damage dice to cantrips the bearer casts.",
+    "Proficiency Bonus": "A flat bonus or penalty added on top of the bearer's normal proficiency bonus.",
+    "Regeneration (HP per turn)": "The bearer automatically regains this many hit points at the start of each of its turns.",
+    "Sneak Attack Dice": "Adds extra dice to Sneak Attack damage, for classes that have it.",
+    "Bardic Inspiration Die (size)": "Increases the die size of Bardic Inspiration, for classes that have it.",
+    "Divine Smite Damage Dice": "Adds extra dice to Divine Smite damage, for classes that have it.",
+    "Ki Points": "Grants extra Ki points to spend on Ki-fueled features, for classes that have it.",
+    "Rage Damage Bonus": "A flat bonus to the extra damage dealt while raging, for classes that have it.",
+    "Superiority Dice": "Grants extra Superiority Dice, for classes that have them.",
+    "Eldritch Blast Damage Dice": "Adds extra damage dice to the Eldritch Blast cantrip.",
+    "Hex Damage Dice": "Adds extra damage dice to the Hex spell's bonus damage.",
+    "Hunter's Mark Damage Dice": "Adds extra damage dice to the Hunter's Mark spell's bonus damage.",
+    "Haste Bonus (extra attacks)": "Grants an additional attack when taking the Attack action while hasted.",
+    "Death Saving Throws": "A flat bonus or penalty to death saving throws made while at 0 hit points.",
+    "Advantage on Attack Rolls": "Roll two d20s for every attack roll and take the higher result.",
+    "Advantage on Saving Throws": "Roll two d20s for every saving throw and take the higher result.",
+    "Advantage on Death Saving Throws": "Roll two d20s for death saving throws and take the higher result.",
+    "Advantage on Concentration Checks": "Roll two d20s for Constitution saves to maintain concentration and take the higher result.",
+    "Immunity to Fear": "Cannot be frightened.",
+    "Immunity to Poison": "Cannot be poisoned, and takes no poison damage.",
+    "Immunity to Disease": "Cannot contract any disease, magical or mundane.",
+    "Immunity to Critical Hits": "Attacks against this creature never score a critical hit.",
+    "Truesight (30 feet)": "See through illusions, into the Ethereal Plane, and in magical darkness out to 30 feet.",
+    "Blindsight (30 feet)": "Perceive surroundings without relying on sight out to 30 feet.",
+    "Resistance to Fire Damage": "Takes half damage from fire damage sources.",
+    "Resistance to Cold Damage": "Takes half damage from cold damage sources.",
+    "Resistance to Lightning Damage": "Takes half damage from lightning damage sources.",
+    "Resistance to Necrotic Damage": "Takes half damage from necrotic damage sources.",
+    "Resistance to Radiant Damage": "Takes half damage from radiant damage sources.",
+    "Resistance to Psychic Damage": "Takes half damage from psychic damage sources.",
+    "Resistance to Poison Damage": "Takes half damage from poison damage sources.",
+    "Cannot Be Charmed": "Immune to the charmed condition.",
+    "Cannot Be Frightened": "Immune to the frightened condition.",
+    "Cannot Be Paralyzed": "Immune to the paralyzed condition.",
+    "Water Breathing": "Can breathe underwater indefinitely.",
+    "Never Needs to Sleep": "Doesn't need to sleep, and is unaffected by magic that causes sleep.",
+    "Immune to Exhaustion": "Cannot gain levels of exhaustion.",
+    "Temporary Hit Points": "Grants a pool of temporary hit points that absorb damage before real hit points are lost.",
+    "Instant Healing": "Immediately restores hit points to the target when triggered.",
+    "Blessed (add 1d4 to attack rolls and saving throws)": "The target adds 1d4 to attack rolls and saving throws for the duration.",
+    "Hasted (one extra action)": "The target gains an extra action, +2 AC, and doubled speed for the duration, per the haste spell.",
+    "Guarded (damage taken is halved)": "All damage the target takes is halved for the duration.",
+    "Warded (advantage on the next saving throw)": "The target has advantage on the next saving throw it makes.",
+    "Fatigued": "Disadvantage on ability checks, attack rolls, and saving throws.",
+    "Frightened (of a specific creature type)": "Disadvantage on ability checks and attack rolls while a creature of that type is in sight, and can't willingly move closer to it.",
+    "Cannot Remove This Item Without Remove Curse": "The item can't be unequipped or given away except by the remove curse spell or similar magic.",
+    "Cannot Regain Hit Points from Resting": "Short and long rests no longer restore any hit points.",
+    "Disadvantage on Saving Throws vs Magic": "Roll two d20s for saving throws against spells and magical effects, and take the lower result.",
+    "Disadvantage on Concentration Checks": "Roll two d20s for Constitution saves to maintain concentration, and take the lower result.",
+    "Vulnerability (Fire)": "Takes double damage from fire damage sources.",
+    "Vulnerability (Cold)": "Takes double damage from cold damage sources.",
+    "Vulnerability (Necrotic)": "Takes double damage from necrotic damage sources.",
+    "Vulnerability (Psychic)": "Takes double damage from psychic damage sources.",
+    "Vulnerability (Lightning)": "Takes double damage from lightning damage sources.",
+    "Vulnerability (Piercing)": "Takes double damage from piercing damage sources.",
+    "Vulnerability (Bludgeoning)": "Takes double damage from bludgeoning damage sources.",
+    "Vulnerability (Slashing)": "Takes double damage from slashing damage sources.",
+    "Vulnerability (Radiant)": "Takes double damage from radiant damage sources.",
+    "Randomly Poisoned Once per Day": "Becomes poisoned for 1 hour at a random point once per day.",
+    "Haunted (disadvantage on Wisdom checks)": "Disadvantage on all Wisdom checks.",
+    "Slowed Once per Day": "Movement speed is halved for 1 minute at a random point once per day.",
+    "Marked by Darkness (disadvantage on Stealth in daylight)": "Disadvantage on Stealth checks while in sunlight or bright light.",
+    "Weakened Resolve (disadvantage on saves vs fear)": "Disadvantage on saving throws against being frightened.",
+    "Whispering Curse (disadvantage on Concentration)": "Disadvantage on Constitution saves to maintain concentration.",
+    "Cannot Benefit from Long Rests": "Long rests no longer restore hit points, spell slots, or other rest-based resources.",
+    "Drawn to Danger (disadvantage on Perception vs ambush)": "Disadvantage on Wisdom (Perception) checks made to notice an ambush or hidden threat.",
+    "Blinded": "Can't see, automatically fails sight-based checks, attack rolls against it have advantage, and its own attack rolls have disadvantage.",
+    "Charmed": "Can't attack the charmer or target it with harmful abilities; the charmer has advantage on social checks against it.",
+    "Deafened": "Can't hear, and automatically fails hearing-based checks.",
+    "Frightened": "Disadvantage on ability checks and attack rolls while the source of fear is in sight, and can't willingly move closer to it.",
+    "Grappled": "Speed becomes 0 and can't benefit from any speed bonus.",
+    "Incapacitated": "Can't take actions or reactions.",
+    "Paralyzed": "Incapacitated, can't move or speak, automatically fails Strength and Dexterity saves, and attacks against it are automatic critical hits within 5 feet.",
+    "Petrified": "Transformed, along with any nonmagical objects worn or carried, into solid stone — incapacitated, can't move or speak, and unaware of its surroundings.",
+    "Poisoned": "Disadvantage on attack rolls and ability checks.",
+    "Prone": "Can only crawl unless it stands up; attack rolls against it have advantage from within 5 feet and disadvantage from farther away; its own attack rolls have disadvantage.",
+    "Restrained": "Speed becomes 0, attack rolls against it have advantage, its own attack rolls have disadvantage, and it has disadvantage on Dexterity saves.",
+    "Stunned": "Incapacitated, can't move, can speak only falteringly, and automatically fails Strength and Dexterity saves.",
+    "Exhaustion (1 level)": "Gains one level of exhaustion, imposing cumulative penalties the more levels it has.",
+    "Silenced (cannot cast verbal spells)": "Can't cast spells that have a verbal component.",
+    "Cannot Use Reactions": "Loses the ability to take reactions until the effect ends.",
+    "Cannot Regain Hit Points": "Can't regain hit points from any source for the duration.",
+    "Cannot Benefit from Rest": "Gains none of the normal benefits of a short or long rest for the duration.",
+    "Marked (attacks against this target have advantage)": "All attack rolls against this target have advantage for the duration.",
+    "Cursed (GM's discretion on exact effect)": "A lingering curse whose exact mechanical effect is left to the DM to decide.",
+    "Doomed (must succeed a death save each turn or drop to 0 HP)": "At the start of each of its turns, must succeed on a death saving throw or immediately drop to 0 hit points.",
+    "Confused (must roll on Wild Magic table each turn)": "At the start of each of its turns, roll on the Wild Magic Surge table to determine what happens.",
+    "Compelled (must obey simple one-sentence commands)": "Must obey any simple, one-sentence command given to it by the source of the effect.",
+    "Soul-Marked (takes extra damage from this item's wielder)": "Takes extra damage from all attacks made by whoever wields this item.",
+    "Slowed (halved movement and one action or bonus action per turn)": "Movement speed is halved, and it can take only one action or bonus action on its turn, not both.",
+    "Weakened (deals half damage on all attacks)": "All of its attacks deal half damage for the duration.",
+    "Frenzied (must attack the nearest creature each turn)": "Must use its action each turn to attack the nearest creature, friend or foe.",
+    "Feared (must use movement to flee the source)": "Must use its movement, if able, to move as far away as possible from the source of the fear.",
+    "Exposed (critical hits on rolls of 18 or higher against this target)": "Attack rolls of 18-20 against this target count as critical hits.",
+    "Grievously Wounded (loses 1d6 HP at the start of each turn)": "Loses 1d6 hit points at the start of each of its turns until the effect ends or it's healed.",
+    "Panicked (disadvantage on all ability checks and saving throws)": "Disadvantage on all ability checks and saving throws for the duration.",
+    "Spellbound (concentration broken; cannot concentrate on new spells)": "Immediately loses concentration on any spell, and can't concentrate on a new one until the effect ends.",
+    "Suppressed Regeneration (cannot regain HP from any source this turn)": "Can't regain hit points from any source during its current turn.",
+    "Cannot Teleport or use planar travel": "Can't use teleportation or planar travel effects, magical or otherwise, for the duration.",
+    "Cannot Fly (grounded for the duration)": "Any flying speed is reduced to 0 for the duration; falls if airborne when this takes effect.",
+    "Aura of Misfortune (all allies within 10 feet have disadvantage on attack rolls)": "All allies of this target within 10 feet have disadvantage on attack rolls for the duration.",
+  },
 
   // 100 skills
   skills: [
@@ -5643,6 +5831,29 @@ function durationClause(dur) {
   return dur === 'permanently' ? '<strong>permanently</strong>' : `for <strong>${dur}</strong>`;
 }
 
+// "(feet)"/"(lbs)" scalar stats (and the unlabeled "Movement Speed") scale far more
+// dramatically by rarity than an ordinary "+N" stat bonus — a flat "+8" is invisible on an
+// 8-foot sense range or an 8-lb carrying-capacity increase, so these draw from their own
+// escalating value tables instead of reusing the shared `modest`/debuff magnitude.
+const RANGE_FEET_BY_RARITY = {
+  common: [10, 20], uncommon: [20, 35], rare: [35, 55],
+  superrare: [55, 80], legendary: [80, 150], celestial: [150, 300],
+};
+const CARRY_LBS_BY_RARITY = {
+  common: [5, 15], uncommon: [15, 30], rare: [30, 60],
+  superrare: [60, 120], legendary: [120, 300], celestial: [300, 800],
+};
+function isRangeStat(stat) { return /\(feet\)/i.test(stat) || stat === 'Movement Speed'; }
+function isCarryStat(stat) { return /\(lbs\)/i.test(stat); }
+// Returns the magnitude to use for a scalar stat's "+N"/"-N" — the normal shared `fallback`
+// (modest/debuffAmt) for ordinary stats, or a rarity-scaled roll from the tables above for
+// distance/capacity stats.
+function scaledStatAmount(stat, rarity, fallback) {
+  if (isRangeStat(stat)) { const [lo, hi] = RANGE_FEET_BY_RARITY[rarity] || RANGE_FEET_BY_RARITY.common; return rn(lo, hi); }
+  if (isCarryStat(stat))  { const [lo, hi] = CARRY_LBS_BY_RARITY[rarity]  || CARRY_LBS_BY_RARITY.common;  return rn(lo, hi); }
+  return fallback;
+}
+
 // Shared buff/debuff selection — used by both generateModifierOfType() (unique item
 // generator) and generateModifier() (wheel-roll modifiers) so the self/other, scalar/
 // condition logic only lives in one place.
@@ -5659,7 +5870,7 @@ function pickBuffEffect(rarity, dur, modest, idx, usedKeys = []) {
   };
   const picked = (wantCondition && take(pool.conditions, true)) || take(pool.scalar, false) || take(pool.conditions, true);
   if (!picked) return null;
-  const amount = picked.isCondition ? picked.stat : `+${modest} ${picked.stat}`;
+  const amount = picked.isCondition ? picked.stat : `+${scaledStatAmount(picked.stat, rarity, modest)} ${picked.stat}`;
   const otherTargets = idx<=1?'one willing ally':idx===2?'up to 2 willing allies':idx===3?'up to 3 allies':idx===4?'up to 6 allies':'all willing allies within 60 feet';
   const uses = usesPerRarity(idx);
   const text = preferOther
@@ -5680,21 +5891,26 @@ function pickDebuffEffect(rarity, dur, modest, idx, usedKeys = []) {
   };
   const picked = (wantCondition && take(pool.conditions, true)) || take(pool.scalar, false) || take(pool.conditions, true);
   if (!picked) return null;
-  const amount = picked.isCondition ? picked.stat : `-${modest} ${picked.stat}`;
+  const amount = picked.isCondition ? picked.stat : `-${scaledStatAmount(picked.stat, rarity, modest)} ${picked.stat}`;
   const text = preferSelf
     ? `While attuned, the bearer suffers <strong>${amount}</strong>.`
     : `Usable <strong>${usesPerRarity(idx)}</strong>: inflicts <strong>${amount}</strong> on <strong>one target</strong> ${durationClause(dur)} (Constitution saving throw to resist, DC ${10+idx*2}).`;
   return { stat: picked.stat, key: 'debuff:'+picked.stat, text };
 }
-// Picks a named trait (GEN.namedModifiers) — a fixed personality like "Bloody" that
-// always pairs the same buff stat with the same debuff stat on the bearer. Both amounts
-// scale with rarity; the debuff is deliberately smaller so the trait stays worth taking.
+// Picks a named trait (GEN.namedModifiers) — a fixed personality like "Bloody" that always
+// pairs the same buff stat(s) with the same debuff stat(s) on the bearer (some traits are
+// pure blessings or pure curses with an empty side). Amounts scale with rarity; for balanced
+// trade-off traits the debuff is deliberately smaller so the trait stays worth taking.
 function pickNamedTrait(rarity, modest, usedKeys = []) {
   const options = GEN.namedModifiers.filter(m => !usedKeys.includes('trait:'+m.name));
   if (!options.length) return null;
   const mod = ri(options);
   const debuffAmt = Math.max(1, Math.round(modest * 0.6));
-  const text = `<strong>${mod.name}</strong>: +${modest} ${mod.buff}, -${debuffAmt} ${mod.debuff}`;
+  const parts = [
+    ...(mod.buffs || []).map(stat => `+${scaledStatAmount(stat, rarity, modest)} ${stat}`),
+    ...(mod.debuffs || []).map(stat => `-${scaledStatAmount(stat, rarity, debuffAmt)} ${stat}`),
+  ];
+  const text = `<strong>${mod.name}</strong>: ${parts.join(', ')}`;
   return { key: 'trait:'+mod.name, name: mod.name, text };
 }
 
@@ -8703,7 +8919,7 @@ function rollMonsterStatLines(count, positive, tier) {
     else if (condPool.length) { stat = ri(condPool); isCondition = true; }
     if (!stat) continue;
     used.push(stat);
-    const text = isCondition ? stat : `${positive ? '+' : '-'}${modest} ${stat}`;
+    const text = isCondition ? stat : `${positive ? '+' : '-'}${scaledStatAmount(stat, tier, modest)} ${stat}`;
     lines.push({ stat, isCondition, positive, text });
   }
   return lines;
@@ -8733,13 +8949,11 @@ function rollMonsterNamedTrait(tier) {
   const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
   const modest = Math.max(1, idx + 1);
   const debuffAmt = Math.max(1, Math.round(modest * 0.6));
-  return {
-    name: mod.name,
-    lines: [
-      { stat: mod.buff, isCondition: false, positive: true, text: `+${modest} ${mod.buff}` },
-      { stat: mod.debuff, isCondition: false, positive: false, text: `-${debuffAmt} ${mod.debuff}` },
-    ],
-  };
+  const lines = [
+    ...(mod.buffs || []).map(stat => ({ stat, isCondition: false, positive: true, text: `+${scaledStatAmount(stat, tier, modest)} ${stat}` })),
+    ...(mod.debuffs || []).map(stat => ({ stat, isCondition: false, positive: false, text: `-${scaledStatAmount(stat, tier, debuffAmt)} ${stat}` })),
+  ];
+  return { name: mod.name, lines };
 }
 // Builds the full roster entry for a newly-added monster: rolls real HP from its hit dice,
 // and — if the variant/trait rolls hit — reskins it as a weaker or stronger version, folding
