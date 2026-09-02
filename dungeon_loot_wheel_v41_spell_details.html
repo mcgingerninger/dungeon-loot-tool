@@ -2273,7 +2273,10 @@
     </div>
 
     <div>
-      <h3 style="color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;letter-spacing:.05em;">⚔ Battle Roster</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;">
+        <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:.05em;margin:0;">⚔ Battle Roster</h3>
+        <button class="combat-roll-btn" onclick="rollAllBattleAttacks()">🎲 Roll All Attacks</button>
+      </div>
       <div class="combat-roster" id="combatRoster"><div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div></div>
     </div>
 
@@ -7567,6 +7570,15 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+// Mod/effect text is built as pre-formatted HTML (<strong> around numbers, <em> around
+// flesh-graft quality notes) so it can be dropped straight into innerHTML elsewhere.
+// Anywhere that text gets treated as *plain* text instead (previews that go through
+// escapeHtml, tooltips, etc.) needs the markup stripped first — otherwise the raw tags
+// get escaped and show up as literal "<strong>" text instead of being rendered.
+function stripModTags(str) {
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/<\/?(strong|em)>/gi, '');
+}
 // Colors a modifier's text so its NET EFFECT ON THE WEARER reads at a glance — not just
 // its raw type. The rule: a good effect on self is good (green); a good effect granted to
 // another is good (green); a bad effect inflicted on a target/enemy is still good for the
@@ -7749,8 +7761,10 @@ function getTokenSlotType(entry) {
 }
 
 function getItemEffectText(item) {
-  if (item.effect) return item.effect;
-  if (item.mods && item.mods.length) return item.mods.map(m => m.text).join(' ');
+  // Always returns plain text — callers (token previews, tooltips) escapeHtml() this,
+  // so any <strong>/<em> markup baked into .effect or mod text must come out first.
+  if (item.effect) return stripModTags(item.effect);
+  if (item.mods && item.mods.length) return stripModTags(item.mods.map(m => m.text).join(' '));
   if (item.desc) return item.desc;
   return 'No effect text recorded.';
 }
@@ -7994,7 +8008,7 @@ function renderActiveEffects() {
     const effect = getItemEffectText(item);
     let modsHtml = '';
     if (item.mods && item.mods.length) {
-      modsHtml = `<ul class="ae-mods">${item.mods.map(m => `<li><b>${escapeHtml(m.type)}:</b> ${escapeHtml(m.text)}</li>`).join('')}</ul>`;
+      modsHtml = `<ul class="ae-mods">${item.mods.map(m => `<li><b>${escapeHtml(m.type)}:</b> ${colorizeModifierText(m.text, m.type)}</li>`).join('')}</ul>`;
     }
     let unlocksHtml = '';
     if (item.unlocks && item.unlocks.length) {
@@ -8037,7 +8051,7 @@ function buildTooltipHtml(entry) {
   }
   let modsHtml = '';
   if (item.mods && item.mods.length) {
-    modsHtml = `<div class="tt-mods">${item.mods.map(m => `<div class="tt-mod"><b>${escapeHtml(m.type)}:</b> ${escapeHtml(m.text)}</div>`).join('')}</div>`;
+    modsHtml = `<div class="tt-mods">${item.mods.map(m => `<div class="tt-mod"><b>${escapeHtml(m.type)}:</b> ${colorizeModifierText(m.text, m.type)}</div>`).join('')}</div>`;
   }
   return `
     <div class="tt-header ${rarity}">${escapeHtml(item.name)}</div>
@@ -8549,9 +8563,10 @@ function pickBattleAction(monster) {
   return { name: 'Improvised Strike', text: 'The creature lashes out with whatever is within reach.' };
 }
 
-function rollBattleAttack(uid) {
-  const entry = battleRoster.find(e => e.uid === uid);
-  if (!entry) return;
+// Computes one attack-and-effectiveness roll for a roster entry and records it onto both
+// the entry (for its card) and the shared battle log — but does NOT render, so callers
+// that roll several creatures in a row (rollAllBattleAttacks) can batch the re-render.
+function resolveBattleAttack(entry) {
   const monster = entry.monster;
   const action = pickBattleAction(monster);
   const targetAC = parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15;
@@ -8585,6 +8600,22 @@ function rollBattleAttack(uid) {
 
   entry.lastResult = result;
   battleLog.push(result);
+}
+
+function rollBattleAttack(uid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  resolveBattleAttack(entry);
+  if (battleLog.length > 50) battleLog = battleLog.slice(-50);
+  renderCombatRoster();
+  renderCombatLog();
+}
+
+// Rolls one attack for every creature currently in the roster, in roster order, then
+// renders once at the end so adding a big roster doesn't repaint per-creature.
+function rollAllBattleAttacks() {
+  if (!battleRoster.length) return;
+  battleRoster.forEach(resolveBattleAttack);
   if (battleLog.length > 50) battleLog = battleLog.slice(-50);
   renderCombatRoster();
   renderCombatLog();
