@@ -836,6 +836,46 @@
 
   @media (max-width: 900px) { .gen-layout { grid-template-columns: 1fr; } }
 
+  /* FLESHMANCER TAB */
+  .flesh-layout { display: flex; flex-direction: column; gap: 1.2rem; max-width: 1000px; }
+  .flesh-intro { color: var(--text-dim); font-size: 0.95rem; line-height: 1.65; }
+  .flesh-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .flesh-card {
+    background: var(--surface); border: 2px solid var(--border); padding: 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .flesh-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+  .flesh-card.selected { border-width: 3px; box-shadow: 0 0 16px rgba(201,168,76,0.35); }
+  .flesh-card.common    { border-color: var(--common); }
+  .flesh-card.uncommon  { border-color: var(--uncommon); }
+  .flesh-card.rare      { border-color: var(--rare); }
+  .flesh-card.superrare { border-color: var(--superrare); }
+  .flesh-card.legendary { border-color: var(--legendary); }
+  .flesh-card.celestial { border-color: var(--celestial); }
+  .flesh-icon-box { width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.28); image-rendering: pixelated; }
+  .flesh-card-name { font-weight: 600; font-size: 1rem; line-height: 1.25; }
+  .flesh-card.common    .flesh-card-name { color: var(--common); }
+  .flesh-card.uncommon  .flesh-card-name { color: var(--uncommon); }
+  .flesh-card.rare      .flesh-card-name { color: var(--rare); }
+  .flesh-card.superrare .flesh-card-name { color: var(--superrare); }
+  .flesh-card.legendary .flesh-card-name { color: var(--legendary); }
+  .flesh-card.celestial .flesh-card-name { color: var(--celestial); }
+  .flesh-card-rarity { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  .flesh-card-effects { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
+  .flesh-card-effects strong { color: var(--gold-bright); }
+  .flesh-card-gp { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--gold); margin-top: 0.2rem; }
+  .flesh-confirm-box { background: var(--surface); border: 1px solid var(--gold); padding: 1rem 1.2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .flesh-outcome { padding: 1.2rem 1.4rem; border: 1px solid var(--border); }
+  .flesh-outcome h4 { font-size: 1.1rem; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+  .flesh-outcome p { font-size: 0.92rem; line-height: 1.6; color: var(--text-dim); margin-bottom: 0.4rem; }
+  .flesh-outcome.success { border-color: var(--uncommon); }
+  .flesh-outcome.success h4 { color: var(--uncommon); }
+  .flesh-outcome.fail { border-color: var(--danger); }
+  .flesh-outcome.fail h4 { color: var(--danger); }
+  .flesh-cost-note { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--text-dim); }
+  @media (max-width: 700px) { .flesh-candidates { grid-template-columns: 1fr; } }
+
   /* MODIFIER WEIGHTS TAB */
   .modweights-intro { color:var(--text-dim); font-style:italic; font-size:0.95rem; margin-bottom:1.2rem; line-height:1.6; }
   .modweights-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:1.5rem; }
@@ -1354,6 +1394,7 @@
   <button class="tab-btn" onclick="showTab('modweights',this)">Modifier Weights</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
+  <button class="tab-btn" onclick="showTab('flesh',this)">🩸 Fleshmancer</button>
 </div>
 
 <!-- LOOT ROLL TAB -->
@@ -1783,6 +1824,21 @@
   </div>
 </div>
 
+<!-- FLESHMANCER TAB -->
+<div id="tab-flesh" class="tab-content">
+  <div class="flesh-layout">
+    <p class="flesh-intro">
+      Summon three freshly harvested limbs. Each one rolls its own effects first —
+      <strong style="color:var(--text)">the limb's rarity is determined by how strong those effects turn out</strong>,
+      not chosen ahead of time. Pick one, pay to have it grafted on, and see whether the flesh takes.
+      A successful graft is added straight to your item list, ready to equip from the Player &amp; Tokens tab.
+    </p>
+    <button class="generate-btn" onclick="rollFleshCandidates()">🩸 Summon 3 Limbs</button>
+    <div class="flesh-candidates" id="fleshCandidates"></div>
+    <div class="flesh-confirm" id="fleshConfirm" style="display:none;"></div>
+    <div class="flesh-result" id="fleshResult"></div>
+  </div>
+</div>
 
 <!-- EDIT ITEM MODAL -->
 <div id="editItemModal" class="edit-modal-overlay" onclick="if(event.target===this) closeEditItemModal()">
@@ -2745,6 +2801,7 @@ function showTab(tab, btn) {
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   if (tab === 'spells') { loadSpellDatabase(false); }
+  if (tab === 'flesh') { renderFleshCandidates(); }
 }
 
 // ===================== WHEEL =====================
@@ -5270,6 +5327,284 @@ function copyGenItem() {
     const btns = document.querySelectorAll('#genCard .ic-action-btn');
     btns.forEach(b => { if (b.textContent.includes('Copy')) { const o = b.textContent; b.textContent = '✓ Copied!'; setTimeout(()=>b.textContent=o,1400); } });
   });
+}
+
+// ===================== FLESHMANCER =====================
+// A limb-grafting mini-game built on top of the same modifier pools as the Unique Item
+// Generator. Unlike that generator, rarity here is a RESULT, not an input: effects are
+// rolled first (each at its own randomly-rolled power tier), and the limb's rarity is
+// derived from how strong that ended up being.
+
+// The most commonly grafted human body parts, mapped to the equipment slot they occupy
+// once worn (reusing the existing slot categories from the Tokens/Player system).
+const FLESH_LIMB_DEFS = [
+  { name:'Left Arm',   category:'arm',    slotSize:2 },
+  { name:'Right Arm',  category:'arm',    slotSize:2 },
+  { name:'Left Hand',  category:'hand',   slotSize:1 },
+  { name:'Right Hand', category:'hand',   slotSize:1 },
+  { name:'Left Leg',   category:'leg',    slotSize:2 },
+  { name:'Right Leg',  category:'leg',    slotSize:2 },
+  { name:'Left Foot',  category:'foot',   slotSize:1 },
+  { name:'Right Foot', category:'foot',   slotSize:1 },
+  { name:'Left Eye',   category:'eye',    slotSize:1 },
+  { name:'Right Eye',  category:'eye',    slotSize:1 },
+  { name:'Left Ear',   category:'ear',    slotSize:1 },
+  { name:'Right Ear',  category:'ear',    slotSize:1 },
+  { name:'Finger',     category:'finger', slotSize:1 },
+  { name:'Heart',      category:'heart',  slotSize:1 },
+  { name:'Tongue',     category:'tongue', slotSize:1 },
+];
+const FLESH_SLOT_MAP = {
+  arm:'offhand', hand:'handwear', leg:'leggings', foot:'boots',
+  eye:'facewear', ear:'facewear', finger:'ring', heart:'amulet', tongue:'charm'
+};
+// Simple 8-bit silhouettes, one per limb category, drawn as a rect grid and filled with
+// whatever color the rolled rarity uses elsewhere in the app.
+const FLESH_LIMB_ICONS = {
+  arm:    { viewBox:'0 0 8 14', rects:[[2,0,3,6],[3,5,4,3],[4,7,3,5],[3,11,4,3]] },
+  leg:    { viewBox:'0 0 8 14', rects:[[2,0,4,8],[2,7,4,6],[1,12,6,2]] },
+  hand:   { viewBox:'0 0 8 11', rects:[[0,1,1,4],[2,0,1,5],[4,0,1,5],[6,1,1,4],[1,4,6,5],[1,9,2,2]] },
+  foot:   { viewBox:'0 0 8 7',  rects:[[0,4,2,3],[1,3,6,3],[5,0,3,4]] },
+  eye:    { viewBox:'0 0 8 6',  rects:[[1,2,6,2],[2,1,4,4],[3,0,2,1],[3,5,2,1]] },
+  ear:    { viewBox:'0 0 6 7',  rects:[[2,0,3,2],[4,1,2,2],[4,3,2,2],[2,4,3,2],[1,2,2,2]] },
+  finger: { viewBox:'0 0 6 13', rects:[[2,0,2,3],[2,4,2,3],[2,8,2,3],[1,11,4,2]] },
+  heart:  { viewBox:'0 0 8 6',  rects:[[1,0,2,1],[5,0,2,1],[0,1,8,2],[1,3,6,1],[2,4,4,1],[3,5,2,1]] },
+  tongue: { viewBox:'0 0 8 10', rects:[[2,0,4,3],[2,3,4,5],[3,8,2,2]] },
+};
+function fleshLimbIconSvg(category, color) {
+  const def = FLESH_LIMB_ICONS[category] || FLESH_LIMB_ICONS.finger;
+  const rects = def.rects.map(([x,y,w,h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${color}"/>`).join('');
+  return `<svg class="pixel-svg" viewBox="${def.viewBox}" width="56" height="56" style="image-rendering:pixelated;">${rects}</svg>`;
+}
+
+// Rarity is scored from what actually got rolled: each modifier rolls its own power tier
+// independently, and the limb's final rarity is derived from the sum of those tiers (plus
+// a small bonus for carrying more than one effect at all).
+const FLESH_TIER_VALUE = { common:1, uncommon:2, rare:3, superrare:4, legendary:5, celestial:6 };
+function fleshRollEffectTier() {
+  const weights = { common:38, uncommon:26, rare:16, superrare:10, legendary:7, celestial:3 };
+  const entries = Object.entries(weights);
+  const total = entries.reduce((s,[,w]) => s+w, 0);
+  let r = Math.random() * total;
+  for (const [tier, w] of entries) { r -= w; if (r <= 0) return tier; }
+  return 'common';
+}
+function fleshRarityFromTiers(tiers) {
+  const score = tiers.reduce((s,t) => s + FLESH_TIER_VALUE[t], 0) + (tiers.length - 1);
+  if (score <= 2) return 'common';
+  if (score <= 4) return 'uncommon';
+  if (score <= 6) return 'rare';
+  if (score <= 9) return 'superrare';
+  if (score <= 13) return 'legendary';
+  return 'celestial';
+}
+function formatGpAmount(v) {
+  return v >= 1000 ? (v % 1000 === 0 ? (v/1000)+'k gp' : (v/1000).toFixed(1)+'k gp') : v+' gp';
+}
+// Better limbs cost more to graft on — base cost tracks the rolled rarity's normal GP
+// band, nudged up for carrying multiple effects.
+function fleshAttachCost(rarity, modCount) {
+  const scale = GEN.scale[rarity];
+  const base = rn(scale.gpMin, scale.gpMax);
+  return Math.round(base * (1 + (modCount - 1) * 0.25));
+}
+
+// Rolls the limb's effects using the exact same modifier pools (and the user's Modifier
+// Weights settings) as the Unique Item Generator — just with each modifier's power tier
+// randomly rolled instead of fixed to one chosen rarity.
+function fleshGenerateEffects() {
+  let modCount = 1;
+  const r = Math.random();
+  if (r > 0.9) modCount = 3;
+  else if (r > 0.55) modCount = 2;
+
+  const mods = [], tiers = [], usedTypes = [], usedKeys = [];
+  let attempts = 0;
+  while (mods.length < modCount && attempts < 30) {
+    attempts++;
+    const type = pickWeightedType(modWeights, usedTypes);
+    if (!type) break;
+    const tier = fleshRollEffectTier();
+    const m = generateModifierOfType(type, tier, usedKeys);
+    if (!m || (m.key && usedKeys.includes(m.key))) continue;
+    mods.push(m); tiers.push(tier); usedTypes.push(type);
+    if (m.key) usedKeys.push(m.key);
+  }
+  if (!mods.length) {
+    const tier = fleshRollEffectTier();
+    const m = generateModifierOfType('buff', tier, []);
+    if (m) { mods.push(m); tiers.push(tier); }
+  }
+  return { mods, tiers };
+}
+function fleshBuildName(limbLabel, rarity, mods) {
+  const trait = mods.find(m => m.type === 'Trait' && m.name);
+  if (trait) return `${trait.name} ${limbLabel}`;
+  const prefixes = { common:'', uncommon:'Sound', rare:'Vital', superrare:'Potent', legendary:'Exalted', celestial:'Transcendent' };
+  const p = prefixes[rarity];
+  return p ? `${p} ${limbLabel}` : limbLabel;
+}
+
+let fleshCandidates = [];
+let fleshSelectedIndex = null;
+
+function fleshGenerateCandidate() {
+  const limbDef = ri(FLESH_LIMB_DEFS);
+  const { mods, tiers } = fleshGenerateEffects();
+  const rarity = fleshRarityFromTiers(tiers);
+  const gp = fleshAttachCost(rarity, mods.length);
+  const name = fleshBuildName(limbDef.name, rarity, mods);
+  const desc = `A freshly harvested ${limbDef.name.toLowerCase()}, cleaned and preserved, ready for grafting.`;
+  return { limbDef, mods, rarity, gp, name, desc };
+}
+
+function rollFleshCandidates() {
+  fleshCandidates = [0,1,2].map(fleshGenerateCandidate);
+  fleshSelectedIndex = null;
+  document.getElementById('fleshConfirm').style.display = 'none';
+  document.getElementById('fleshConfirm').innerHTML = '';
+  document.getElementById('fleshResult').innerHTML = '';
+  renderFleshCandidates();
+}
+
+function renderFleshCandidates() {
+  const el = document.getElementById('fleshCandidates');
+  if (!el) return;
+  if (!fleshCandidates.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = fleshCandidates.map((c, i) => {
+    const color = rarityColors[c.rarity] || '#a0a8b0';
+    const effectsHtml = c.mods.map(m => `<div>${m.text}</div>`).join('');
+    const selected = i === fleshSelectedIndex ? ' selected' : '';
+    return `
+      <div class="flesh-card ${c.rarity}${selected}" onclick="selectFleshCandidate(${i})">
+        <div class="flesh-icon-box">${fleshLimbIconSvg(c.limbDef.category, color)}</div>
+        <div class="flesh-card-name">${escapeHtml(c.name)}</div>
+        <div class="flesh-card-rarity">${rarityNames[c.rarity] || c.rarity}</div>
+        <div class="flesh-card-effects">${effectsHtml}</div>
+        <div class="flesh-card-gp">💰 ${formatGpAmount(c.gp)} to attach</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectFleshCandidate(i) {
+  fleshSelectedIndex = i;
+  renderFleshCandidates();
+  const c = fleshCandidates[i];
+  const confirmEl = document.getElementById('fleshConfirm');
+  confirmEl.style.display = 'block';
+  confirmEl.innerHTML = `
+    <div class="flesh-confirm-box">
+      <div>Attach <strong style="color:var(--gold-bright)">${escapeHtml(c.name)}</strong> for <strong style="color:var(--gold)">${formatGpAmount(c.gp)}</strong>?</div>
+      <button class="generate-btn" style="width:auto;padding:0.6rem 1.4rem;" onclick="attemptFleshAttach()">🩸 Attempt Attachment</button>
+    </div>
+  `;
+  document.getElementById('fleshResult').innerHTML = '';
+}
+
+// From totally botched to better-than-natural — attaching flesh magic is never a sure
+// thing, and rarer/more powerful limbs are harder for the body to accept.
+const FLESH_OUTCOMES = [
+  { key:'catastrophic', label:'Catastrophic Rejection', success:false,
+    text:'The flesh convulses and tears itself free. Something about the patient screams that was not there before. The limb is ruined, and the shock alone costs 1d6 damage.' },
+  { key:'totalFailure', label:'Total Failure', success:false,
+    text:"The graft simply doesn't take. No pulse, no warmth, no bond — just dead flesh sloughing away within the hour. The limb is unusable." },
+  { key:'rejected', label:'Rejected', success:false,
+    text:'It holds for a few promising minutes, twitching almost naturally, before the body recognizes it as foreign and casts it off entirely. A scar is all that remains.' },
+  { key:'unstable', label:'Unstable Graft', success:true, quality:'unstable',
+    text:'The limb takes, but uneasily — visible seams, faint discoloration, occasional involuntary spasms. It works, but its granted power comes through muted and unreliable.' },
+  { key:'partial', label:'Partial Success', success:true, quality:'partial',
+    text:'The graft holds and functions exactly as intended, though the join is visible and the limb never quite matches the rest of the body in tone or temperature.' },
+  { key:'successful', label:'Successful Attachment', success:true, quality:'normal',
+    text:'A clean graft. Within a day the limb responds to command as though it had always been there.' },
+  { key:'seamless', label:'Seamless Attachment', success:true, quality:'seamless',
+    text:'The flesh knits together so perfectly that even a careful examination reveals no seam at all. The bond is stronger than expected, and the limb performs beyond its baseline.' },
+  { key:'transcendent', label:'Transcendent Fusion', success:true, quality:'transcendent',
+    text:"Something in the graft goes right that has nothing to do with skill. The limb doesn't just attach — it improves in the attaching, humming with more power than it carried when harvested." },
+];
+function fleshRollOutcome(rarity) {
+  const difficulty = BAL.rarityOrder.indexOf(rarity); // 0 (common) .. 5 (celestial)
+  const weights = {
+    catastrophic: Math.max(1, 2 + difficulty * 2),
+    totalFailure: Math.max(1, 6 + difficulty * 2),
+    rejected:     Math.max(1, 10 + difficulty),
+    unstable:     Math.max(1, 16 - difficulty * 1.5),
+    partial:      Math.max(1, 22 - difficulty),
+    successful:   Math.max(1, 28 - difficulty * 2),
+    seamless:     Math.max(1, 12 - difficulty),
+    transcendent: Math.max(1, 4 - difficulty * 0.5),
+  };
+  const entries = FLESH_OUTCOMES.map(o => [o, weights[o.key]]);
+  const total = entries.reduce((s,[,w]) => s+w, 0);
+  let r = Math.random() * total;
+  for (const [o, w] of entries) { r -= w; if (r <= 0) return o; }
+  return FLESH_OUTCOMES[FLESH_OUTCOMES.length - 1];
+}
+// Applies the roll quality to the effects that actually get attached — a botched-but-
+// successful graft comes through weaker, an exceptional one comes through stronger.
+function fleshApplyQuality(candidate, quality) {
+  let mods = candidate.mods.map(m => ({ ...m }));
+  let rarity = candidate.rarity;
+  let note = '';
+  if (quality === 'unstable') {
+    mods = mods.map(m => ({ ...m, text: m.text + ' <em>(unstable — GM discretion: may lapse under stress)</em>' }));
+    note = 'This graft is unstable.';
+  } else if (quality === 'seamless') {
+    note = 'This graft is seamless, its effects performing slightly beyond their normal baseline.';
+  } else if (quality === 'transcendent') {
+    const order = BAL.rarityOrder;
+    rarity = order[Math.min(order.length - 1, order.indexOf(rarity) + 1)];
+    note = 'This graft fused beyond expectation — its power was boosted by the transcendence of the process.';
+  }
+  return { mods, rarity, note };
+}
+
+function attemptFleshAttach() {
+  if (fleshSelectedIndex === null) return;
+  const c = fleshCandidates[fleshSelectedIndex];
+  const outcome = fleshRollOutcome(c.rarity);
+  const resultEl = document.getElementById('fleshResult');
+
+  if (!outcome.success) {
+    resultEl.innerHTML = `
+      <div class="flesh-outcome fail">
+        <h4>✕ ${outcome.label}</h4>
+        <p>${outcome.text}</p>
+        <p class="flesh-cost-note">${formatGpAmount(c.gp)} spent. The ${c.limbDef.name.toLowerCase()} is lost.</p>
+      </div>
+    `;
+    document.getElementById('fleshConfirm').style.display = 'none';
+    fleshSelectedIndex = null;
+    return;
+  }
+
+  const { mods, rarity, note } = fleshApplyQuality(c, outcome.quality);
+  const id = Date.now();
+  const item = {
+    id, name: c.name, rarity, cat: 'limb',
+    gp: formatGpAmount(c.gp), dmg:'', ac:'', hp:'', requirement:'',
+    slotSize: c.limbDef.slotSize, mods,
+    desc: c.desc,
+    flavor: c.desc + (note ? '\n\n' + note : ''),
+    tags: [],
+  };
+  savedGeneratedItems.unshift(item);
+  tokenSlotOverrides['gen:' + id] = FLESH_SLOT_MAP[c.limbDef.category];
+  renderSavedItems();
+
+  resultEl.innerHTML = `
+    <div class="flesh-outcome success">
+      <h4>✓ ${outcome.label}</h4>
+      <p>${outcome.text}</p>
+      ${note ? `<p><em>${note}</em></p>` : ''}
+      <p class="flesh-cost-note">${formatGpAmount(c.gp)} spent. <strong style="color:var(--gold)">${escapeHtml(item.name)}</strong> (${rarityNames[rarity]||rarity}) added to your item list — equip it from the Player &amp; Tokens tab.</p>
+    </div>
+  `;
+  document.getElementById('fleshConfirm').style.display = 'none';
+  fleshSelectedIndex = null;
 }
 
 
