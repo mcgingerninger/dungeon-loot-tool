@@ -1780,6 +1780,7 @@
           <option value="weapon">Weapon</option>
           <option value="consumable">Consumable</option>
           <option value="misc">Misc</option>
+          <option value="limb">Limb</option>
           <option value="unknown">Unknown</option>
         </select>
         <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
@@ -1801,7 +1802,7 @@
             <option value="legendary">Legendary</option>
             <option value="celestial">Celestial</option>
           </select>
-          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="unknown">Unknown</option></select>
+          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="unknown">Unknown</option></select>
           <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
         </div>
         <input type="text" id="newItemDmg" class="type-field" data-for="weapon" placeholder="Damage dice (e.g. 1d8+2)" style="display:none;">
@@ -2129,7 +2130,7 @@
     <div class="edit-modal-body">
       <label>Item Name</label><input id="editItemName" type="text">
       <label>Description</label><textarea id="editItemDesc"></textarea>
-      <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
+      <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="limb">Limb</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
       <label>Value (GP)</label><input id="editItemGp" type="text" placeholder="e.g. 500 gp"><div id="editWeaponField"><label>Damage Dice</label><input id="editItemDmg" type="text" placeholder="e.g. 1d8+2"></div>
       <div id="editArmorField"><label>Armor Class</label><input id="editItemAc" type="text" placeholder="e.g. 16 or +2"></div>
       <div id="editConsumableField"><label>Healing Dice</label><input id="editItemHp" type="text" placeholder="e.g. 2d4+2"></div>
@@ -2985,12 +2986,14 @@ const rarityColors = { common:'#a0a8b0', uncommon:'#4caf7d', rare:'#5b9cf6', sup
 // (armor/weapon/consumable/misc/unknown); `subcategory` is derived from the item's name
 // (never randomized) and determines both slotSize and which equipment slot it fits.
 // This is what makes "turn any item into a wearable token" work consistently everywhere.
-const itemTypes=['armor','weapon','consumable','misc','unknown'];
+const itemTypes=['armor','weapon','consumable','misc','limb','unknown'];
 const ITEM_SUBCATEGORIES = {
   armor: ['head','facewear','chest','cloak','belt','boots','leggings','handwear','offhand'],
   weapon: ['onehanded','twohanded'],
   consumable: ['potion','scroll','food','throwable'],
-  misc: ['ring','amulet','charm','arm','hand','leg','foot','eye','ear','finger','heart','tongue'],
+  misc: ['ring','amulet','charm'],
+  // Fleshmancer-grafted body parts get their own top-level type instead of living under misc.
+  limb: ['arm','hand','leg','foot','eye','ear','finger','heart','tongue'],
   unknown: [],
 };
 const SUBCATEGORY_LABELS = {
@@ -3051,6 +3054,18 @@ function classifySubcategory(name, type) {
     if (/\bring\b/.test(n)) return 'ring';
     if (/amulet|necklace|pendant|periapt|torc|gorget|holy symbol/.test(n)) return 'amulet';
     return 'charm';
+  }
+  if (type === 'limb') {
+    if (/\barm\b/.test(n)) return 'arm';
+    if (/\bhand\b/.test(n)) return 'hand';
+    if (/\bleg\b/.test(n)) return 'leg';
+    if (/\bfoot\b|\bfeet\b/.test(n)) return 'foot';
+    if (/\beye\b/.test(n)) return 'eye';
+    if (/\bear\b/.test(n)) return 'ear';
+    if (/\bfinger\b/.test(n)) return 'finger';
+    if (/\bheart\b/.test(n)) return 'heart';
+    if (/\btongue\b/.test(n)) return 'tongue';
+    return '';
   }
   return '';
 }
@@ -5462,6 +5477,21 @@ function pickSummonEntity(idx) {
   // Celestial: draw from the epic named entities, same three-slice mix as before.
   return ri([ri(GEN.summonEntities.slice(10,20)), ri(GEN.summonEntities.slice(20,35)), ri(GEN.summonEntities.slice(0,10))]);
 }
+// Summons are capped far shorter than other effects at every rarity below celestial — a
+// temporary ally shouldn't stick around nearly as long as a buff or transformation does.
+// Deliberately separate from BAL.durations (which is shared by buffs/debuffs/transform/
+// terrain) since those effects are meant to last much longer than a summoned creature.
+const SUMMON_DURATIONS = {
+  common:    ['1 minute'],
+  uncommon:  ['1 minute'],
+  rare:      ['1 minute','5 minutes'],
+  superrare: ['10 minutes','30 minutes'],
+  legendary: ['30 minutes','1 hour'],
+  celestial: ['1 hour','8 hours','24 hours'],
+};
+function pickSummonDuration(rarity) {
+  return ri(SUMMON_DURATIONS[rarity] || SUMMON_DURATIONS.common);
+}
 
 // Generates a single modifier of a SPECIFIC type (called by generateUniqueItem)
 // Returns { type, text, key } where key is used to deduplicate specific content
@@ -5506,7 +5536,8 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
   if (type === 'summon') {
     const entity = pickSummonEntity(idx);
     const count = idx>=4&&Math.random()<0.3?2:1;
-    return { type:'Summon', key:'summon:'+entity, text:`Summons <strong>${count} ${entity}</strong> for <strong>${dur}</strong>. It follows reasonable commands and vanishes when the duration ends.` };
+    const summonDur = pickSummonDuration(rarity);
+    return { type:'Summon', key:'summon:'+entity, text:`Summons <strong>${count} ${entity}</strong> for <strong>${summonDur}</strong>. It follows reasonable commands and vanishes when the duration ends.` };
   }
   if (type === 'terrain') {
     const alts = GEN.terrainAlterations.filter(a => !usedKeys.includes('terrain:'+a));
@@ -5894,7 +5925,7 @@ function fleshRollOutcome(rarity) {
 // graft's outcome quality can shift a modifier's duration up or down the ladder instead
 // of just leaving it untouched. "permanently" sits at the very top, reachable only via
 // a transcendent graft pushing an already-celestial duration off the end.
-const DURATION_LADDER = ['1 minute','10 minutes','1 hour','8 hours','24 hours','3 days','7 days','30 days','1 year','permanently'];
+const DURATION_LADDER = ['1 minute','5 minutes','10 minutes','30 minutes','1 hour','8 hours','24 hours','3 days','7 days','30 days','1 year','permanently'];
 function shiftDuration(dur, shift) {
   const idx = DURATION_LADDER.indexOf(dur);
   if (idx === -1 || shift === 0) return dur;
@@ -5968,20 +5999,22 @@ function attemptFleshAttach() {
   }
 
   const { mods, rarity, note } = fleshApplyQuality(c, outcome.quality);
-  const id = Date.now();
-  // type/cat = 'misc' (the canonical 5-type schema has no separate "limb" type), with
-  // subcategory carrying the specific body part — that's what routes it to the right
-  // Limb slot on the Player tab (see SUBCATEGORY_TO_SLOT_CATEGORY / inferSlotType).
+  // type = 'limb' (its own top-level item type — see ITEM_SUBCATEGORIES), subcategory
+  // carries the specific body part, which is what routes it to the right Limb slot on
+  // the Player tab (see SUBCATEGORY_TO_SLOT_CATEGORY / inferSlotType). Pushed straight
+  // into lootData (not savedGeneratedItems) so it's a first-class citizen everywhere:
+  // visible and editable on the Edit Items tab, rollable by the wheel/chest, and
+  // tokenizable exactly like every other loot item.
+  const effectText = mods.map(m => m.text).join(' ') + (note ? ` <em>${note}</em>` : '');
   const item = {
-    id, name: c.name, rarity, cat: 'misc', type: 'misc', subcategory: c.limbDef.category,
+    name: c.name, rarity, type: 'limb', subcategory: c.limbDef.category,
     gp: formatGpAmount(c.gp), dmg:'', ac:'', hp:'', requirement:'', charges:'',
-    slotSize: c.limbDef.slotSize, mods,
+    slotSize: c.limbDef.slotSize, mods, effect: effectText,
     desc: c.desc,
     flavor: c.desc + (note ? '\n\n' + note : ''),
     tags: [],
   };
-  savedGeneratedItems.unshift(item);
-  renderSavedItems();
+  lootData[rarity].unshift(item);
 
   // The mods here are already the outcome-rescaled ones (see fleshApplyQuality above),
   // so this card shows the limb's actual final stats — not what it rolled before the
@@ -6013,7 +6046,7 @@ function attemptFleshAttach() {
         <div class="ic-modifiers">${modsHtml}</div>
       </div>
       <div class="item-card-actions">
-        <span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved to your item list — equip it as a token from the Player &amp; Tokens tab.</span>
+        <span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Added to your item list — find and edit it on the Edit Items tab, or equip it as a token from the Player &amp; Tokens tab.</span>
       </div>
     </div>
   `;
@@ -6681,7 +6714,8 @@ function generateModifier(rarity) {
     // Lower tiers summon mundane animals; apex tiers unlock major named entities.
     const entity=pickSummonEntity(idx);
     const count=idx>=4&&Math.random()<0.3?2:1;
-    return {type:'Summon',text:`Summons <strong>${count} ${entity}</strong> for <strong>${dur}</strong>. It follows reasonable commands and vanishes when the duration ends.`};
+    const summonDur=pickSummonDuration(rarity);
+    return {type:'Summon',text:`Summons <strong>${count} ${entity}</strong> for <strong>${summonDur}</strong>. It follows reasonable commands and vanishes when the duration ends.`};
   }
   if(type==='terrain'){
     const alt=pickTier(GEN.terrainAlterations,rarity);
