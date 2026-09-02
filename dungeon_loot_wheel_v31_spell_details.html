@@ -1847,6 +1847,15 @@
       </div>
     </div>
     <div class="mw-card">
+      <h3>🎭 Named Trait</h3>
+      <p class="mw-desc">A fixed personality (e.g. "Bloody": +Strength, -Constitution) — always the same buff/debuff pair. Both amounts scale with rarity, and the buff is always the larger of the two.</p>
+      <div class="mw-row">
+        <label>Weight</label>
+        <input type="range" id="mw-trait" min="0" max="20" value="4" oninput="updateMWDisplay('trait')">
+        <span class="mw-val" id="mv-trait">4</span>
+      </div>
+    </div>
+    <div class="mw-card">
       <h3>🌀 Transform</h3>
       <p class="mw-desc">Allows bearer to transform into a creature. Duration and form scale with rarity.</p>
       <div class="mw-row">
@@ -1886,7 +1895,7 @@
 
   <div class="mw-total-row">
     <span>Total weight pool:</span>
-    <span class="mw-total-val" id="mw-total">32</span>
+    <span class="mw-total-val" id="mw-total">36</span>
     <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
     <button class="mw-reset-btn" onclick="resetModWeights()">Reset Defaults</button>
   </div>
@@ -4577,6 +4586,37 @@ const GEN = {
     ]
   },
 
+  // Named trait modifiers — a fixed personality/theme (e.g. "Bloody") that always pairs
+  // one specific buff stat with one specific debuff stat on the bearer. The buff and
+  // debuff amounts both scale with rarity (see pickNamedTrait), but the buff is always
+  // the larger of the two, so the trait is a net-positive trade-off rather than a curse.
+  namedModifiers: [
+    {name:"Bloody",         buff:"Strength",       debuff:"Constitution"},
+    {name:"Swift",          buff:"Dexterity",       debuff:"Strength"},
+    {name:"Stonehide",      buff:"Constitution",    debuff:"Dexterity"},
+    {name:"Sharp-Witted",   buff:"Intelligence",    debuff:"Wisdom"},
+    {name:"Zealous",        buff:"Wisdom",          debuff:"Charisma"},
+    {name:"Silver-Tongued", buff:"Charisma",        debuff:"Intelligence"},
+    {name:"Frenzied",       buff:"Attack Bonus",    debuff:"Armor Class"},
+    {name:"Fortified",      buff:"Armor Class",     debuff:"Movement Speed"},
+    {name:"Hasty",          buff:"Movement Speed",  debuff:"Maximum Hit Points"},
+    {name:"Vampiric",       buff:"Healing Received",debuff:"Saving Throws"},
+    {name:"Reckless",       buff:"Damage Dealt",    debuff:"Armor Class"},
+    {name:"Cautious",       buff:"Armor Class",     debuff:"Damage Dealt"},
+    {name:"Feral",          buff:"Strength",        debuff:"Intelligence"},
+    {name:"Scholarly",      buff:"Intelligence",    debuff:"Strength"},
+    {name:"Nimble",         buff:"Dexterity",       debuff:"Constitution"},
+    {name:"Resolute",       buff:"Constitution",    debuff:"Dexterity"},
+    {name:"Wrathful",       buff:"Attack Bonus",    debuff:"Saving Throws"},
+    {name:"Serene",         buff:"Saving Throws",   debuff:"Attack Bonus"},
+    {name:"Predatory",      buff:"Perception",      debuff:"Stealth"},
+    {name:"Shadowed",       buff:"Stealth",         debuff:"Perception"},
+    {name:"Domineering",    buff:"Intimidation",    debuff:"Persuasion"},
+    {name:"Diplomatic",     buff:"Persuasion",      debuff:"Intimidation"},
+    {name:"Volatile",       buff:"Spell Save DC",   debuff:"Maximum Hit Points"},
+    {name:"Enduring",       buff:"Maximum Hit Points",debuff:"Spell Save DC"}
+  ],
+
   // 100 skills
   skills: [
     "Dual Wielding Mastery","Shield Bash","Riposte","Parry","Disarming Strike",
@@ -4639,7 +4679,9 @@ function buildItemName(baseName, rarity, stats = {}, mods = []) {
   // Names are intentionally short and describe what the item actually does.
   // At most one descriptor is added, chosen from the item's strongest stat/effect.
   const effectText = mods.map(m => `${m.type} ${m.text}`).join(' ').toLowerCase();
-  let descriptor = '';
+  // A named trait (e.g. "Bloody") is the most specific descriptor available — prefer it
+  // over the generic keyword-matched themes below.
+  let descriptor = mods.find(m => m.type === 'Trait' && m.name)?.name || '';
   const themes = [
     [/fire|flame|burn/, ['Flame','Ember']],
     [/cold|frost|ice/, ['Frost','Winter']],
@@ -4654,8 +4696,10 @@ function buildItemName(baseName, rarity, stats = {}, mods = []) {
     [/protect|ward|shield/, ['Guardian','Ward']],
     [/speed|swift|movement/, ['Swift','Runner']]
   ];
-  for (const [pattern, words] of themes) {
-    if (pattern.test(effectText)) { descriptor = ri(words); break; }
+  if (!descriptor) {
+    for (const [pattern, words] of themes) {
+      if (pattern.test(effectText)) { descriptor = ri(words); break; }
+    }
   }
   // Fall back to a descriptor based on the actual numerical quality, not rarity adjectives.
   if (!descriptor && stats.dmg) {
@@ -5027,6 +5071,17 @@ function pickDebuffEffect(rarity, dur, modest, idx, usedKeys = []) {
     : `Inflicts <strong>${amount}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution saving throw to resist, DC ${10+idx*2}).`;
   return { stat: picked.stat, key: 'debuff:'+picked.stat, text };
 }
+// Picks a named trait (GEN.namedModifiers) — a fixed personality like "Bloody" that
+// always pairs the same buff stat with the same debuff stat on the bearer. Both amounts
+// scale with rarity; the debuff is deliberately smaller so the trait stays worth taking.
+function pickNamedTrait(rarity, modest, usedKeys = []) {
+  const options = GEN.namedModifiers.filter(m => !usedKeys.includes('trait:'+m.name));
+  if (!options.length) return null;
+  const mod = ri(options);
+  const debuffAmt = Math.max(1, Math.round(modest * 0.6));
+  const text = `<strong>${mod.name}</strong>: +${modest} ${mod.buff}, -${debuffAmt} ${mod.debuff}`;
+  return { key: 'trait:'+mod.name, name: mod.name, text };
+}
 
 // Generates a single modifier of a SPECIFIC type (called by generateUniqueItem)
 // Returns { type, text, key } where key is used to deduplicate specific content
@@ -5052,6 +5107,11 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
     const picked = pickDebuffEffect(rarity, dur, modest, idx, usedKeys);
     if (!picked) return null;
     return { type:'Debuff', key:picked.key, text:picked.text };
+  }
+  if (type === 'trait') {
+    const picked = pickNamedTrait(rarity, modest, usedKeys);
+    if (!picked) return null;
+    return { type:'Trait', key:picked.key, text:picked.text, name:picked.name };
   }
   if (type === 'skill') {
     const pool = GEN.skills.filter(sk => !usedKeys.includes('skill:'+sk));
@@ -5350,7 +5410,7 @@ document.getElementById('spinBtn').addEventListener('dblclick', (e) => {
 
 // ===================== MODIFIER WEIGHTS =====================
 // Default weights — spells and buffs heavier than others
-const MOD_WEIGHT_DEFAULTS = { power:8, buff:7, debuff:5, skill:4, transform:3, summon:3, terrain:2 };
+const MOD_WEIGHT_DEFAULTS = { power:8, buff:7, debuff:5, trait:4, skill:4, transform:3, summon:3, terrain:2 };
 let modWeights = { ...MOD_WEIGHT_DEFAULTS };
 
 function updateMWDisplay(key) {
@@ -5493,12 +5553,12 @@ function pickTier(arr,r){
 function generateModifier(rarity) {
   const idx=BAL.rarityOrder.indexOf(rarity);
   const typePools=[
-    ['skill','buff','debuff'],
-    ['skill','buff','debuff','power'],
-    ['buff','debuff','power','transform'],
-    ['buff','debuff','power','transform','summon','terrain'],
-    ['power','transform','summon','terrain','buff'],
-    ['power','transform','summon','terrain','buff','debuff']
+    ['skill','buff','debuff','trait'],
+    ['skill','buff','debuff','trait','power'],
+    ['buff','debuff','trait','power','transform'],
+    ['buff','debuff','trait','power','transform','summon','terrain'],
+    ['power','transform','summon','terrain','buff','trait'],
+    ['power','transform','summon','terrain','buff','debuff','trait']
   ];
   const type=ri(typePools[idx]);
   const dur=ri(BAL.durations[rarity]);
@@ -5538,6 +5598,10 @@ function generateModifier(rarity) {
   if(type==='debuff'){
     const picked = pickDebuffEffect(rarity, dur, modest, idx);
     if (picked) return {type:'Debuff', text:picked.text};
+  }
+  if(type==='trait'){
+    const picked = pickNamedTrait(rarity, modest);
+    if (picked) return {type:'Trait', text:picked.text};
   }
   const skill=ri(GEN.skills);
   return {type:'Skill',text:`Grants exceptional aptitude in <strong>${skill}</strong>, providing a <strong>+${Math.max(1,idx+1)}</strong> bonus to related checks.`};
@@ -5933,6 +5997,13 @@ const DESC = {
       'Something in it remembers what it\'s like to be diminished. It applies that memory accurately.',
       'It knows exactly which part of a person to reach. Whatever it targets, it targets with precision — a craftsperson\'s touch on someone else\'s weakness.',
     ],
+    'Trait': [
+      'It doesn\'t improve the wearer evenly. It sharpens one thing and lets another thing dull, the way any real trade sharpens one thing and lets another dull.',
+      'The personality of the object and the personality of its wearer start to resemble each other, given enough time. Neither side seems to mind.',
+      'Nothing about it is subtle. What it gives, it gives loudly. What it costs, it costs just as plainly.',
+      'It doesn\'t pretend the trade is even. It just insists, quietly and permanently, that the trade is worth it.',
+      'Wearers describe the shift as small at first, then obvious in hindsight — a habit of body and temperament that wasn\'t there before.',
+    ],
     'Transform': [
       'It understands bodies the way water understands shapes — not by comprehending them, but by fitting around them. What it changes, it changes fully.',
       'The transformation it enables is not a disguise and is not a trick. Whatever you become, you are. The other form is not a performance. It is an education.',
@@ -6089,6 +6160,14 @@ const DESC = {
       superrare: ['Do not confuse efficiency for cruelty. It is neither cruel nor kind.','It has seen more targets than it will see. This one is no different to it.'],
       legendary: ['Somewhere, its original target is very grateful it found different hands.','It remembers everyone it\'s been used against. This is not knowledge it shares.'],
       celestial: ['What it removes, it removes permanently from a moment that cannot be revisited.','Consequences do not negotiate with it.'],
+    },
+    'Trait': {
+      common:    ['The trade is small and easy to forget about, right up until you need the part it took.','It gives a little. It takes a little less. Most wearers call that a bargain.'],
+      uncommon:  ['The personality it imparts is mild but consistent. Wearers start to notice it in themselves before others do.','It never asks permission for the trade. It just makes it, gently, every day.'],
+      rare:      ['The give and the take are both getting harder to ignore. Neither is subtle anymore.','Ask a longtime wearer what it cost them. Most can answer immediately.'],
+      superrare: ['At this point the trade has shaped more than stats. It has shaped habits.','The wearer and the object have started to agree on what matters. This is either flattering or concerning.'],
+      legendary: ['The bargain is no longer small in either direction. It never claimed to be fair. Only worth it.','What it costs is now impossible to overlook. What it gives usually still wins the argument.'],
+      celestial: ['The trade has stopped being a trade and started being an identity.','Whatever it took, it took permanently. Whatever it gave, it gave to match.'],
     },
     'Transform': {
       common:    ['What it changes, it changes fully. What it returns to, it returns to completely.','The other form is not less real. It is just temporary.'],
