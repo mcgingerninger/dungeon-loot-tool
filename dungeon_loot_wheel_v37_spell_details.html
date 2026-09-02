@@ -5773,6 +5773,13 @@ function fleshGenerateEffects() {
     const m = generateModifierOfType('buff', tier, []);
     if (m) { mods.push(m); tiers.push(tier); }
   }
+  // A limb that comes with a downside always comes with an upside too — guarantee a Buff
+  // is present whenever a Debuff got rolled, so a graft never ends up purely negative.
+  if (mods.some(m => m.type === 'Debuff') && !mods.some(m => m.type === 'Buff')) {
+    const tier = fleshRollEffectTier();
+    const buff = generateModifierOfType('buff', tier, usedKeys);
+    if (buff) { mods.push(buff); tiers.push(tier); usedTypes.push('buff'); if (buff.key) usedKeys.push(buff.key); }
+  }
   return { mods, tiers };
 }
 function fleshBuildName(limbLabel, rarity, mods) {
@@ -5976,12 +5983,38 @@ function attemptFleshAttach() {
   savedGeneratedItems.unshift(item);
   renderSavedItems();
 
+  // The mods here are already the outcome-rescaled ones (see fleshApplyQuality above),
+  // so this card shows the limb's actual final stats — not what it rolled before the
+  // attachment quality was applied.
+  const modsHtml = mods.map(m => `
+    <div class="ic-mod-group">
+      <div class="ic-mod-label">${escapeHtml(m.type)}</div>
+      <div class="ic-mod-entry">${m.text}</div>
+    </div>
+  `).join('');
+
   resultEl.innerHTML = `
     <div class="flesh-outcome success">
       <h4>✓ ${outcome.label}</h4>
       <p>${outcome.text}</p>
       ${note ? `<p><em>${note}</em></p>` : ''}
-      <p class="flesh-cost-note">${formatGpAmount(c.gp)} spent. <strong style="color:var(--gold)">${escapeHtml(item.name)}</strong> (${rarityNames[rarity]||rarity}) added to your item list — equip it from the Player &amp; Tokens tab.</p>
+      <p class="flesh-cost-note">${formatGpAmount(c.gp)} spent.</p>
+    </div>
+    <div class="item-card ${rarity}" style="margin-top:1rem;">
+      <div class="item-card-header">
+        <div class="item-card-title">
+          <div class="ic-name">${escapeHtml(item.name)}</div>
+          <div class="ic-subtitle">Limb · ${SUBCATEGORY_LABELS[item.subcategory]||item.subcategory} · Slot ${item.slotSize} · ${item.gp}</div>
+        </div>
+        <div class="ic-rarity-badge">${rarityNames[rarity]||rarity}</div>
+      </div>
+      <div class="item-card-body">
+        <div class="ic-desc">${escapeHtml(item.desc)}</div>
+        <div class="ic-modifiers">${modsHtml}</div>
+      </div>
+      <div class="item-card-actions">
+        <span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved to your item list — equip it as a token from the Player &amp; Tokens tab.</span>
+      </div>
     </div>
   `;
   document.getElementById('fleshConfirm').style.display = 'none';
