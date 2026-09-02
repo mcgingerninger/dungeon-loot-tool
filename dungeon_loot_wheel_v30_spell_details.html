@@ -1829,8 +1829,8 @@
       </div>
     </div>
     <div class="mw-card">
-      <h3>⬆ Buff (Ally)</h3>
-      <p class="mw-desc">Grants a stat bonus or advantage to allies. Number of targets scales with rarity.</p>
+      <h3>⬆ Buff (Self / Ally)</h3>
+      <p class="mw-desc">Grants a stat bonus or advantage to the bearer, or lets the bearer grant one to an ally. Number of allied targets scales with rarity.</p>
       <div class="mw-row">
         <label>Weight</label>
         <input type="range" id="mw-buff" min="0" max="20" value="7" oninput="updateMWDisplay('buff')">
@@ -1838,8 +1838,8 @@
       </div>
     </div>
     <div class="mw-card">
-      <h3>⬇ Debuff (Enemy)</h3>
-      <p class="mw-desc">Inflicts a penalty or condition on enemies. Severity scales with rarity.</p>
+      <h3>⬇ Debuff (Enemy / Curse)</h3>
+      <p class="mw-desc">Usually inflicts a penalty or condition on an enemy; occasionally a curse the bearer suffers instead. Severity scales with rarity.</p>
       <div class="mw-row">
         <label>Weight</label>
         <input type="range" id="mw-debuff" min="0" max="20" value="5" oninput="updateMWDisplay('debuff')">
@@ -4468,62 +4468,114 @@ const GEN = {
     "reshapes a coastline"
   ],
 
-  // 100 buffs — only things that make sense with a +N modifier
-  buffs: [
-    "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
-    "Attack Bonus","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
-    "Critical Hit Range (lower by)","Damage Dealt","Initiative","Spell Slot Level",
-    "Advantage on Attack Rolls","Advantage on Saving Throws",
-    "Darkvision Range (feet)","Tremorsense Range (feet)","Telepathy Range (feet)",
-    "Fly Speed (feet)","Swim Speed (feet)","Burrow Speed (feet)","Carrying Capacity (lbs)",
-    "Stealth","Perception","Persuasion","Intimidation","Deception","Insight",
-    "Athletics","Acrobatics","Arcana","History","Medicine",
-    "Nature","Religion","Survival","Animal Handling","Sleight of Hand",
-    "Number of Attacks","Healing Received","Aura Radius (feet)",
-    "Weapon Range (feet)","Cantrip Damage Dice","Proficiency Bonus",
-    "Regeneration (HP per turn)","Sneak Attack Dice","Bardic Inspiration Die (size)",
-    "Divine Smite Damage Dice","Ki Points","Rage Damage Bonus",
-    "Superiority Dice","Eldritch Blast Damage Dice","Hex Damage Dice",
-    "Hunter's Mark Damage Dice","Haste Bonus (extra attacks)"
-  ],
+  // ── Buffs & debuffs, split by who they affect (self vs. another creature) ──
+  // Each list has two parts:
+  //   scalar     — ability/skill-style names that take a numeric +N (buffs) or -N (debuffs)
+  //                modifier, e.g. "Stealth" -> "+3 Stealth", "Strength" -> "+5 Strength".
+  //   conditions — named states with no numeric modifier at all, e.g. "Fatigued".
+  // Buffs are things given (+) to a creature; debuffs are things inflicted / taken away (-).
 
-  // Scalar debuffs — these get a -N value applied
-  debuffs: [
-    "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
-    "Attack Rolls","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
-    "Damage Dealt","Healing Received","Initiative","Number of Attacks",
-    "Perception","Stealth","Persuasion","Intimidation","Saving Throws vs Magic",
-    "Critical Hit Damage","Death Saving Throws","Proficiency Bonus"
-  ],
+  // Beneficial effects the bearer grants to THEMSELVES.
+  buffsSelf: {
+    scalar: [
+      "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
+      "Attack Bonus","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
+      "Critical Hit Range (lower by)","Damage Dealt","Initiative","Spell Slot Level",
+      "Darkvision Range (feet)","Tremorsense Range (feet)","Telepathy Range (feet)",
+      "Fly Speed (feet)","Swim Speed (feet)","Burrow Speed (feet)","Carrying Capacity (lbs)",
+      "Stealth","Perception","Persuasion","Intimidation","Deception","Insight",
+      "Athletics","Acrobatics","Arcana","History","Medicine",
+      "Nature","Religion","Survival","Animal Handling","Sleight of Hand",
+      "Number of Attacks","Healing Received","Aura Radius (feet)",
+      "Weapon Range (feet)","Cantrip Damage Dice","Proficiency Bonus",
+      "Regeneration (HP per turn)","Sneak Attack Dice","Bardic Inspiration Die (size)",
+      "Divine Smite Damage Dice","Ki Points","Rage Damage Bonus",
+      "Superiority Dice","Eldritch Blast Damage Dice","Hex Damage Dice",
+      "Hunter's Mark Damage Dice","Haste Bonus (extra attacks)"
+    ],
+    conditions: [
+      "Advantage on Attack Rolls","Advantage on Saving Throws","Advantage on Death Saving Throws",
+      "Advantage on Concentration Checks","Immunity to Fear","Immunity to Poison","Immunity to Disease",
+      "Immunity to Critical Hits","Truesight (30 feet)","Blindsight (30 feet)",
+      "Resistance to Fire Damage","Resistance to Cold Damage","Resistance to Lightning Damage",
+      "Resistance to Necrotic Damage","Resistance to Radiant Damage","Resistance to Psychic Damage",
+      "Resistance to Poison Damage","Cannot Be Charmed","Cannot Be Frightened","Cannot Be Paralyzed",
+      "Water Breathing","Never Needs to Sleep","Immune to Exhaustion"
+    ]
+  },
 
-  // Condition debuffs — binary states, applied without a numeric modifier
-  conditionDebuffs: [
-    "Blinded","Charmed","Deafened","Frightened","Grappled",
-    "Incapacitated","Paralyzed","Petrified","Poisoned","Prone","Restrained","Stunned",
-    "Exhaustion (1 level)","Silenced (cannot cast verbal spells)",
-    "Cannot Use Reactions","Cannot Regain Hit Points","Cannot Benefit from Rest",
-    "Vulnerability (Fire)","Vulnerability (Cold)","Vulnerability (Lightning)",
-    "Vulnerability (Piercing)","Vulnerability (Bludgeoning)","Vulnerability (Slashing)",
-    "Vulnerability (Necrotic)","Vulnerability (Radiant)","Vulnerability (Psychic)",
-    "Marked (attacks against this target have advantage)",
-    "Cursed (GM's discretion on exact effect)",
-    "Doomed (must succeed a death save each turn or drop to 0 HP)",
-    "Confused (must roll on Wild Magic table each turn)",
-    "Compelled (must obey simple one-sentence commands)",
-    "Soul-Marked (takes extra damage from this item's wielder)",
-    "Slowed (halved movement and one action or bonus action per turn)",
-    "Weakened (deals half damage on all attacks)",
-    "Frenzied (must attack the nearest creature each turn)",
-    "Feared (must use movement to flee the source)",
-    "Exposed (critical hits on rolls of 18 or higher against this target)",
-    "Grievously Wounded (loses 1d6 HP at the start of each turn)",
-    "Panicked (disadvantage on all ability checks and saving throws)",
-    "Spellbound (concentration broken; cannot concentrate on new spells)",
-    "Suppressed Regeneration (cannot regain HP from any source this turn)",
-    "Cannot Teleport or use planar travel",
-    "Cannot Fly (grounded for the duration)",
-    "Aura of Misfortune (all allies within 10 feet have disadvantage on attack rolls)"
-  ],
+  // Beneficial effects the bearer can grant to ANOTHER creature (an ally).
+  buffsOther: {
+    scalar: [
+      "Armor Class","Attack Bonus","Saving Throws","Movement Speed","Maximum Hit Points",
+      "Damage Dealt","Stealth","Perception","Initiative","Spell Save DC",
+      "Healing Received","Carrying Capacity (lbs)"
+    ],
+    conditions: [
+      "Advantage on Attack Rolls","Advantage on Saving Throws","Advantage on Death Saving Throws",
+      "Temporary Hit Points","Instant Healing","Cannot Be Charmed","Cannot Be Frightened",
+      "Resistance to Fire Damage","Resistance to Cold Damage","Resistance to Poison Damage",
+      "Immunity to Fear","Blessed (add 1d4 to attack rolls and saving throws)",
+      "Hasted (one extra action)","Guarded (damage taken is halved)","Warded (advantage on the next saving throw)"
+    ]
+  },
+
+  // Harmful effects that afflict the bearer THEMSELVES — cursed-item territory.
+  debuffsSelf: {
+    scalar: [
+      "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
+      "Attack Rolls","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
+      "Initiative","Perception","Stealth","Proficiency Bonus","Healing Received","Death Saving Throws"
+    ],
+    conditions: [
+      "Fatigued","Frightened (of a specific creature type)","Cannot Remove This Item Without Remove Curse",
+      "Cannot Regain Hit Points from Resting","Disadvantage on Saving Throws vs Magic",
+      "Disadvantage on Concentration Checks","Vulnerability (Fire)","Vulnerability (Cold)",
+      "Vulnerability (Necrotic)","Vulnerability (Psychic)","Randomly Poisoned Once per Day",
+      "Haunted (disadvantage on Wisdom checks)","Slowed Once per Day",
+      "Marked by Darkness (disadvantage on Stealth in daylight)",
+      "Weakened Resolve (disadvantage on saves vs fear)","Whispering Curse (disadvantage on Concentration)",
+      "Cannot Benefit from Long Rests","Drawn to Danger (disadvantage on Perception vs ambush)"
+    ]
+  },
+
+  // Harmful effects the bearer inflicts on ANOTHER creature (an enemy/target).
+  debuffsOther: {
+    scalar: [
+      "Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma",
+      "Attack Rolls","Armor Class","Maximum Hit Points","Movement Speed","Saving Throws","Spell Save DC",
+      "Damage Dealt","Healing Received","Initiative","Number of Attacks",
+      "Perception","Stealth","Persuasion","Intimidation","Saving Throws vs Magic",
+      "Critical Hit Damage","Death Saving Throws","Proficiency Bonus"
+    ],
+    conditions: [
+      "Blinded","Charmed","Deafened","Frightened","Grappled",
+      "Incapacitated","Paralyzed","Petrified","Poisoned","Prone","Restrained","Stunned",
+      "Exhaustion (1 level)","Silenced (cannot cast verbal spells)",
+      "Cannot Use Reactions","Cannot Regain Hit Points","Cannot Benefit from Rest",
+      "Vulnerability (Fire)","Vulnerability (Cold)","Vulnerability (Lightning)",
+      "Vulnerability (Piercing)","Vulnerability (Bludgeoning)","Vulnerability (Slashing)",
+      "Vulnerability (Necrotic)","Vulnerability (Radiant)","Vulnerability (Psychic)",
+      "Marked (attacks against this target have advantage)",
+      "Cursed (GM's discretion on exact effect)",
+      "Doomed (must succeed a death save each turn or drop to 0 HP)",
+      "Confused (must roll on Wild Magic table each turn)",
+      "Compelled (must obey simple one-sentence commands)",
+      "Soul-Marked (takes extra damage from this item's wielder)",
+      "Slowed (halved movement and one action or bonus action per turn)",
+      "Weakened (deals half damage on all attacks)",
+      "Frenzied (must attack the nearest creature each turn)",
+      "Feared (must use movement to flee the source)",
+      "Exposed (critical hits on rolls of 18 or higher against this target)",
+      "Grievously Wounded (loses 1d6 HP at the start of each turn)",
+      "Panicked (disadvantage on all ability checks and saving throws)",
+      "Spellbound (concentration broken; cannot concentrate on new spells)",
+      "Suppressed Regeneration (cannot regain HP from any source this turn)",
+      "Cannot Teleport or use planar travel",
+      "Cannot Fly (grounded for the duration)",
+      "Aura of Misfortune (all allies within 10 feet have disadvantage on attack rolls)"
+    ]
+  },
 
   // 100 skills
   skills: [
@@ -4933,6 +4985,49 @@ function renderDescParagraphs(paragraphs) {
   }).join('');
 }
 
+// Shared buff/debuff selection — used by both generateModifierOfType() (unique item
+// generator) and generateModifier() (wheel-roll modifiers) so the self/other, scalar/
+// condition logic only lives in one place.
+// Picks from GEN.buffsSelf / GEN.buffsOther. Numeric (scalar) picks get a "+N" prefix;
+// named conditions never do. Returns {stat, key, text} or null if the pools are exhausted.
+function pickBuffEffect(rarity, dur, modest, idx, usedKeys = []) {
+  const preferOther = idx >= 2 && Math.random() < 0.35;
+  const pool = preferOther ? GEN.buffsOther : GEN.buffsSelf;
+  const wantCondition = Math.random() < 0.3;
+  const take = (list, isCondition) => {
+    const options = list.filter(v => !usedKeys.includes('buff:'+v));
+    if (!options.length) return null;
+    return { stat: isCondition ? ri(options) : pickTier(options, rarity), isCondition };
+  };
+  const picked = (wantCondition && take(pool.conditions, true)) || take(pool.scalar, false) || take(pool.conditions, true);
+  if (!picked) return null;
+  const amount = picked.isCondition ? picked.stat : `+${modest} ${picked.stat}`;
+  const otherTargets = idx<=1?'one willing ally':idx===2?'up to 2 willing allies':idx===3?'up to 3 allies':idx===4?'up to 6 allies':'all willing allies within 60 feet';
+  const text = preferOther
+    ? `The bearer can grant <strong>${amount}</strong> to <strong>${otherTargets}</strong> for <strong>${dur}</strong>.`
+    : `Grants <strong>${amount}</strong> to <strong>the bearer</strong> for <strong>${dur}</strong>.`;
+  return { stat: picked.stat, key: 'buff:'+picked.stat, text };
+}
+// Picks from GEN.debuffsSelf (cursed effects that afflict the bearer) or GEN.debuffsOther
+// (effects the bearer inflicts on an enemy). Numeric picks get a "-N" prefix.
+function pickDebuffEffect(rarity, dur, modest, idx, usedKeys = []) {
+  const preferSelf = Math.random() < 0.25;
+  const pool = preferSelf ? GEN.debuffsSelf : GEN.debuffsOther;
+  const wantCondition = Math.random() < 0.5 || idx >= 2;
+  const take = (list, isCondition) => {
+    const options = list.filter(v => !usedKeys.includes('debuff:'+v));
+    if (!options.length) return null;
+    return { stat: isCondition ? ri(options) : pickTier(options, rarity), isCondition };
+  };
+  const picked = (wantCondition && take(pool.conditions, true)) || take(pool.scalar, false) || take(pool.conditions, true);
+  if (!picked) return null;
+  const amount = picked.isCondition ? picked.stat : `-${modest} ${picked.stat}`;
+  const text = preferSelf
+    ? `While attuned, the bearer suffers <strong>${amount}</strong>.`
+    : `Inflicts <strong>${amount}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution saving throw to resist, DC ${10+idx*2}).`;
+  return { stat: picked.stat, key: 'debuff:'+picked.stat, text };
+}
+
 // Generates a single modifier of a SPECIFIC type (called by generateUniqueItem)
 // Returns { type, text, key } where key is used to deduplicate specific content
 function generateModifierOfType(type, rarity, usedKeys = []) {
@@ -4949,26 +5044,14 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
     return { type:'Power/Spell', key:'power:'+p, text:`Grants the ability to cast <strong>${p}</strong> (<strong>${uses}</strong>). Spell save DC is <strong>${10+idx*2+rn(0,2)}</strong>.` };
   }
   if (type === 'buff') {
-    const pool = GEN.buffs.filter(b => !usedKeys.includes('buff:'+b));
-    if (!pool.length) return null;
-    const stat = pickTier(pool, rarity);
-    const targets = idx<2?'the bearer':idx===2?'the bearer and one ally':idx===3?'up to 3 allies':idx===4?'up to 6 allies':'all willing allies within 60 feet';
-    return { type:'Buff', key:'buff:'+stat, text:`Grants <strong>+${modest} ${stat}</strong> to <strong>${targets}</strong> for <strong>${dur}</strong>.` };
+    const picked = pickBuffEffect(rarity, dur, modest, idx, usedKeys);
+    if (!picked) return null;
+    return { type:'Buff', key:picked.key, text:picked.text };
   }
   if (type === 'debuff') {
-    // 50/50 chance between scalar (-N to stat) and condition (no numeric prefix)
-    const useCondition = Math.random() < 0.5 || idx >= 2; // higher rarity leans toward conditions
-    if (useCondition && GEN.conditionDebuffs) {
-      const pool = GEN.conditionDebuffs.filter(d => !usedKeys.includes('debuff:'+d));
-      if (pool.length) {
-        const cond = ri(pool);
-        return { type:'Debuff', key:'debuff:'+cond, text:`Inflicts <strong>${cond}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution saving throw to resist, DC ${10+idx*2}).` };
-      }
-    }
-    const pool = GEN.debuffs.filter(d => !usedKeys.includes('debuff:'+d));
-    if (!pool.length) return null;
-    const stat = pickTier(pool, rarity);
-    return { type:'Debuff', key:'debuff:'+stat, text:`Inflicts <strong>-${modest} ${stat}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution saving throw to resist, DC ${10+idx*2}).` };
+    const picked = pickDebuffEffect(rarity, dur, modest, idx, usedKeys);
+    if (!picked) return null;
+    return { type:'Debuff', key:picked.key, text:picked.text };
   }
   if (type === 'skill') {
     const pool = GEN.skills.filter(sk => !usedKeys.includes('skill:'+sk));
@@ -5449,17 +5532,12 @@ function generateModifier(rarity) {
     return {type:'Terrain',text:`<strong>${alt.charAt(0).toUpperCase()+alt.slice(1)}</strong> within a <strong>${radius}</strong> area. ${dur==='permanently'?'The alteration is permanent.':`The change lasts for ${dur}.`}`};
   }
   if(type==='buff'){
-    const stat=pickTier(GEN.buffs,rarity);
-    const targets=idx<2?'the bearer':idx===2?'the bearer and one ally':idx===3?'up to 3 allies':idx===4?'up to 6 allies':'all willing allies within 60 feet';
-    return {type:'Buff',text:`Grants <strong>+${modest} ${stat}</strong> to <strong>${targets}</strong> for <strong>${dur}</strong>.`};
+    const picked = pickBuffEffect(rarity, dur, modest, idx);
+    if (picked) return {type:'Buff', text:picked.text};
   }
   if(type==='debuff'){
-    if(Math.random()<0.5 && GEN.conditionDebuffs){
-      const cond=ri(GEN.conditionDebuffs);
-      return {type:'Debuff',text:`Inflicts <strong>${cond}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution DC ${10+idx*2} to resist).`};
-    }
-    const stat=pickTier(GEN.debuffs,rarity);
-    return {type:'Debuff',text:`Inflicts <strong>-${modest} ${stat}</strong> on <strong>one target</strong> for <strong>${dur}</strong> (Constitution DC ${10+idx*2} to resist).`};
+    const picked = pickDebuffEffect(rarity, dur, modest, idx);
+    if (picked) return {type:'Debuff', text:picked.text};
   }
   const skill=ri(GEN.skills);
   return {type:'Skill',text:`Grants exceptional aptitude in <strong>${skill}</strong>, providing a <strong>+${Math.max(1,idx+1)}</strong> bonus to related checks.`};
