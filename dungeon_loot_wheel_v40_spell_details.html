@@ -1443,6 +1443,38 @@
   .spell-warning{background:rgba(224,82,82,.06);border:1px solid rgba(224,82,82,.35);color:var(--text-dim);padding:.65rem .8rem;margin-bottom:.8rem;font-size:.8rem;line-height:1.5}
   @media(max-width:900px){.spells-controls{grid-template-columns:1fr 1fr}.spells-controls input{grid-column:1/-1}}
 
+  /* COMBAT TAB */
+  .combat-layout{display:flex;flex-direction:column;gap:1.2rem;max-width:1100px}
+  .combat-settings{background:var(--surface);border:1px solid var(--border);padding:.8rem 1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+  .combat-settings label{display:flex;align-items:center;gap:.5rem;font-size:.9rem;color:var(--text-dim)}
+  .combat-settings input[type="number"]{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;padding:.35rem .5rem;width:70px}
+  .combat-picker-results{background:var(--surface);border:1px solid var(--border);max-height:280px;overflow:auto}
+  .combat-picker-row{display:flex;align-items:center;gap:.7rem;padding:.5rem .8rem;border-bottom:1px solid var(--border)}
+  .combat-picker-row:last-child{border-bottom:none}
+  .combat-picker-name{flex:1;font-size:.92rem}
+  .combat-picker-cr{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--text-dim);white-space:nowrap}
+  .combat-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+  .combat-card{background:var(--surface);border:2px solid var(--border);padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+  .combat-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
+  .combat-card-name{font-size:1.05rem;color:var(--gold-bright);font-weight:600}
+  .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
+  .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
+  .combat-card-remove:hover{color:var(--danger)}
+  .combat-card-stats{display:flex;gap:1rem;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
+  .combat-roll-btn{background:var(--gold);color:var(--bg);border:none;padding:.5rem .8rem;font-family:'Crimson Text',serif;font-weight:600;cursor:pointer;letter-spacing:.03em}
+  .combat-roll-btn:hover{background:var(--gold-bright)}
+  .combat-result{border-left:3px solid var(--border);padding:.5rem .7rem;background:rgba(0,0,0,.2);font-size:.85rem;line-height:1.5}
+  .combat-result.hit{border-color:var(--uncommon)}
+  .combat-result.miss{border-color:var(--danger)}
+  .combat-result.crit{border-color:var(--legendary)}
+  .combat-result-title{font-weight:600;margin-bottom:.2rem}
+  .combat-result-title.hit{color:var(--uncommon)}
+  .combat-result-title.miss{color:var(--danger)}
+  .combat-result-title.crit{color:var(--legendary)}
+  .combat-log{background:var(--surface);border:1px solid var(--border);max-height:400px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:.5rem;padding:.8rem}
+  .combat-log-empty{color:var(--text-dim);font-style:italic;text-align:center;padding:1.5rem}
+  .combat-empty-roster{color:var(--text-dim);font-style:italic;padding:1.5rem;text-align:center;border:1px dashed var(--border)}
+
 </style>
 <style>
 #spell-master-database-note {
@@ -1470,6 +1502,7 @@
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
   <button class="tab-btn" onclick="showTab('monsters',this)">🐉 Monster Compendium</button>
+  <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
 
@@ -1989,11 +2022,20 @@
             <span class="mw-val" id="mv-skill">4</span>
           </div>
         </div>
+        <div class="mw-card">
+          <h3>🐉 Monster Skill</h3>
+          <p class="mw-desc">Grants one random attack drawn from a random creature in the Monster Compendium, tiered by rarity.</p>
+          <div class="mw-row">
+            <label>Weight</label>
+            <input type="range" id="mw-monsterskill" min="0" max="20" value="4" oninput="updateMWDisplay('monsterskill')">
+            <span class="mw-val" id="mv-monsterskill">4</span>
+          </div>
+        </div>
       </div>
 
       <div class="mw-total-row">
         <span>Total weight pool:</span>
-        <span class="mw-total-val" id="mw-total">36</span>
+        <span class="mw-total-val" id="mw-total">40</span>
         <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
         <button class="mw-reset-btn" onclick="resetModWeights()">Reset Defaults</button>
       </div>
@@ -2110,10 +2152,14 @@
               <h3>🗡 Skill</h3>
               <div class="mw-row"><label>Weight</label><input type="range" id="fmw-skill" min="0" max="20" value="3" oninput="updateFleshMWDisplay('skill')"><span class="mw-val" id="fmv-skill">3</span></div>
             </div>
+            <div class="mw-card">
+              <h3>🐉 Monster Skill</h3>
+              <div class="mw-row"><label>Weight</label><input type="range" id="fmw-monsterskill" min="0" max="20" value="4" oninput="updateFleshMWDisplay('monsterskill')"><span class="mw-val" id="fmv-monsterskill">4</span></div>
+            </div>
           </div>
           <div class="mw-total-row">
             <span>Total weight pool:</span>
-            <span class="mw-total-val" id="fmw-total">38</span>
+            <span class="mw-total-val" id="fmw-total">42</span>
             <span style="color:var(--text-dim);font-size:0.85rem;">· Relative, not percentages</span>
             <button class="mw-reset-btn" onclick="resetFleshModWeights()">Reset Defaults</button>
           </div>
@@ -2205,6 +2251,37 @@
   <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
   <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
   <div class="spell-detail" id="monsterDetail"></div>
+</div>
+
+<!-- COMBAT TAB -->
+<div id="tab-combat" class="tab-content">
+  <div class="combat-layout">
+    <p class="spells-intro">
+      Build a battle roster straight from the Monster Compendium, then roll for each creature: one of its attacks is chosen at
+      random, and a d20 decides how effective that attack actually was.
+    </p>
+
+    <div class="combat-settings">
+      <label>Target AC to roll against: <input type="number" id="battleTargetAC" value="15" min="1" max="30"></label>
+      <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
+      <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
+    </div>
+
+    <div>
+      <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
+      <div class="combat-picker-results" id="combatPickerResults"><div class="spell-loading">Type at least 2 characters to search creatures.</div></div>
+    </div>
+
+    <div>
+      <h3 style="color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;letter-spacing:.05em;">⚔ Battle Roster</h3>
+      <div class="combat-roster" id="combatRoster"><div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div></div>
+    </div>
+
+    <div>
+      <h3 style="color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;letter-spacing:.05em;">📜 Battle Log</h3>
+      <div class="combat-log" id="combatLog"><div class="combat-log-empty">No attacks rolled yet.</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- PLAYER & TOKENS TAB (single view so drag-and-drop works — dragging between
@@ -3105,6 +3182,7 @@ function showTab(tab, btn) {
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   if (tab === 'spells') { loadSpellDatabase(false); }
   if (tab === 'monsters') { loadMonsterDatabase(false); }
+  if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); }
   if (tab === 'store') { renderStoreTab(); }
 }
 
@@ -5476,6 +5554,61 @@ function pickNamedTrait(rarity, modest, usedKeys = []) {
 // mundane animals at the low end (a squirrel, a hawk, a wolf...) rather than escalating
 // straight to elementals and fiends. Only celestial reaches into GEN.summonEntities'
 // named epic entities (demon lords, solars, etc.) — see pickSummonEntity() below.
+// ===================== MONSTER COMPENDIUM INTEGRATION =====================
+// Summons, transformations, and the "Monster Skill" modifier all draw on the Monster
+// Compendium (monsterDatabase, defined further down) when it's available, so those
+// effects use real official stat blocks instead of made-up flavor names — with the same
+// "stronger rarity = stronger creature" curve, now driven by actual Challenge Rating.
+// The compendium loads lazily/in the background (see the INIT section), so every one of
+// these falls back to the built-in flavor pools if it hasn't finished loading yet —
+// generation never fails or stalls waiting on a network fetch.
+const RARITY_CR_RANGES = {
+  common:    [0, 1],
+  uncommon:  [1, 3],
+  rare:      [3, 6],
+  superrare: [6, 10],
+  legendary: [10, 17],
+  celestial: [17, 30],
+};
+function withArticle(name) {
+  return (/^[aeiou]/i.test(name || '') ? 'an ' : 'a ') + name;
+}
+// Picks a random creature from the loaded compendium within the rarity's CR band.
+// Returns null (caller falls back to the built-in pools) if nothing is loaded/matches.
+function pickMonsterForRarity(rarity, needActions) {
+  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) return null;
+  const [lo, hi] = RARITY_CR_RANGES[rarity] || [0, 30];
+  const pool = monsterDatabase.filter(m => {
+    const cr = crSortValue(m.cr);
+    if (cr < lo || cr > hi) return false;
+    if (needActions && (!m.actions || !m.actions.length)) return false;
+    return true;
+  });
+  return pool.length ? ri(pool) : null;
+}
+// Powers the "Monster Skill" modifier type: grants the bearer the ability to use one
+// random attack from one random monster, drawn from the same CR band as any other
+// creature-based effect at this rarity. Unlike summon/transform, this has no built-in
+// flavor-pool fallback — it simply won't be offered (generation just tries another
+// modifier type) if the Monster Compendium hasn't loaded any matching creatures yet.
+function pickMonsterSkill(rarity, usedKeys = []) {
+  const [lo, hi] = RARITY_CR_RANGES[rarity] || [0, 30];
+  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) return null;
+  const pool = monsterDatabase.filter(m => {
+    const cr = crSortValue(m.cr);
+    return cr >= lo && cr <= hi && m.actions && m.actions.length;
+  });
+  if (!pool.length) return null;
+  for (let attempts = 0; attempts < 15; attempts++) {
+    const monster = ri(pool);
+    const action = ri(monster.actions);
+    const key = 'monsterskill:' + monster.name + ':' + action.name;
+    if (usedKeys.includes(key)) continue;
+    return { key, text: `Grants the ability to use <strong>${escapeHtml(monster.name)}'s ${escapeHtml(action.name)}</strong>: ${action.text}` };
+  }
+  return null;
+}
+
 const SUMMON_TIERS = [
   ['a squirrel','a raven','a rat swarm','a stray dog','a barn owl','a tiny elemental spark'],
   ['a wolf','a hawk','a black bear','a boar','a giant spider','a minor elemental'],
@@ -5484,8 +5617,10 @@ const SUMMON_TIERS = [
   ['a veteran war-bear','a young elemental drake','a dire wolf pack (3 wolves)','a formidable fiend','an ancient elemental','a planetar-like champion'],
 ];
 function pickSummonEntity(idx) {
+  const monster = pickMonsterForRarity(BAL.rarityOrder[idx], false);
+  if (monster) return withArticle(monster.name);
   if (idx < SUMMON_TIERS.length) return ri(SUMMON_TIERS[idx]);
-  // Celestial: draw from the epic named entities, same three-slice mix as before.
+  // Celestial fallback: draw from the epic named entities, same three-slice mix as before.
   return ri([ri(GEN.summonEntities.slice(10,20)), ri(GEN.summonEntities.slice(20,35)), ri(GEN.summonEntities.slice(0,10))]);
 }
 // Summons are capped far shorter than other effects at every rarity below celestial — a
@@ -5540,8 +5675,14 @@ function generateModifierOfType(type, rarity, usedKeys = []) {
     const skill = ri(pool);
     return { type:'Skill', key:'skill:'+skill, text:`Grants exceptional aptitude in <strong>${skill}</strong>, providing a <strong>+${Math.max(1,idx+1)}</strong> bonus to related checks.` };
   }
+  if (type === 'monsterskill') {
+    const picked = pickMonsterSkill(rarity, usedKeys);
+    if (!picked) return null;
+    return { type:'Monster Skill', key:picked.key, text:picked.text };
+  }
   if (type === 'transform') {
-    const form = pickTier(GEN.transformForms, rarity);
+    const monster = pickMonsterForRarity(rarity, false);
+    const form = monster ? withArticle(monster.name) : pickTier(GEN.transformForms, rarity);
     return { type:'Transform', key:'transform:'+form, text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.` };
   }
   if (type === 'summon') {
@@ -6540,6 +6681,11 @@ updateAddFormFields();
 // Init battle stage idle state after DOM ready
 setTimeout(() => setBattleState(false), 100);
 setTimeout(() => renderChestSVG(), 150);
+// Eagerly warm the Monster Compendium in the background so summon/transform/monster-skill
+// generation has real creature data available even before the user opens the Monsters tab.
+// Deferred via setTimeout since monsterDatabase/loadMonsterDatabase are declared later in
+// this script (TDZ-safe: by the time this fires, the whole script has finished its first pass).
+setTimeout(() => { if (typeof loadMonsterDatabase === 'function') loadMonsterDatabase(false); }, 300);
 
 // Double-click detection using native dblclick event.
 // Single click: start animation. Double-click: instant resolve.
@@ -6565,7 +6711,7 @@ document.getElementById('spinBtn').addEventListener('dblclick', (e) => {
 
 // ===================== MODIFIER WEIGHTS =====================
 // Default weights — spells and buffs heavier than others
-const MOD_WEIGHT_DEFAULTS = { power:8, buff:7, debuff:5, trait:4, skill:4, transform:3, summon:3, terrain:2 };
+const MOD_WEIGHT_DEFAULTS = { power:8, buff:7, debuff:5, trait:4, skill:4, monsterskill:4, transform:3, summon:3, terrain:2 };
 let modWeights = { ...MOD_WEIGHT_DEFAULTS };
 
 function updateMWDisplay(key) {
@@ -6588,7 +6734,7 @@ function resetModWeights() {
 
 // Fleshmancer keeps its own independent set of effect weights (buffs/traits favored,
 // terrain/summon rare) rather than sharing the Generate Item tab's weights.
-const FLESH_MOD_WEIGHT_DEFAULTS = { power:6, buff:8, debuff:7, trait:8, skill:3, transform:3, summon:2, terrain:1 };
+const FLESH_MOD_WEIGHT_DEFAULTS = { power:6, buff:8, debuff:7, trait:8, skill:3, monsterskill:4, transform:3, summon:2, terrain:1 };
 let fleshModWeights = { ...FLESH_MOD_WEIGHT_DEFAULTS };
 
 function updateFleshMWDisplay(key) {
@@ -6733,12 +6879,12 @@ function pickTier(arr,r){
 function generateModifier(rarity) {
   const idx=BAL.rarityOrder.indexOf(rarity);
   const typePools=[
-    ['skill','buff','debuff','trait'],
-    ['skill','buff','debuff','trait','power'],
-    ['buff','debuff','trait','power','transform'],
-    ['buff','debuff','trait','power','transform','summon','terrain'],
-    ['power','transform','summon','terrain','buff','trait'],
-    ['power','transform','summon','terrain','buff','debuff','trait']
+    ['skill','buff','debuff','trait','monsterskill'],
+    ['skill','buff','debuff','trait','power','monsterskill'],
+    ['buff','debuff','trait','power','transform','monsterskill'],
+    ['buff','debuff','trait','power','transform','summon','terrain','monsterskill'],
+    ['power','transform','summon','terrain','buff','trait','monsterskill'],
+    ['power','transform','summon','terrain','buff','debuff','trait','monsterskill']
   ];
   const type=ri(typePools[idx]);
   const dur=ri(BAL.durations[rarity]);
@@ -6749,7 +6895,8 @@ function generateModifier(rarity) {
     return {type:'Power/Spell',text:`Grants the ability to cast <strong>${p}</strong> (<strong>${uses}</strong>). Spell save DC is <strong>${10+idx*2+rn(0,2)}</strong>.`};
   }
   if(type==='transform'){
-    const form=pickTier(GEN.transformForms,rarity);
+    const monster=pickMonsterForRarity(rarity, false);
+    const form=monster ? withArticle(monster.name) : pickTier(GEN.transformForms,rarity);
     return {type:'Transform',text:`The bearer transforms into <strong>${form}</strong> for <strong>${dur}</strong>, retaining their personality and memories. The transformation ends early if dismissed.`};
   }
   if(type==='summon'){
@@ -6775,6 +6922,10 @@ function generateModifier(rarity) {
   if(type==='trait'){
     const picked = pickNamedTrait(rarity, modest);
     if (picked) return {type:'Trait', text:picked.text};
+  }
+  if(type==='monsterskill'){
+    const picked = pickMonsterSkill(rarity);
+    if (picked) return {type:'Monster Skill', text:picked.text};
   }
   const skill=ri(GEN.skills);
   return {type:'Skill',text:`Grants exceptional aptitude in <strong>${skill}</strong>, providing a <strong>+${Math.max(1,idx+1)}</strong> bonus to related checks.`};
@@ -7202,6 +7353,13 @@ const DESC = {
       'Stone remembers. This reaches into that memory and asks politely. Stone, which is old enough to have been asked before, sometimes says yes.',
       'The environment doesn\'t resist what it asks. It simply changes, the way weather changes — without announcement, without drama, and without particular regard for what was there before.',
     ],
+    'Monster Skill': [
+      'Something not human learned this first, and the object never quite forgot whose technique it borrowed. Using it feels less like a skill and more like a loan.',
+      'There is a texture to it that doesn\'t belong to any craftsman — claw-marks, bite-wear, the polish of scales rather than hands. Whatever taught it this trick did not use words to teach it.',
+      'It moves the wearer\'s body through a motion that no human instructor would choose — efficient in a way that suggests teeth, or wings, or something with more joints than expected.',
+      'The technique housed inside it wasn\'t designed. It was observed, once, at close and probably dangerous range, and kept.',
+      'When used, there is a flicker of something animal in the wearer\'s expression — gone before anyone else notices, remembered only by the wearer, and only barely.',
+    ],
   },
 
   // ── TAG PHYSICAL LINES ─────────────────────────────────────────────────────
@@ -7374,6 +7532,14 @@ const DESC = {
       legendary: ['It has moved mountains. Slowly. Over time. With patience. But it has moved them.','The earth remembers this object. That is not something many objects can say.'],
       celestial: ['The world shaped itself before it was asked. This simply makes the asking faster.','What it changes, it changes in ways that the world registers as always having been so.'],
     },
+    'Monster Skill': {
+      common:    ['Whatever taught it this trick has probably long since died. The trick survived.','It is a small technique, borrowed from something that didn\'t volunteer it.'],
+      uncommon:  ['The motion it grants doesn\'t feel human, and after enough use, that stops being unsettling.','Something with claws or fangs figured this out first. You get the shortcut.'],
+      rare:      ['It has been used by hands and by things that were not hands. Both used it well.','The technique came from somewhere with more teeth than negotiation.'],
+      superrare: ['What it teaches was not meant to be taught. It was only meant to be survived. Somehow, it transfers anyway.','The creature it borrowed this from is not owed thanks. It was not asked.'],
+      legendary: ['This is not a trick anymore. It is a second nature grafted onto a first one.','Whatever it once belonged to was formidable. Now, so are you, in this one specific way.'],
+      celestial: ['What moved through that creature now moves through you, unchanged and undiminished by the transfer.','It did not lend this skill. It simply stopped being the only thing that had it.'],
+    },
   },
 
   // Fallback closing by rarity (used when no mod-specific closing is available)
@@ -7401,15 +7567,24 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-// Colors a modifier's text so its effect reads at a glance — beneficial (Buff) in green,
-// harmful (Debuff) in red. Named Traits mix exactly one of each in a single line, so
-// those are colored per +N/-N sign instead of as one solid block. Everything else
-// (Power, Transform, Summon, Terrain, Skill) is left uncolored — this is scoped to
-// buffs/debuffs specifically. Only ever call this on text about to be inserted as HTML,
-// never on text headed for a plain-text export/copy.
+// Colors a modifier's text so its NET EFFECT ON THE WEARER reads at a glance — not just
+// its raw type. The rule: a good effect on self is good (green); a good effect granted to
+// another is good (green); a bad effect inflicted on a target/enemy is still good for the
+// wearer (green); only a bad effect that lands on the wearer themselves (a curse) is
+// actually bad (red). Buffs are always a "good effect", so they're always green
+// regardless of who they land on. Debuffs need their text checked for which phrasing they
+// used — "the bearer suffers" (self-inflicted curse, red) vs "Inflicts ... on one target"
+// (aimed at an enemy, green). Named Traits mix exactly one of each in a single line
+// (always self-directed), so those are colored per +N/-N sign instead of as one block.
+// Everything else (Power, Transform, Summon, Terrain, Skill, Monster Skill) is left
+// uncolored — this is scoped to buffs/debuffs specifically. Only ever call this on text
+// about to be inserted as HTML, never on text headed for a plain-text export/copy.
 function colorizeModifierText(text, type) {
   if (type === 'Buff') return `<span style="color:var(--uncommon)">${text}</span>`;
-  if (type === 'Debuff') return `<span style="color:var(--danger)">${text}</span>`;
+  if (type === 'Debuff') {
+    const isSelfInflicted = /the bearer suffers/i.test(text);
+    return `<span style="color:${isSelfInflicted ? 'var(--danger)' : 'var(--uncommon)'}">${text}</span>`;
+  }
   if (type === 'Trait') {
     return text.replace(/([+-])(\d+)/g, (m, sign, num) =>
       sign === '+' ? `<span style="color:var(--uncommon)">+${num}</span>` : `<span style="color:var(--danger)">-${num}</span>`
@@ -8279,6 +8454,171 @@ function showMonsterDetail(i) {
     <div class="spell-detail-grid">${monsterAbilityBlockHtml(m)}${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div>
     <div class="ic-modifiers" style="margin-top:1rem;">${actionsHtml}</div>`;
   el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ===================== COMBAT TAB =====================
+// Lets the DM pull creatures straight from the Monster Compendium into a battle roster,
+// then roll: one random attack is chosen for the creature, and a d20 decides how it landed.
+let battleRoster = [];
+let battleLog = [];
+let battleUidCounter = 0;
+
+function renderCombatPicker() {
+  const wrap = document.getElementById('combatPickerResults'); if (!wrap) return;
+  const q = (document.getElementById('battleMonsterSearch')?.value || '').toLowerCase().trim();
+  if (q.length < 2) { wrap.innerHTML = '<div class="spell-loading">Type at least 2 characters to search creatures.</div>'; return; }
+  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) {
+    wrap.innerHTML = '<div class="spell-loading">Monster database still loading…</div>';
+    return;
+  }
+  const rows = monsterDatabase.filter(m => m.name.toLowerCase().includes(q))
+    .sort((a, b) => crSortValue(a.cr) - crSortValue(b.cr) || a.name.localeCompare(b.name))
+    .slice(0, 40);
+  if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match that search.</div>'; return; }
+  wrap.innerHTML = rows.map(m => `<div class="combat-picker-row">
+    <span class="combat-picker-name">${escapeHtml(m.name)}</span>
+    <span class="combat-picker-cr">CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.type)}</span>
+    <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)})">+ Add</button>
+  </div>`).join('');
+}
+
+function addMonsterToBattle(idx) {
+  const monster = monsterDatabase[idx];
+  if (!monster) return;
+  battleRoster.push({ uid: ++battleUidCounter, monster, lastResult: null });
+  renderCombatRoster();
+}
+
+function removeFromBattle(uid) {
+  battleRoster = battleRoster.filter(e => e.uid !== uid);
+  renderCombatRoster();
+}
+
+function clearBattleRoster() {
+  battleRoster = [];
+  renderCombatRoster();
+}
+
+function clearBattleLog() {
+  battleLog = [];
+  renderCombatLog();
+}
+
+// Pulls "+N to hit", the first damage-dice expression, and a save DC (if present) out of an
+// already-cleaned action/trait text block so the roll mechanic has real numbers to work with.
+function battleParseAttack(text) {
+  const t = text || '';
+  const hitMatch = t.match(/([+-]\d+)\s*to hit/i);
+  const toHit = hitMatch ? parseInt(hitMatch[1], 10) : null;
+  const dmgMatch = t.match(/\((\d+d\d+(?:\s*[+-]\s*\d+)?)\)/);
+  const damageDice = dmgMatch ? dmgMatch[1].replace(/\s+/g, '') : null;
+  const dcMatch = t.match(/DC\s*(\d+)/i);
+  const saveDC = dcMatch ? parseInt(dcMatch[1], 10) : null;
+  return { toHit, damageDice, saveDC };
+}
+
+// Standard 5e crit rule: double the dice, add the flat modifier once.
+function battleRollDamage(diceExpr, crit) {
+  const m = diceExpr.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10), sides = parseInt(m[2], 10);
+  const mod = m[3] ? parseInt(m[3], 10) : 0;
+  const count = crit ? n * 2 : n;
+  const rolls = [];
+  for (let i = 0; i < count; i++) rolls.push(rn(1, sides));
+  return { rolls, mod, total: rolls.reduce((a, b) => a + b, 0) + mod };
+}
+
+// Used when an attack has no parseable "to hit" (utility / save-based / breath-weapon
+// actions) — grades how effective it was straight off the raw d20 instead.
+function battleEffectivenessLabel(roll) {
+  if (roll === 20) return { label: 'Devastating', cls: 'crit' };
+  if (roll >= 15) return { label: 'Strong', cls: 'hit' };
+  if (roll >= 10) return { label: 'Moderate', cls: 'hit' };
+  if (roll >= 2) return { label: 'Weak', cls: 'miss' };
+  return { label: 'Critical Failure', cls: 'miss' };
+}
+
+// Picks one attack for the creature to use: real actions first, then legendary/bonus
+// actions, then traits, with a generic fallback so this never comes up empty.
+function pickBattleAction(monster) {
+  const pools = [monster.actions, monster.legendary, monster.bonusActions, monster.traits];
+  for (const pool of pools) {
+    if (pool && pool.length) return ri(pool);
+  }
+  return { name: 'Improvised Strike', text: 'The creature lashes out with whatever is within reach.' };
+}
+
+function rollBattleAttack(uid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  const monster = entry.monster;
+  const action = pickBattleAction(monster);
+  const targetAC = parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15;
+  const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
+  const d20 = rn(1, 20);
+  let result;
+
+  if (toHit !== null) {
+    const isCrit = d20 === 20;
+    const isFumble = d20 === 1;
+    const total = d20 + toHit;
+    const hit = !isFumble && (isCrit || total >= targetAC);
+    let dmgText = '';
+    if (hit && damageDice) {
+      const dmg = battleRollDamage(damageDice, isCrit);
+      if (dmg) dmgText = ` for <strong>${dmg.total}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''})`;
+    }
+    const cls = isFumble ? 'miss' : isCrit ? 'crit' : hit ? 'hit' : 'miss';
+    const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
+    result = {
+      cls, title,
+      detail: `<strong>${escapeHtml(monster.name)}</strong> uses <strong>${escapeHtml(action.name)}</strong> — rolled <strong>${d20}</strong> + ${toHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
+    };
+  } else {
+    const eff = battleEffectivenessLabel(d20);
+    result = {
+      cls: eff.cls, title: eff.label,
+      detail: `<strong>${escapeHtml(monster.name)}</strong> uses <strong>${escapeHtml(action.name)}</strong>${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
+    };
+  }
+
+  entry.lastResult = result;
+  battleLog.push(result);
+  if (battleLog.length > 50) battleLog = battleLog.slice(-50);
+  renderCombatRoster();
+  renderCombatLog();
+}
+
+function renderCombatRoster() {
+  const wrap = document.getElementById('combatRoster'); if (!wrap) return;
+  if (!battleRoster.length) {
+    wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
+    return;
+  }
+  wrap.innerHTML = battleRoster.map(entry => {
+    const m = entry.monster;
+    const r = entry.lastResult;
+    return `<div class="combat-card">
+      <div class="combat-card-head">
+        <div>
+          <div class="combat-card-name">${escapeHtml(m.name)}</div>
+          <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
+        </div>
+        <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
+      </div>
+      <div class="combat-card-stats"><span>AC ${escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(m.hp)}</span></div>
+      <button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>
+      ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderCombatLog() {
+  const wrap = document.getElementById('combatLog'); if (!wrap) return;
+  if (!battleLog.length) { wrap.innerHTML = '<div class="combat-log-empty">No attacks rolled yet.</div>'; return; }
+  // Container is column-reverse, so entries in chronological array order render newest-on-top.
+  wrap.innerHTML = battleLog.map(r => `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>`).join('');
 }
 
 </script>
