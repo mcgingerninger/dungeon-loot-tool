@@ -82,6 +82,18 @@
   .tab-content { display: none; padding: 0 1rem 2rem; max-width: 1200px; margin: 0 auto; }
   .tab-content.active { display: block; }
 
+  /* ITEM COMPENDIUM sub-tabs (Items / Spells / Monsters within one tab) */
+  .compendium-subtabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; }
+  .compendium-subtab-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.4rem 1.1rem;
+    cursor: pointer; letter-spacing: 0.04em; transition: all 0.2s;
+  }
+  .compendium-subtab-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .compendium-subtab-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
+  .compendium-subpanel { display: none; }
+  .compendium-subpanel.active { display: block; }
+
   /* LOOT ROLL TAB */
   .wheel-layout {
     display: grid;
@@ -656,7 +668,7 @@
   /* PRINT STYLES */
   @media print {
     body { background: white; color: black; font-family: Georgia, serif; }
-    .tabs, h1, .subtitle, .print-controls, #tab-spin, #tab-items { display: none !important; }
+    .tabs, h1, .subtitle, .print-controls, #tab-spin, #tab-compendium { display: none !important; }
     #tab-print { display: block !important; padding: 0; max-width: 100%; }
     .print-preview { background: white; border: none; }
     #printTable th { background: #eee; color: black; border-bottom: 2px solid #333; }
@@ -1461,12 +1473,27 @@
   .combat-picker-cr{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--text-dim);white-space:nowrap}
   .combat-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
   .combat-card{background:var(--surface);border:2px solid var(--border);padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+  .combat-card.has-variant.common{border-color:var(--common)}
+  .combat-card.has-variant.uncommon{border-color:var(--uncommon)}
+  .combat-card.has-variant.rare{border-color:var(--rare)}
+  .combat-card.has-variant.superrare{border-color:var(--superrare)}
+  .combat-card.has-variant.legendary{border-color:var(--legendary)}
   .combat-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
   .combat-card-name{font-size:1.05rem;color:var(--gold-bright);font-weight:600}
+  .combat-variant-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle}
+  .combat-variant-badge.common{color:var(--common)}
+  .combat-variant-badge.uncommon{color:var(--uncommon)}
+  .combat-variant-badge.rare{color:var(--rare)}
+  .combat-variant-badge.superrare{color:var(--superrare)}
+  .combat-variant-badge.legendary{color:var(--legendary)}
   .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
   .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
   .combat-card-remove:hover{color:var(--danger)}
   .combat-card-stats{display:flex;gap:1rem;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
+  .combat-hp-dice{color:var(--text-dim);font-style:italic}
+  .combat-card-mods{font-size:.78rem;line-height:1.5;color:var(--text-dim)}
+  .combat-variant-chance-val{font-family:'Share Tech Mono',monospace;color:var(--gold);min-width:2.6em;display:inline-block}
+  .combat-variant-note{color:var(--text-dim);font-size:.82rem;font-style:italic;line-height:1.5}
   .combat-roll-btn{background:var(--gold);color:var(--bg);border:none;padding:.5rem .8rem;font-family:'Crimson Text',serif;font-weight:600;cursor:pointer;letter-spacing:.03em}
   .combat-roll-btn:hover{background:var(--gold-bright)}
   .combat-result{border-left:3px solid var(--border);padding:.5rem .7rem;background:rgba(0,0,0,.2);font-size:.85rem;line-height:1.5}
@@ -1502,12 +1529,10 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('spin',this)">Roll Loot</button>
   <button class="tab-btn" onclick="showTab('chest',this)">Treasure Chest</button>
-  <button class="tab-btn" onclick="showTab('items',this)">Edit Items</button>
   <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
-  <button class="tab-btn" onclick="showTab('spells',this)">Spell Compendium</button>
-  <button class="tab-btn" onclick="showTab('monsters',this)">🐉 Monster Compendium</button>
+  <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
@@ -1792,8 +1817,17 @@
   </div>
 </div>
 
-<!-- ITEMS TAB -->
-<div id="tab-items" class="tab-content">
+<!-- ITEM COMPENDIUM TAB (merges Edit Items, Spell Compendium, and Monster Compendium into
+     one tab with a sub-tab switcher, since they're all "reference lookups" in the same
+     spirit — see showCompendiumSub() ) -->
+<div id="tab-compendium" class="tab-content">
+  <div class="compendium-subtabs">
+    <button class="compendium-subtab-btn active" onclick="showCompendiumSub('items',this)">🎒 Items</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('spells',this)">📖 Spells</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsters',this)">🐉 Monsters</button>
+  </div>
+
+  <div id="compendium-items" class="compendium-subpanel active">
   <div class="items-layout">
     <div class="items-panel">
       <div class="items-panel-header">
@@ -1853,6 +1887,61 @@
       </div>
       <div class="items-list" id="itemsList"></div>
     </div>
+  </div>
+  </div>
+
+  <div id="compendium-spells" class="compendium-subpanel">
+  <p class="spells-intro">
+    Complete spell reference for the selected D&amp;D 5e ruleset. Filter by spell level, school, casting time, components, concentration, ritual status, saving throw, damage type, source, and more. Click a spell for its full mechanical metadata and an official D&amp;D Beyond reference link.
+    Spell descriptions are intentionally not reproduced here; use the official reference link for the full copyrighted text.
+  </p>
+  <div class="spell-warning">
+    <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
+  </div>
+  <div class="spells-controls">
+    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
+    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both">Both rulesets</option></select>
+    <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
+    <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
+    <select id="spellCastFilter" onchange="renderSpellTable()"><option value="all">All Casting Times</option><option>Action</option><option>Bonus Action</option><option>Reaction</option><option>Minute</option><option>10 Minutes</option><option>Hour</option><option>8 Hours</option><option>12 Hours</option><option>24 Hours</option></select>
+    <select id="spellSourceFilter" onchange="renderSpellTable()"><option value="all">All Sources</option></select>
+    <div class="spell-checks">
+      <label><input type="checkbox" id="spellConcentrationFilter" onchange="renderSpellTable()"> Concentration only</label>
+      <label><input type="checkbox" id="spellRitualFilter" onchange="renderSpellTable()"> Ritual only</label>
+      <label><input type="checkbox" id="spellVFilter" onchange="renderSpellTable()"> Verbal</label>
+      <label><input type="checkbox" id="spellSFilter" onchange="renderSpellTable()"> Somatic</label>
+      <label><input type="checkbox" id="spellMFilter" onchange="renderSpellTable()"> Material</label>
+      <label>Sort: <select id="spellSort" onchange="renderSpellTable()" style="width:auto;padding:.18rem .35rem"><option value="level">Level</option><option value="name">Name</option><option value="casting">Casting Time</option><option value="school">School</option><option value="duration">Duration</option><option value="range">Range</option><option value="source">Source</option></select></label>
+    </div>
+  </div>
+  <div class="spells-toolbar"><span class="spells-count" id="spellCount">Loading spell database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadSpellDatabase(true)">↻ Refresh Spell Data</button></div>
+  <div class="spell-table-wrap" id="spellTableWrap"><div class="spell-loading">Loading the official-source spell catalog…</div></div>
+  <div class="spell-detail" id="spellDetail"></div>
+  </div>
+
+  <div id="compendium-monsters" class="compendium-subpanel">
+  <p class="spells-intro">
+    Official D&amp;D 5e monster stat blocks — also the backing data for the Combat tab's battle roster and monster
+    variants. Search, filter, and click a creature for its full stat block: AC, HP, hit dice,
+    ability scores, saves, skills, senses, and every trait/action/legendary action it has.
+  </p>
+  <div class="spell-warning">
+    <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
+    This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
+  </div>
+  <div class="spells-controls">
+    <input id="monsterSearch" type="text" placeholder="Search creature name, type, trait, action…" oninput="renderMonsterTable()">
+    <select id="monsterTypeFilter" onchange="renderMonsterTable()"><option value="all">All Types</option></select>
+    <select id="monsterSizeFilter" onchange="renderMonsterTable()">
+      <option value="all">All Sizes</option><option value="Tiny">Tiny</option><option value="Small">Small</option>
+      <option value="Medium">Medium</option><option value="Large">Large</option><option value="Huge">Huge</option><option value="Gargantuan">Gargantuan</option>
+    </select>
+    <select id="monsterSourceFilter" onchange="renderMonsterTable()"><option value="all">All Sources</option></select>
+    <label>Sort: <select id="monsterSort" onchange="renderMonsterTable()" style="width:auto;padding:.18rem .35rem"><option value="cr">Challenge Rating</option><option value="name">Name</option><option value="type">Type</option><option value="size">Size</option><option value="source">Source</option></select></label>
+  </div>
+  <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
+  <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
+  <div class="spell-detail" id="monsterDetail"></div>
   </div>
 </div>
 
@@ -2201,64 +2290,6 @@
   </div>
 </div>
 
-<!-- MODIFIER WEIGHTS TAB -->
-
-<!-- SPELL COMPENDIUM TAB -->
-<div id="tab-spells" class="tab-content">
-  <p class="spells-intro">
-    Complete spell reference for the selected D&amp;D 5e ruleset. Filter by spell level, school, casting time, components, concentration, ritual status, saving throw, damage type, source, and more. Click a spell for its full mechanical metadata and an official D&amp;D Beyond reference link.
-    Spell descriptions are intentionally not reproduced here; use the official reference link for the full copyrighted text.
-  </p>
-  <div class="spell-warning">
-    <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
-  </div>
-  <div class="spells-controls">
-    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
-    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both">Both rulesets</option></select>
-    <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
-    <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
-    <select id="spellCastFilter" onchange="renderSpellTable()"><option value="all">All Casting Times</option><option>Action</option><option>Bonus Action</option><option>Reaction</option><option>Minute</option><option>10 Minutes</option><option>Hour</option><option>8 Hours</option><option>12 Hours</option><option>24 Hours</option></select>
-    <select id="spellSourceFilter" onchange="renderSpellTable()"><option value="all">All Sources</option></select>
-    <div class="spell-checks">
-      <label><input type="checkbox" id="spellConcentrationFilter" onchange="renderSpellTable()"> Concentration only</label>
-      <label><input type="checkbox" id="spellRitualFilter" onchange="renderSpellTable()"> Ritual only</label>
-      <label><input type="checkbox" id="spellVFilter" onchange="renderSpellTable()"> Verbal</label>
-      <label><input type="checkbox" id="spellSFilter" onchange="renderSpellTable()"> Somatic</label>
-      <label><input type="checkbox" id="spellMFilter" onchange="renderSpellTable()"> Material</label>
-      <label>Sort: <select id="spellSort" onchange="renderSpellTable()" style="width:auto;padding:.18rem .35rem"><option value="level">Level</option><option value="name">Name</option><option value="casting">Casting Time</option><option value="school">School</option><option value="duration">Duration</option><option value="range">Range</option><option value="source">Source</option></select></label>
-    </div>
-  </div>
-  <div class="spells-toolbar"><span class="spells-count" id="spellCount">Loading spell database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadSpellDatabase(true)">↻ Refresh Spell Data</button></div>
-  <div class="spell-table-wrap" id="spellTableWrap"><div class="spell-loading">Loading the official-source spell catalog…</div></div>
-  <div class="spell-detail" id="spellDetail"></div>
-</div>
-
-<!-- MONSTER COMPENDIUM TAB -->
-<div id="tab-monsters" class="tab-content">
-  <p class="spells-intro">
-    Official D&amp;D 5e monster stat blocks — the groundwork for an eventual combat simulator where you'll be able to pick a handful of
-    creatures and see every attack each one can make. Search, filter, and click a creature for its full stat block: AC, HP, hit dice,
-    ability scores, saves, skills, senses, and every trait/action/legendary action it has.
-  </p>
-  <div class="spell-warning">
-    <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
-    This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
-  </div>
-  <div class="spells-controls">
-    <input id="monsterSearch" type="text" placeholder="Search creature name, type, trait, action…" oninput="renderMonsterTable()">
-    <select id="monsterTypeFilter" onchange="renderMonsterTable()"><option value="all">All Types</option></select>
-    <select id="monsterSizeFilter" onchange="renderMonsterTable()">
-      <option value="all">All Sizes</option><option value="Tiny">Tiny</option><option value="Small">Small</option>
-      <option value="Medium">Medium</option><option value="Large">Large</option><option value="Huge">Huge</option><option value="Gargantuan">Gargantuan</option>
-    </select>
-    <select id="monsterSourceFilter" onchange="renderMonsterTable()"><option value="all">All Sources</option></select>
-    <label>Sort: <select id="monsterSort" onchange="renderMonsterTable()" style="width:auto;padding:.18rem .35rem"><option value="cr">Challenge Rating</option><option value="name">Name</option><option value="type">Type</option><option value="size">Size</option><option value="source">Source</option></select></label>
-  </div>
-  <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
-  <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
-  <div class="spell-detail" id="monsterDetail"></div>
-</div>
-
 <!-- COMBAT TAB -->
 <div id="tab-combat" class="tab-content">
   <div class="combat-layout">
@@ -2269,9 +2300,11 @@
 
     <div class="combat-settings">
       <label>Target AC to roll against: <input type="number" id="battleTargetAC" value="15" min="1" max="30"></label>
+      <label>Variant chance: <input type="range" id="battleVariantChance" min="0" max="100" value="15" oninput="document.getElementById('battleVariantChanceVal').textContent=this.value+'%'"> <span id="battleVariantChanceVal" class="combat-variant-chance-val">15%</span></label>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is the odds it also spawns as a modified version of itself — anywhere from a weakened Runt to a fully Legendary reskin — with stat swings drawn from the same buff/debuff pool used for item generation.</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -3187,14 +3220,31 @@ function showTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   btn.classList.add('active');
-  if (tab === 'items') renderItemsList();
   if (tab === 'print') renderPrintTable();
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
-  if (tab === 'spells') { loadSpellDatabase(false); }
-  if (tab === 'monsters') { loadMonsterDatabase(false); }
+  // The Item Compendium tab holds three sub-panels (Items/Spells/Monsters, see
+  // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
+  // last active instead of always resetting to Items.
+  if (tab === 'compendium') initCompendiumSub(activeCompendiumSub);
   if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); }
   if (tab === 'store') { renderStoreTab(); }
+}
+
+// ===================== ITEM COMPENDIUM (Items / Spells / Monsters sub-tabs) =====================
+let activeCompendiumSub = 'items';
+function initCompendiumSub(sub) {
+  if (sub === 'items') renderItemsList();
+  else if (sub === 'spells') loadSpellDatabase(false);
+  else if (sub === 'monsters') loadMonsterDatabase(false);
+}
+function showCompendiumSub(sub, btn) {
+  activeCompendiumSub = sub;
+  document.querySelectorAll('.compendium-subpanel').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.compendium-subtab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('compendium-' + sub).classList.add('active');
+  btn.classList.add('active');
+  initCompendiumSub(sub);
 }
 
 // ===================== WHEEL =====================
@@ -4405,7 +4455,7 @@ function renderItemsList() {
 
 function updateAddFormFields() {
   const type = document.getElementById('newItemType').value;
-  document.querySelectorAll('#tab-items .type-field').forEach(el=>{
+  document.querySelectorAll('#compendium-items .type-field').forEach(el=>{
     el.style.display = (el.dataset.for === type) ? 'block' : 'none';
   });
 }
@@ -8532,10 +8582,119 @@ function renderCombatPicker() {
   </div>`).join('');
 }
 
+// ===================== MONSTER VARIANTS =====================
+// Every monster added to the battle rolls its actual hit points from its hit dice instead
+// of using the flat average, and — gated by the "Variant chance" slider on the Combat tab —
+// has a small chance to spawn as a modified version of itself instead of a stock stat
+// block. Variants range from strictly weaker to a full "Legendary" reskin, so the slider
+// roll is effectively also a rarity roll for the creature. Stat swings draw from the exact
+// same GEN.buffsSelf / GEN.debuffsSelf pools used for player item buffs/debuffs, so a
+// monster's bonus reads in the same vocabulary as gear. Selection is weighted so weak/
+// modest variants come up far more often than "Legendary".
+const MONSTER_VARIANTS = [
+  { key:'weak',      label:'Weak',      pattern:'prefix', tier:'common',    weight:18, hpMult:0.6,  acDelta:-2, atkDelta:-2, dmgMult:0.7,  buffs:0, debuffs:2 },
+  { key:'runt',      label:'Runt',      pattern:'prefix', tier:'common',    weight:12, hpMult:0.4,  acDelta:0,  atkDelta:0,  dmgMult:1.0,  buffs:0, debuffs:1 },
+  { key:'veteran',   label:'Veteran',   pattern:'prefix', tier:'uncommon',  weight:16, hpMult:1.2,  acDelta:1,  atkDelta:1,  dmgMult:1.15, buffs:1, debuffs:0 },
+  { key:'feral',     label:'Feral',     pattern:'prefix', tier:'uncommon',  weight:10, hpMult:1.3,  acDelta:2,  atkDelta:-2, dmgMult:0.85, buffs:1, debuffs:1 },
+  { key:'armored',   label:'Armored',   pattern:'prefix', tier:'uncommon',  weight:10, hpMult:1.1,  acDelta:4,  atkDelta:-1, dmgMult:0.9,  buffs:1, debuffs:1 },
+  { key:'swift',     label:'Swift',     pattern:'prefix', tier:'uncommon',  weight:10, hpMult:0.75, acDelta:2,  atkDelta:1,  dmgMult:0.9,  buffs:1, debuffs:1 },
+  { key:'assassin',  label:'Assassin',  pattern:'suffix', tier:'rare',      weight:7,  hpMult:0.7,  acDelta:-1, atkDelta:3,  dmgMult:1.8,  buffs:1, debuffs:1 },
+  { key:'berserker', label:'Berserker', pattern:'prefix', tier:'rare',      weight:7,  hpMult:0.9,  acDelta:-3, atkDelta:3,  dmgMult:1.5,  buffs:1, debuffs:1 },
+  { key:'ancient',   label:'Ancient',   pattern:'prefix', tier:'rare',      weight:6,  hpMult:1.8,  acDelta:1,  atkDelta:1,  dmgMult:1.1,  buffs:1, debuffs:0 },
+  { key:'elite',     label:'Elite',     pattern:'prefix', tier:'superrare', weight:3,  hpMult:1.4,  acDelta:2,  atkDelta:2,  dmgMult:1.3,  buffs:2, debuffs:0 },
+  { key:'legendary', label:'Legendary', pattern:'prefix', tier:'legendary', weight:1,  hpMult:2.0,  acDelta:3,  atkDelta:4,  dmgMult:1.75, buffs:2, debuffs:0 },
+];
+function pickMonsterVariant() {
+  const total = MONSTER_VARIANTS.reduce((s, v) => s + v.weight, 0);
+  let r = Math.random() * total;
+  for (const v of MONSTER_VARIANTS) { r -= v.weight; if (r <= 0) return v; }
+  return MONSTER_VARIANTS[0];
+}
+// Rolls N stat lines from the same pools GEN.buffsSelf/GEN.debuffsSelf uses for player
+// item buffs/debuffs, formatted as short inherent-trait lines ("+3 Strength",
+// "Advantage on Saving Throws") rather than the "grants X to the bearer for Y" item
+// phrasing — a monster variant isn't a piece of worn gear, its bonus is just part of it.
+function rollMonsterStatLines(count, positive, tier) {
+  if (!count) return [];
+  const pool = positive ? GEN.buffsSelf : GEN.debuffsSelf;
+  const idx = Math.max(0, BAL.rarityOrder.indexOf(tier));
+  const modest = Math.max(1, idx + 1);
+  const used = [];
+  const lines = [];
+  for (let i = 0; i < count; i++) {
+    const wantCondition = Math.random() < 0.35;
+    const scalarPool = pool.scalar.filter(s => !used.includes(s));
+    const condPool = pool.conditions.filter(c => !used.includes(c));
+    let stat = null, isCondition = false;
+    if (wantCondition && condPool.length) { stat = ri(condPool); isCondition = true; }
+    else if (scalarPool.length) { stat = ri(scalarPool); isCondition = false; }
+    else if (condPool.length) { stat = ri(condPool); isCondition = true; }
+    if (!stat) continue;
+    used.push(stat);
+    const text = isCondition ? stat : `${positive ? '+' : '-'}${modest} ${stat}`;
+    lines.push({ stat, isCondition, positive, text });
+  }
+  return lines;
+}
+// Parses the hit-dice formula out of a monster's formatted HP string (e.g. "58 (9d10 + 9)")
+// and rolls it for real, so every creature's HP in the roster is an actual roll instead of
+// the flat average — falls back to the flat average if no dice formula is present.
+function rollMonsterHP(monster) {
+  const raw = String(monster.hp || '');
+  const m = raw.match(/\((\d+d\d+(?:\s*[+-]\s*\d+)?)\)/);
+  if (m) {
+    const dice = m[1].replace(/\s+/g, '');
+    const rolled = battleRollDamage(dice, false);
+    if (rolled) return { total: Math.max(1, rolled.total), dice, rolls: rolled.rolls, mod: rolled.mod };
+  }
+  const flat = parseInt(raw, 10);
+  return { total: Number.isFinite(flat) ? Math.max(1, flat) : 1, dice: null, rolls: [], mod: 0 };
+}
+// Builds the full roster entry for a newly-added monster: rolls real HP from its hit dice,
+// and — if the variant roll hits — reskins it as a weaker or stronger version, folding any
+// mechanically-relevant stat lines (Armor Class, Attack Bonus, Damage Dealt, Maximum Hit
+// Points) directly into the numbers the Combat tab actually uses.
+function buildBattleEntry(monster) {
+  const hpRoll = rollMonsterHP(monster);
+  const baseAC = parseInt(monster.ac, 10);
+  const variantChance = parseInt(document.getElementById('battleVariantChance')?.value, 10) || 0;
+  const variant = Math.random() * 100 < variantChance ? pickMonsterVariant() : null;
+
+  let hp = hpRoll.total;
+  let ac = Number.isFinite(baseAC) ? baseAC : null;
+  let atkMod = 0, dmgMult = 1, statLines = [], displayName = monster.name;
+
+  if (variant) {
+    hp = Math.max(1, Math.round(hp * variant.hpMult));
+    if (ac !== null) ac += variant.acDelta;
+    atkMod += variant.atkDelta;
+    dmgMult *= variant.dmgMult;
+    displayName = variant.pattern === 'suffix' ? `${monster.name} ${variant.label}` : `${variant.label} ${monster.name}`;
+    statLines = [
+      ...rollMonsterStatLines(variant.buffs, true, variant.tier),
+      ...rollMonsterStatLines(variant.debuffs, false, variant.tier),
+    ];
+    statLines.forEach(line => {
+      if (line.isCondition) return;
+      const amt = parseInt(line.text, 10);
+      if (!Number.isFinite(amt)) return;
+      if (line.stat === 'Armor Class' && ac !== null) ac += amt;
+      else if (line.stat === 'Attack Bonus') atkMod += amt;
+      else if (line.stat === 'Damage Dealt') dmgMult *= (1 + amt / 10);
+      else if (line.stat === 'Maximum Hit Points') hp = Math.max(1, hp + amt);
+    });
+  }
+
+  return {
+    uid: ++battleUidCounter, monster, displayName, variant,
+    hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
+  };
+}
+
 function addMonsterToBattle(idx) {
   const monster = monsterDatabase[idx];
   if (!monster) return;
-  battleRoster.push({ uid: ++battleUidCounter, monster, lastResult: null });
+  battleRoster.push(buildBattleEntry(monster));
   renderCombatRoster();
 }
 
@@ -8604,33 +8763,41 @@ function pickBattleAction(monster) {
 // that roll several creatures in a row (rollAllBattleAttacks) can batch the re-render.
 function resolveBattleAttack(entry) {
   const monster = entry.monster;
+  const name = entry.displayName || monster.name;
   const action = pickBattleAction(monster);
   const targetAC = parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15;
   const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
+  const atkMod = entry.atkMod || 0;
+  const dmgMult = entry.dmgMult || 1;
   const d20 = rn(1, 20);
   let result;
 
   if (toHit !== null) {
+    const effToHit = toHit + atkMod;
     const isCrit = d20 === 20;
     const isFumble = d20 === 1;
-    const total = d20 + toHit;
+    const total = d20 + effToHit;
     const hit = !isFumble && (isCrit || total >= targetAC);
     let dmgText = '';
     if (hit && damageDice) {
       const dmg = battleRollDamage(damageDice, isCrit);
-      if (dmg) dmgText = ` for <strong>${dmg.total}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''})`;
+      if (dmg) {
+        const scaledTotal = Math.max(1, Math.round(dmg.total * dmgMult));
+        const scaleNote = dmgMult !== 1 ? `, ×${dmgMult.toFixed(2).replace(/\.?0+$/, '')} variant scaling` : '';
+        dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote})`;
+      }
     }
     const cls = isFumble ? 'miss' : isCrit ? 'crit' : hit ? 'hit' : 'miss';
     const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
     result = {
       cls, title,
-      detail: `<strong>${escapeHtml(monster.name)}</strong> uses <strong>${escapeHtml(action.name)}</strong> — rolled <strong>${d20}</strong> + ${toHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses <strong>${escapeHtml(action.name)}</strong> — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
     };
   } else {
     const eff = battleEffectivenessLabel(d20);
     result = {
       cls: eff.cls, title: eff.label,
-      detail: `<strong>${escapeHtml(monster.name)}</strong> uses <strong>${escapeHtml(action.name)}</strong>${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses <strong>${escapeHtml(action.name)}</strong>${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
     };
   }
 
@@ -8666,15 +8833,25 @@ function renderCombatRoster() {
   wrap.innerHTML = battleRoster.map(entry => {
     const m = entry.monster;
     const r = entry.lastResult;
-    return `<div class="combat-card">
+    const v = entry.variant;
+    const variantBadge = v ? `<span class="combat-variant-badge ${v.tier}">${escapeHtml(v.label)}</span>` : '';
+    const hpDiceNote = entry.hpRoll && entry.hpRoll.dice ? ` <span class="combat-hp-dice">(rolled ${escapeHtml(entry.hpRoll.dice)})</span>` : '';
+    // Colored from the monster's own perspective (green = this stat got stronger, red =
+    // this stat got weaker) rather than colorizeModifierText's player-item "net effect on
+    // wearer" framing, which doesn't apply to a monster's own inherent stat swings.
+    const statLinesHtml = (entry.statLines && entry.statLines.length)
+      ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
+      : '';
+    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(m.name)}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${variantBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
       </div>
-      <div class="combat-card-stats"><span>AC ${escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(m.hp)}</span></div>
+      <div class="combat-card-stats"><span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(String(entry.hp))}${hpDiceNote}</span></div>
+      ${statLinesHtml}
       <button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>
       ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
     </div>`;
