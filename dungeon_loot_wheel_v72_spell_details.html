@@ -572,7 +572,7 @@
 
   .item-row {
     display: grid;
-    grid-template-columns: 32px 1fr auto;
+    grid-template-columns: 32px 40px 1fr auto;
     gap: 0.5rem;
     padding: 0.6rem 1rem;
     border-bottom: 1px solid rgba(61,48,32,0.4);
@@ -1262,16 +1262,6 @@
   .unlock-section-note { font-size:0.78rem; color:var(--text-dim); font-style:italic; margin-top:0.3rem; }
 
   /* ===================== ITEM TOKENS TAB ===================== */
-  /* Everything relevant to equipping (doll, limbs, active effects) lives in one row at the
-     top so it's all visible together without scrolling — that's the whole point, dragging a
-     token from below onto a limb slot shouldn't require hunting for it further down the
-     page. Browsing/saving (token library, loadouts) sits in its own row underneath. */
-  .player-tokens-layout { display:flex; flex-direction:column; gap:1.5rem; }
-  .tokens-column { display:flex; flex-direction:column; gap:0.7rem; min-width:0; }
-  .player-bottom-row { display:grid; grid-template-columns:1fr 320px; gap:1.5rem; align-items:start; }
-  @media (max-width:1000px) {
-    .player-bottom-row { grid-template-columns:1fr; }
-  }
   .token-toolbar { display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; }
   .token-search {
     flex:1; min-width:180px; background:var(--surface); border:1px solid var(--border);
@@ -1751,7 +1741,6 @@
   <button class="tab-btn" onclick="showTab('chest',this)">Treasure Chest</button>
   <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
-  <button class="tab-btn" onclick="showTab('player',this)">Player &amp; Tokens</button>
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
@@ -2460,7 +2449,7 @@
         Summon three freshly harvested limbs. Each one rolls its own effects first —
         <strong style="color:var(--text)">the limb's rarity is determined by how strong those effects turn out</strong>,
         not chosen ahead of time. Pick one, pay to have it grafted on, and see whether the flesh takes.
-        A successful graft is added straight to your item list, ready to equip from the Player &amp; Tokens tab.
+        A successful graft is added straight to your item list, ready to equip from the Inventory tab.
       </p>
       <button class="generate-btn" onclick="rollFleshCandidates()">🩸 Summon 3 Limbs</button>
       <div class="flesh-candidates" id="fleshCandidates"></div>
@@ -2662,72 +2651,8 @@
   </div>
 </div>
 
-<!-- PLAYER & TOKENS TAB (single view so drag-and-drop works — dragging between
-     separate tabs isn't possible since only one tab is visible/interactive at a time) -->
-<div id="tab-player" class="tab-content">
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Browse everything you've collected and save gear loadouts for quick swapping. To actually
-    equip something — armor, weapons, a mount, grafted limbs — head to the Inventory tab:
-    items equip straight from your inventory grid there now.
-  </p>
-  <div class="player-tokens-layout">
-    <div class="player-bottom-row">
-      <div class="tokens-column">
-        <div class="token-toolbar">
-          <input type="text" id="tokenSearch" class="token-search" placeholder="Search items…" oninput="renderTokensTab()">
-          <span class="token-count" id="tokenCount"></span>
-        </div>
-        <div class="token-toolbar">
-          <select id="tokenRarityFilter" class="token-filter" onchange="renderTokensTab()">
-            <option value="all">All Rarities</option>
-            <option value="common">Common</option>
-            <option value="uncommon">Uncommon</option>
-            <option value="rare">Rare</option>
-            <option value="superrare">Super Rare</option>
-            <option value="legendary">Legendary</option>
-            <option value="celestial">Celestial</option>
-          </select>
-          <select id="tokenSlotFilter" class="token-filter" onchange="renderTokensTab()">
-            <option value="all">All Slot Types</option>
-            <option value="helmet">Helmet</option>
-            <option value="facewear">Face Wear</option>
-            <option value="cloak">Cloak / Back</option>
-            <option value="armor">Armor</option>
-            <option value="weapon">Weapon</option>
-            <option value="offhand">Off-Hand</option>
-            <option value="amulet">Amulet</option>
-            <option value="ring">Ring</option>
-            <option value="handwear">Hand Wear</option>
-            <option value="beltwaist">Belt / Waist</option>
-            <option value="boots">Boots</option>
-            <option value="leggings">Leggings</option>
-            <option value="charm">Charm / Misc</option>
-            <option value="companion">Mount / Pet</option>
-          </select>
-        </div>
-        <div class="token-grid" id="tokenGrid"></div>
-      </div>
-
-      <details class="collapsible loadouts-collapsible">
-        <summary>💾 Saved Loadouts</summary>
-        <div class="collapsible-body">
-          <div class="loadouts-panel">
-            <div class="loadout-save-row">
-              <input type="text" id="loadoutNameInput" class="loadout-name-input" placeholder="Name this loadout…" onkeydown="if(event.key==='Enter')saveLoadout()">
-              <button class="action-btn" onclick="saveLoadout()">Save Current</button>
-            </div>
-            <div id="loadoutSaveMsg" class="loadout-save-msg"></div>
-            <input type="text" id="loadoutSearch" class="loadout-search" placeholder="Search saved loadouts…" oninput="renderSavedLoadouts()">
-            <div id="loadoutList" class="loadout-list"></div>
-          </div>
-        </div>
-      </details>
-    </div>
-  </div>
-</div>
-
-<!-- INVENTORY TAB (also single-view for the same drag-and-drop reason as Player & Tokens —
-     the token library it drags from has to be in the same tab as the drop target) -->
+<!-- INVENTORY TAB (single view so drag-and-drop works — dragging between separate tabs
+     isn't possible since only one tab is visible/interactive at a time) -->
 <div id="tab-inventory" class="tab-content">
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
     Drag a token from the library below onto the grid to store it — you don't have to be pixel-precise, dropping it anywhere near open squares snaps it to the nearest spot that fits. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Items only move or leave the inventory while you're actively holding and dragging them; letting go mid-drag over empty space (or anywhere that isn't a valid target) just leaves it exactly where it was, and a plain click no longer removes it — drag it onto the remove zone for that.
@@ -2794,6 +2719,21 @@
       <div id="activeEffectsList"></div>
     </div>
   </div>
+
+  <details class="collapsible loadouts-collapsible">
+    <summary>💾 Saved Loadouts</summary>
+    <div class="collapsible-body">
+      <div class="loadouts-panel">
+        <div class="loadout-save-row">
+          <input type="text" id="loadoutNameInput" class="loadout-name-input" placeholder="Name this loadout…" onkeydown="if(event.key==='Enter')saveLoadout()">
+          <button class="action-btn" onclick="saveLoadout()">Save Current</button>
+        </div>
+        <div id="loadoutSaveMsg" class="loadout-save-msg"></div>
+        <input type="text" id="loadoutSearch" class="loadout-search" placeholder="Search saved loadouts…" oninput="renderSavedLoadouts()">
+        <div id="loadoutList" class="loadout-list"></div>
+      </div>
+    </div>
+  </details>
 
   <div class="inv-summary-bar">
     <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
@@ -3609,8 +3549,8 @@ const SUBCATEGORY_LABELS = {
   finger:'Finger', heart:'Heart', tongue:'Tongue',
   pet:'Pet', mount:'Mount',
   monsterpart:'Monster Part',
-  journal:'Journal', letter:'Letter', map:'Map', book:'Book',
-  gem:'Gem', jewelry:'Jewelry', art:'Art', currency:'Currency', currencybar:'Currency Bar',
+  journal:'Journal', letter:'Letter', map:'Map', book:'Book', formula:'Formula',
+  gem:'Gem', jewelry:'Jewelry', art:'Art', currency:'Currency', currencybar:'Currency Bar', regalia:'Regalia',
   key:'Key', accesstoken:'Access Token', puzzleobject:'Puzzle Object', questobject:'Quest Object',
 };
 // Slot size is a property of the subcategory, not something rolled per item — a chest
@@ -3626,8 +3566,8 @@ const SUBCATEGORY_SLOT_SIZE = {
   monsterpart:1,
   // Document/Treasure/Key-Quest-Object branches — almost everything here is small and
   // pocketable; Art is the one exception (statues/paintings), sized up accordingly.
-  journal:1, letter:1, map:1, book:1,
-  gem:1, jewelry:1, art:2, currency:1, currencybar:1,
+  journal:1, letter:1, map:1, book:1, formula:1,
+  gem:1, jewelry:1, art:2, currency:1, currencybar:1, regalia:2,
   key:1, accesstoken:1, puzzleobject:1, questobject:1,
 };
 // Maps a subcategory to the equipment-slot category it fits on the player doll.
@@ -3650,8 +3590,8 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   monsterpart:'charm',
   // Documents/treasure/quest objects aren't worn either — same reasoning as monster parts,
   // they ride in the generic "charm" bucket purely for Token Library filtering purposes.
-  journal:'charm', letter:'charm', map:'charm', book:'charm',
-  gem:'charm', jewelry:'charm', art:'charm', currency:'charm', currencybar:'charm',
+  journal:'charm', letter:'charm', map:'charm', book:'charm', formula:'charm',
+  gem:'charm', jewelry:'charm', art:'charm', currency:'charm', currencybar:'charm', regalia:'charm',
   key:'charm', accesstoken:'charm', puzzleobject:'charm', questobject:'charm',
 };
 // Derives a subcategory purely from the item's name and general type — this is the one
@@ -3705,11 +3645,12 @@ function classifySubcategory(name, type) {
     if (/journal|diary/.test(n)) return 'journal';
     if (/letter/.test(n)) return 'letter';
     if (/\bmap\b/.test(n)) return 'map';
-    if (/recipe|blueprint|formula|contract|decree/.test(n)) return 'letter';
+    if (/recipe|blueprint|formula|contract|decree/.test(n)) return 'formula';
     return 'book';
   }
   if (type === 'treasure') {
     if (/\bgem\b|ruby|quartz|sapphire|emerald|diamond|opal|topaz|garnet/.test(n)) return 'gem';
+    if (/crown|scepter|circlet|tiara|regalia/.test(n)) return 'regalia';
     if (/necklace|bracelet|earring|jewel/.test(n)) return 'jewelry';
     if (/statue|painting|sculpture|tapestry/.test(n)) return 'art';
     if (/\bbar\b|ingot/.test(n)) return 'currencybar';
@@ -3750,8 +3691,8 @@ const WEIGHT_RANGE_BY_SUBCATEGORY = {
   arm:[4,15], hand:[1,4], leg:[5,18], foot:[1,4],
   eye:[0.1,1], ear:[0.1,1], finger:[0.1,0.5], heart:[0.3,1.5], tongue:[0.2,1],
   monsterpart:[0.2,12],
-  journal:[0.5,2], letter:[0.02,0.2], map:[0.05,0.5], book:[1,5],
-  gem:[0.02,0.3], jewelry:[0.1,1], art:[5,25], currency:[0.1,2], currencybar:[1,10],
+  journal:[0.5,2], letter:[0.02,0.2], map:[0.05,0.5], book:[1,5], formula:[0.05,0.5],
+  gem:[0.02,0.3], jewelry:[0.1,1], art:[5,25], currency:[0.1,2], currencybar:[1,10], regalia:[0.5,3],
   key:[0.05,0.5], accesstoken:[0.02,0.3], puzzleobject:[0.2,3], questobject:[0.2,5],
 };
 const HEAVY_WEAPON_KEYWORDS = /massive|giant'?s|titan|colossal|great.?axe|great.?sword|great.?club|maul|warhammer|zweihander|bonecrusher|earthbreaker|juggernaut|siege/i;
@@ -3993,52 +3934,88 @@ function classifyItemHierarchy(item) {
   const type = item.type;
   const sub = item.subcategory;
 
-  // ---- 1. WEAPON ----
+  // ---- 1. WEAPON ---- (four real top-level classes: Melee, Ranged, Natural, Misc — no
+  // class is allowed to be a dumping ground for another; Two-Handed is a Melee subclass,
+  // not a sibling of it, and the old per-subclass "Miscellaneous" leaves are gone in favor
+  // of one true last-resort class, reached only if nothing below matches at all.)
   if (type === 'weapon') {
     const twoHanded = sub === 'twohanded';
-    if (/\bwhip\b/.test(n)) return ['Weapon','Melee','Flexible','Whip'];
-    if (/\bchain\b(?!\s*mail)/.test(n)) return ['Weapon','Melee','Flexible','Chain'];
-    if (/morningstar/.test(n)) return ['Weapon','Melee','Flexible','Morningstar'];
+    // Natural weapons (claws, fangs, stingers, horns/tails used as weapons, etc.) are
+    // checked first since they're their own class — but skipped if the name also contains
+    // a real manufactured-weapon noun, so a themed weapon like "Wolf Fang Dagger" still
+    // classifies as a Dagger rather than a natural attack.
+    const manufacturedNoun = /sword|blade|rapier|saber|scimitar|falchion|dagger|\bknife\b|dirk|stiletto|\baxe\b|hatchet|\bmace\b|hammer|\bflail\b|\bclub\b|spear|trident|\bpike\b|\bbow\b|crossbow|\bsling\b|blowgun|\bwhip\b|\bchain\b|morningstar|javelin|sickle|\bpick\b|kusarigama|\bnet\b|shuriken|\bstaff\b|glaive|halberd|polearm|\blance\b/;
+    if (!manufacturedNoun.test(n)) {
+      if (/\bclaw/.test(n)) return ['Weapon','Natural','Claw'];
+      if (/\bbite\b|\bfang|\btooth\b|\btusk/.test(n)) return ['Weapon','Natural','Bite'];
+      if (/\btalon/.test(n)) return ['Weapon','Natural','Talon'];
+      if (/\bhorn\b/.test(n)) return ['Weapon','Natural','Horn'];
+      if (/\btail\b/.test(n)) return ['Weapon','Natural','Tail'];
+      if (/\bsting/.test(n)) return ['Weapon','Natural','Sting'];
+      if (/\bslam\b|\bmaw\b|\bram\b/.test(text)) return ['Weapon','Natural','Slam'];
+    }
+    // Ranged
     if (/\bsling\b/.test(n)) return ['Weapon','Ranged','Exotic','Sling'];
     if (/blowgun/.test(n)) return ['Weapon','Ranged','Exotic','Blowgun'];
+    if (/\bnet\b/.test(n)) return ['Weapon','Ranged','Exotic','Net'];
     if (/hand crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Hand Crossbow'];
     if (/heavy crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Heavy Crossbow'];
     if (/crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Light Crossbow'];
     if (/throwing knife|throwing dagger/.test(n)) return ['Weapon','Ranged','Thrown','Throwing Knife'];
     if (/throwing axe/.test(n)) return ['Weapon','Ranged','Thrown','Throwing Axe'];
     if (/javelin/.test(n)) return ['Weapon','Ranged','Thrown','Javelin'];
+    if (/shuriken/.test(n)) return ['Weapon','Ranged','Thrown','Shuriken'];
     if (/greatbow/.test(n)) return ['Weapon','Ranged','Bow','Greatbow'];
     if (/longbow/.test(n)) return ['Weapon','Ranged','Bow','Longbow'];
     if (/shortbow|\bbow\b/.test(n)) return ['Weapon','Ranged','Bow','Shortbow'];
+    // Melee: Flexible
+    if (/\bwhip\b/.test(n)) return ['Weapon','Melee','Flexible','Whip'];
+    if (/\bchain\b(?!\s*mail)/.test(n)) return ['Weapon','Melee','Flexible','Chain'];
+    if (/morningstar/.test(n)) return ['Weapon','Melee','Flexible','Morningstar'];
+    if (/kusarigama/.test(n)) return ['Weapon','Melee','Flexible','Kusarigama'];
+    // Melee: Two-Handed (a Melee subclass, same level as One-Handed/Flexible)
     if (/great.?sword|zweihander/.test(n)) return ['Weapon','Melee','Two-Handed','Greatsword'];
     if (/great.?axe/.test(n)) return ['Weapon','Melee','Two-Handed','Greataxe'];
     if (/great.?club|great.?hammer|\bmaul\b/.test(n)) return ['Weapon','Melee','Two-Handed','Great Hammer'];
     if (/halberd|glaive|\bpike\b|\blance\b|polearm/.test(n)) return ['Weapon','Melee','Two-Handed','Polearm'];
     if (twoHanded && /spear|trident/.test(n)) return ['Weapon','Melee','Two-Handed','Two-Handed Spear'];
     if (/\bstaff\b/.test(n)) return ['Weapon','Melee','Two-Handed','Staff'];
+    // Melee: One-Handed
     if (/dagger|\bknife\b|dirk|stiletto/.test(n)) return ['Weapon','Melee','One-Handed','Dagger'];
     if (/\baxe\b|hatchet/.test(n)) return ['Weapon','Melee','One-Handed','Axe'];
     if (/\bmace\b/.test(n)) return ['Weapon','Melee','One-Handed','Mace'];
+    if (/\bpick\b/.test(n)) return ['Weapon','Melee','One-Handed','Pick'];
     if (/hammer/.test(n)) return ['Weapon','Melee','One-Handed','Hammer'];
     if (/\bflail\b/.test(n)) return ['Weapon','Melee','One-Handed','Flail'];
     if (/\bclub\b/.test(n)) return ['Weapon','Melee','One-Handed','Club'];
+    if (/\bsickle\b/.test(n)) return ['Weapon','Melee','One-Handed','Sickle'];
     if (/spear|trident|\bpike\b/.test(n)) return ['Weapon','Melee','One-Handed','Spear'];
     if (/sword|\bblade\b|rapier|saber|scimitar|falchion/.test(n)) return ['Weapon','Melee','One-Handed','Sword'];
-    return twoHanded ? ['Weapon','Melee','Two-Handed','Miscellaneous'] : ['Weapon','Melee','One-Handed','Miscellaneous'];
+    // Misc — top-level class, true last resort. Should now be rare given the added
+    // Sickle/Pick/Kusarigama/Net/Shuriken/Natural coverage above.
+    return ['Weapon','Misc','Unclassified Weapon'];
   }
 
-  // ---- Grafted limbs — not a clean fit for any existing branch (a worn magical body part
-  // isn't a weapon, and it's not consumed like a material), so they get a documented
-  // extension leaf under Accessory rather than being forced somewhere misleading.
-  if (type === 'limb') return ['Accessory','Other','Magical Augmentation'];
+  // ---- Grafted limbs — routed to Accessory > Augmentation, split by the actual body part
+  // (already known from item.subcategory, set at graft time — see FLESH_LIMB_DEFS) instead
+  // of one flat "Magical Augmentation" leaf for every limb regardless of type.
+  if (type === 'limb') {
+    const augLeaf = { arm:'Arm', hand:'Hand', finger:'Hand', leg:'Leg', foot:'Leg', eye:'Eye', ear:'Organ', heart:'Organ', tongue:'Organ' };
+    return ['Accessory','Augmentation', augLeaf[sub] || 'Other'];
+  }
 
   // ---- 2. ARMOR ---- (cloak/belt/facewear/ring/amulet-flavored "armor" items are really
   // accessories that happen to grant AC — routed to the Accessory branch instead of the
-  // material/weight-class tree, which is for actual body armor.)
+  // material/weight-class tree, which is for actual body armor. Material keyword list
+  // expanded so the exotic-material fallback is reached less often.)
   if (type === 'armor') {
     if (sub === 'cloak') return ['Accessory','Back','Cloak'];
     if (sub === 'belt') return ['Accessory','Waist','Belt'];
-    if (sub === 'facewear' && /mask/.test(n)) return ['Accessory','Other','Mask'];
+    if (sub === 'facewear') {
+      if (/mask/.test(n)) return ['Accessory','Face','Mask'];
+      if (/goggles|lens|spectacles|monocle/.test(n)) return ['Accessory','Face','Goggles'];
+      if (/veil|blindfold/.test(n)) return ['Accessory','Face','Veil'];
+    }
     if (sub === 'offhand') {
       if (/tower/.test(n)) return ['Armor','Shield','Tower Shield'];
       if (/kite/.test(n)) return ['Armor','Shield','Kite Shield'];
@@ -4049,14 +4026,25 @@ function classifyItemHierarchy(item) {
     if (/full plate/.test(n)) return ['Armor','Heavy Armor','Full Plate', slotLabel];
     if (/half.?plate/.test(n)) return ['Armor','Heavy Armor','Half Plate', slotLabel];
     if (/\bplate\b|cuirass|breastplate/.test(n)) return ['Armor','Heavy Armor','Plate', slotLabel];
+    if (/splint/.test(n)) return ['Armor','Heavy Armor','Splint', slotLabel];
+    if (/banded/.test(n)) return ['Armor','Heavy Armor','Banded', slotLabel];
+    if (/ring mail/.test(n)) return ['Armor','Heavy Armor','Ring Mail', slotLabel];
     if (/chain\s*mail|\bchain\b/.test(n)) return ['Armor','Medium Armor','Chain', slotLabel];
     if (/\bscale\b/.test(n)) return ['Armor','Medium Armor','Scale', slotLabel];
     if (/studded/.test(n)) return ['Armor','Medium Armor','Studded', slotLabel];
+    if (/brigandine/.test(n)) return ['Armor','Medium Armor','Brigandine', slotLabel];
+    if (/lamellar/.test(n)) return ['Armor','Medium Armor','Lamellar', slotLabel];
     if (/\bhide\b/.test(n)) return ['Armor','Light Armor','Hide', slotLabel];
     if (/leather/.test(n)) return ['Armor','Light Armor','Leather', slotLabel];
     if (/\brobe\b|vestment|\bcloth\b/.test(n)) return ['Armor','Light Armor','Cloth', slotLabel];
-    if (/dragon|elemental|obsidian|celestial/.test(text)) return ['Armor','Specialized Armor','Elemental Armor'];
-    return ['Armor','Specialized Armor','Magical Armor'];
+    if (/padded/.test(n)) return ['Armor','Light Armor','Padded', slotLabel];
+    if (/\bsilk\b/.test(n)) return ['Armor','Light Armor','Silk', slotLabel];
+    if (/dragon|elemental|obsidian|celestial/.test(text)) return ['Armor','Exotic Material','Dragonscale / Elemental'];
+    if (/mithral/.test(text)) return ['Armor','Exotic Material','Mithral'];
+    if (/adamantine/.test(text)) return ['Armor','Exotic Material','Adamantine'];
+    if (/\bbone\b|chitin|carapace/.test(text)) return ['Armor','Exotic Material','Bone / Chitin'];
+    if (/\bbark\b|\bwood\b/.test(text)) return ['Armor','Exotic Material','Bark / Wood'];
+    return ['Armor','Exotic Material','Unclassified Material'];
   }
 
   // ---- 3. ACCESSORY ----
@@ -4068,9 +4056,9 @@ function classifyItemHierarchy(item) {
     return ['Accessory','Neck','Amulet'];
   }
 
-  // ---- Companions — a creature, not really an "item" in this taxonomy at all; kept
-  // shallow rather than forced into a misleading leaf.
-  if (type === 'companion') return ['Miscellaneous'];
+  // ---- Companions — a creature, not really an "item" in this taxonomy, but given real
+  // depth (Mount/Pet) matching the rest of the tree instead of one bare flat leaf.
+  if (type === 'companion') return ['Miscellaneous','Companion', sub === 'pet' ? 'Pet' : 'Mount'];
 
   // ---- Document / Treasure / Key-Quest-Object — explicit type takes precedence over the
   // name-keyword sniffing further down (which exists only to catch older items authored
@@ -4079,12 +4067,14 @@ function classifyItemHierarchy(item) {
     if (sub === 'journal') return ['Document','Journal','Personal'];
     if (sub === 'letter') return ['Document','Letter', /official|decree|noble|contract/.test(text) ? 'Official' : (/threat/.test(text) ? 'Threat' : 'Personal')];
     if (sub === 'map') return ['Document','Map', /treasure/.test(text) ? 'Treasure Map' : (/dungeon/.test(text) ? 'Dungeon' : 'Region')];
+    if (sub === 'formula') return ['Document','Formula', /recipe/.test(text) ? 'Recipe' : (/blueprint/.test(text) ? 'Blueprint' : (/contract|deed/.test(text) ? 'Contract / Deed' : 'Spell Formula'))];
     return ['Document','Book', /history|king|chronicle/.test(text) ? 'History' : (/magic|arcane|spell/.test(text) ? 'Magic' : (/beast|bestiary|creature/.test(text) ? 'Bestiary' : 'Other'))];
   }
   if (type === 'treasure') {
     if (sub === 'gem') return ['Treasure','Gem', /flawless|precious|rare/.test(text) ? 'Precious Gem' : 'Semi-Precious Gem'];
+    if (sub === 'regalia') return ['Treasure','Regalia', /crown/.test(n) ? 'Crown' : (/scepter/.test(n) ? 'Scepter' : 'Circlet')];
     if (sub === 'jewelry') return ['Treasure','Jewelry', /necklace/.test(n) ? 'Necklace' : (/bracelet/.test(n) ? 'Bracelet' : (/earring/.test(n) ? 'Earring' : 'Ring'))];
-    if (sub === 'art') return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : (/tapestry/.test(n) ? 'Other' : 'Painting')];
+    if (sub === 'art') return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : (/tapestry/.test(n) ? 'Tapestry' : 'Painting')];
     if (sub === 'currencybar') return ['Treasure','Currency','Bar'];
     return ['Treasure','Currency','Coin'];
   }
@@ -4097,7 +4087,6 @@ function classifyItemHierarchy(item) {
 
   // ---- Monster parts always land in Material > Monster Material, by part type.
   if (type === 'craftable' && sub === 'monsterpart') {
-    const organParts = ['eye','heart','tongue'];
     const leafByPart = {
       eye:'Organ', heart:'Organ', tongue:'Organ', venomsac:'Venom', shell:'Carapace',
       hide:'Hide', pelt:'Fur', fang:'Fang', claw:'Claw', talon:'Talon', horn:'Horn',
@@ -4106,7 +4095,8 @@ function classifyItemHierarchy(item) {
     return ['Material','Monster Material', leafByPart[item.partType] || 'Other'];
   }
 
-  // ---- 4. CONSUMABLE ----
+  // ---- 4. CONSUMABLE ---- (Throwable is a real class name, matching its subcategory,
+  // instead of the old "Other" placeholder.)
   if (type === 'consumable') {
     if (sub === 'scroll') return ['Consumable','Scroll', /ritual/.test(text) ? 'Ritual Scroll' : 'Spell Scroll'];
     if (sub === 'potion') {
@@ -4124,58 +4114,95 @@ function classifyItemHierarchy(item) {
       return ['Consumable','Food','Prepared Food'];
     }
     if (sub === 'throwable') {
-      if (/dust|powder/.test(n)) return ['Consumable','Powder / Dust', /explosive|blast/.test(text) ? 'Explosive Powder' : 'Alchemical Powder'];
-      if (/bomb|grenade/.test(n)) return ['Consumable','Other','Bomb'];
-      return ['Consumable','Other','Other'];
+      if (/dust|powder/.test(n)) return ['Consumable','Throwable', /explosive|blast/.test(text) ? 'Explosive Powder' : 'Alchemical Powder'];
+      if (/bomb|grenade/.test(n)) return ['Consumable','Throwable','Bomb'];
+      return ['Consumable','Throwable','Utility Throwable'];
     }
-    return ['Consumable','Other','Other'];
+    return ['Consumable','Throwable','Utility Throwable'];
   }
 
   // ---- 5. TOOL ---- (wands/rods/foci that aren't classified as full weapons, plus
-  // adventuring gear that's clearly a tool rather than a trinket)
+  // adventuring gear that's clearly a tool rather than a trinket. Crafting keywords now
+  // route to their real discipline instead of all collapsing into one "Alchemy Tools"
+  // leaf. Ends with a "General Tools" catch-all reached only if the item clearly reads as
+  // some kind of tool/kit/supplies but doesn't match a specific discipline, so unrecognized
+  // tools don't silently fall all the way through to Material/Misc.)
   if (/\bwand\b|\brod\b/.test(n)) return ['Tool','Magical','Wand'];
   if (/spellbook|grimoire|component pouch|focus\b/.test(text)) return ['Tool','Magical','Magical Focus'];
+  if (/diviner|divination/.test(text)) return ['Tool','Magical','Divination Tool'];
+  if (/ritual (tool|kit|dagger|candle)/.test(text)) return ['Tool','Magical','Ritual Tool'];
   if (/lockpick|thieves.? tools/.test(text)) return ['Tool',"Thieves' Tools",'Lockpicks'];
+  if (/disguise/.test(text)) return ['Tool',"Thieves' Tools",'Disguise Kit'];
+  if (/manacles|shackles|restraints?/.test(text)) return ['Tool',"Thieves' Tools",'Manacles / Restraints'];
   if (/grappling hook/.test(n)) return ['Tool','Adventuring','Grappling Hook'];
   if (/\brope\b/.test(n)) return ['Tool','Adventuring','Rope'];
   if (/\btorch\b/.test(n)) return ['Tool','Adventuring','Torch'];
   if (/lantern/.test(n)) return ['Tool','Adventuring','Lantern'];
   if (/crowbar/.test(n)) return ['Tool','Adventuring','Crowbar'];
+  if (/climbing (gear|kit)|pitons?/.test(text)) return ['Tool','Adventuring','Climbing Gear'];
+  if (/shovel|pickaxe|digging/.test(text)) return ['Tool','Adventuring','Digging Tool'];
   if (/surgical|surgeon/.test(text)) return ['Tool','Medical','Surgical Tools'];
   if (/medical|healer'?s? kit|diagnos/.test(text)) return ['Tool','Medical', /diagnos/.test(text) ? 'Diagnostic Tools' : 'Medical Kit'];
+  if (/herbalis(m|t)/.test(text)) return ['Tool','Medical','Herbalism Kit'];
   if (/cartograph/.test(text)) return ['Tool','Professional','Cartography'];
   if (/navigat/.test(text)) return ['Tool','Professional','Navigation'];
   if (/\blute\b|\bmusical\b|minstrel|\bdrum\b|\bhorn\b instrument|\bflute\b/.test(text)) return ['Tool','Professional','Musical'];
   if (/quill|writing|calligraphy/.test(text)) return ['Tool','Professional','Writing'];
-  if (/diviner|divination/.test(text)) return ['Tool','Magical','Divination Tool'];
-  if (/ritual (tool|kit|dagger|candle)/.test(text)) return ['Tool','Magical','Ritual Tool'];
+  if (/cook'?s? (utensils|kit)|culinary/.test(text)) return ['Tool','Professional','Culinary'];
+  if (/fishing/.test(text)) return ['Tool','Professional','Fishing'];
   if (/enchant(er|ing)/.test(text)) return ['Tool','Crafting','Enchanting Tools'];
-  if (/smithing|leatherworking|woodworking|alchemist'?s? (kit|supplies)|tailoring|jewel/.test(text)) return ['Tool','Crafting','Alchemy Tools'];
+  if (/smithing/.test(text)) return ['Tool','Crafting','Smithing Tools'];
+  if (/leatherworking/.test(text)) return ['Tool','Crafting','Leatherworking Tools'];
+  if (/woodworking/.test(text)) return ['Tool','Crafting','Woodworking Tools'];
+  if (/alchemist'?s? (kit|supplies)/.test(text)) return ['Tool','Crafting',"Alchemist's Supplies"];
+  if (/tailoring/.test(text)) return ['Tool','Crafting','Tailoring Tools'];
+  if (/brewer|brewing/.test(text)) return ['Tool','Crafting','Brewing Supplies'];
+  if (/poisoner/.test(text)) return ['Tool','Crafting',"Poisoner's Kit"];
+  if (/jewel/.test(text)) return ['Tool','Crafting',"Jeweler's Tools"];
+  if (/\btool(s)?\b|\bkit\b|supplies\b/.test(text)) return ['Tool','General Tools','Miscellaneous Tool'];
 
   // ---- 6. MATERIAL ---- (reagents, alchemical ingredients, raw crafting stock that isn't
-  // a monster part)
-  if (/dust|powder|reagent|solvent|catalyst/.test(n) && type === 'misc') return ['Material','Alchemical','Reagent'];
-  if (/ore\b|\bingot\b/.test(n)) return ['Material','Mineral','Ore'];
+  // a monster part — Organic added for generic wood/cloth/leather/plant stock, which used
+  // to have no home but Miscellaneous.)
+  if (/dust|powder|reagent|solvent|catalyst/.test(n) && type === 'misc') {
+    if (/catalyst/.test(n)) return ['Material','Alchemical','Catalyst'];
+    if (/solvent/.test(n)) return ['Material','Alchemical','Solvent'];
+    return ['Material','Alchemical','Reagent'];
+  }
+  if (/\bore\b/.test(n)) return ['Material','Mineral','Ore'];
+  if (/\bingot\b/.test(n)) return ['Material','Mineral','Ingot'];
   if (/\bgem\b|\bcrystal\b/.test(n) && !item.gp) return ['Material','Mineral','Gem'];
+  if (type === 'misc') {
+    if (/\btimber\b|\blumber\b|\bwood\b/.test(n)) return ['Material','Organic','Wood'];
+    if (/cloth|fabric|\bsilk\b|linen|\bwool\b/.test(n)) return ['Material','Organic','Cloth / Fabric'];
+    if (/leather scrap|hide scrap/.test(n)) return ['Material','Organic','Leather'];
+    if (/plant fiber|\bvine\b|\breed\b/.test(n)) return ['Material','Organic','Plant Fiber'];
+  }
 
-  // ---- 7. KEY / QUEST OBJECT ----
+  // ---- 7. KEY / QUEST OBJECT ---- (legacy keyword sniffing for old untyped items —
+  // mirrors the explicit type==='questitem' branch above so the two paths don't drift.)
   if (/\bkey\b/.test(n)) return ['Key / Quest Object','Key', /magical|enchant/.test(text) ? 'Magical Key' : 'Physical Key'];
   if (/\bseal\b|\bsigil\b/.test(n)) return ['Key / Quest Object','Access Token', /seal/.test(n) ? 'Seal' : 'Sigil'];
   if (/relic|artifact/.test(n) && (item.rarity === 'legendary' || item.rarity === 'celestial')) return ['Key / Quest Object','Quest Object','Relic'];
 
-  // ---- 8. DOCUMENT ----
-  if (/\bmap\b/.test(n)) return ['Document','Map', /treasure/.test(text) ? 'Treasure Map' : 'Dungeon'];
+  // ---- 8. DOCUMENT ---- (legacy keyword sniffing — mirrors the explicit
+  // type==='document' branch above, including the Formula class, so an old untyped
+  // "Blueprint" item lands the same place a new document-type one would.)
+  if (/\bmap\b/.test(n)) return ['Document','Map', /treasure/.test(text) ? 'Treasure Map' : (/dungeon/.test(text) ? 'Dungeon' : 'Region')];
   if (/ledger|journal|diary/.test(n)) return ['Document','Journal','Personal'];
-  if (/\bletter\b/.test(n)) return ['Document','Letter','Personal'];
-  if (/tome|grimoire|spellbook|\bbook\b/.test(n)) return ['Document','Book','Magic'];
-  if (/recipe|blueprint|formula/.test(n)) return ['Document','Other', /recipe/.test(n) ? 'Recipe' : (/blueprint/.test(n) ? 'Blueprint' : 'Spell Formula')];
+  if (/\bletter\b/.test(n)) return ['Document','Letter', /official|decree|noble|contract/.test(text) ? 'Official' : (/threat/.test(text) ? 'Threat' : 'Personal')];
+  if (/recipe|blueprint|formula|contract\b|\bdeed\b/.test(n)) return ['Document','Formula', /recipe/.test(n) ? 'Recipe' : (/blueprint/.test(n) ? 'Blueprint' : (/contract|deed/.test(n) ? 'Contract / Deed' : 'Spell Formula'))];
+  if (/tome|grimoire|spellbook|\bbook\b/.test(n)) return ['Document','Book', /history|king|chronicle/.test(text) ? 'History' : (/magic|arcane|spell/.test(text) ? 'Magic' : (/beast|bestiary|creature/.test(text) ? 'Bestiary' : 'Other'))];
 
-  // ---- 9. TREASURE ---- (flat currency/valuables with no other mechanical purpose)
+  // ---- 9. TREASURE ---- (flat currency/valuables with no other mechanical purpose —
+  // legacy sniffing, mirrors the explicit type==='treasure' branch including Regalia.)
+  if (/crown|scepter|circlet|tiara|regalia/.test(n)) return ['Treasure','Regalia', /crown/.test(n) ? 'Crown' : (/scepter/.test(n) ? 'Scepter' : 'Circlet')];
   if (/pouch of .*(coins|gold|silver|copper)|\bgold\b|\bcoins?\b/.test(n) && !item.effect) return ['Treasure','Currency','Coin'];
   if (/\bgem\b|\bjewel\b/.test(n) && item.gp && !item.effect) return ['Treasure','Gem','Precious Gem'];
-  if (/painting|statue|sculpture/.test(n)) return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : 'Painting'];
+  if (/painting|statue|sculpture|tapestry/.test(n)) return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : (/tapestry/.test(n) ? 'Tapestry' : 'Painting')];
 
-  // ---- 10. MISCELLANEOUS fallback ----
+  // ---- 10. MISCELLANEOUS fallback ---- (Clothing added for mundane hats/gloves/garments
+  // that grant no AC and aren't real Armor.)
   if (/idol|icon|holy symbol|shrine/.test(text)) return ['Miscellaneous','Religious', /icon/.test(n) ? 'Icon' : (/holy symbol/.test(text) ? 'Religious Object' : 'Idol')];
   if (/trophy|mounted head|taxidermy|stuffed head/.test(text)) return ['Miscellaneous','Trophy', /battle/.test(text) ? 'Battle Trophy' : 'Monster Trophy'];
   if (/figurine/.test(n)) return ['Miscellaneous','Decoration','Figurine'];
@@ -4187,6 +4214,9 @@ function classifyItemHierarchy(item) {
   if (/toy\b|game piece|board game/.test(text)) return ['Miscellaneous','Entertainment','Toy'];
   if (/\bgame\b|\bdice\b|playing cards/.test(text)) return ['Miscellaneous','Entertainment','Game'];
   if (/instrument|\blute\b|\bdrum\b|\bflute\b/.test(text)) return ['Miscellaneous','Entertainment','Instrument'];
+  if (type !== 'armor' && /\bhat\b|\bcap\b|bonnet|headscarf/.test(text)) return ['Miscellaneous','Clothing','Headwear'];
+  if (type !== 'armor' && /gloves|mittens/.test(text)) return ['Miscellaneous','Clothing','Handwear'];
+  if (type !== 'armor' && /\bscarf\b|\bshirt\b|\btunic\b|\btrousers\b|garment|\bvest\b|\bdress\b/.test(text)) return ['Miscellaneous','Clothing','Garment'];
   if (/strange|humming|unidentif|inexplicable/.test(text)) return ['Miscellaneous','Unknown','Strange Object'];
   return ['Miscellaneous','Unknown','Unidentified Object'];
 }
@@ -4199,7 +4229,14 @@ function deriveItemProperties(item, rarity) {
   const r = rarity || item.rarity || 'common';
   if (r === 'rare' || r === 'superrare') props.push('Rare');
   if (r === 'legendary' || r === 'celestial') { props.push('Rare'); props.push('Unique'); }
-  if (item.type !== 'misc' || item.effect) props.push('Magical');
+  // Real magic signals only: explicit magic keywords in the text, a spellcasting-flavored
+  // effect (mods/hp-altering/charge-based magical effect), or an equippable magic item at
+  // uncommon+ rarity — NOT just "isn't literally type:misc" (that caught every mundane
+  // weapon/armor/document/treasure) and NOT just "has any effect text" (that caught flavor
+  // text like a mug's "holds a drink").
+  const magicKeyword = /magical|magic\b|enchant|arcane|spell\b|rune|glowing|shimmer|ench\.|attunement|curse|blessed|holy|divine|conjure|summon/.test(text);
+  const magicByRarity = ['weapon', 'armor', 'consumable'].includes(item.type) && r !== 'common' && item.effect;
+  if (magicKeyword || magicByRarity) props.push('Magical');
   if (/curse|cursed/.test(text)) props.push('Cursed');
   if (/attunement/.test(text)) props.push('Soulbound');
   if ((item.weight || 0) >= 15) props.push('Heavy');
@@ -4250,6 +4287,14 @@ function classifyItemFull(item, rarity) {
   return item;
 }
 
+// Rarity-tiered fallback mechanics — same shape/spirit as the wheel/generator's existing
+// per-rarity tables (see rollItemStats, qualityForWheel) but applied here so every
+// hand-authored lootData item is GUARANTEED to have real mechanics: every armor gets an AC,
+// every weapon gets a hit-die formula, every consumable gets a charges value (that last one
+// was already guaranteed by rollConsumableCharges below — this just adds the AC/dmg half).
+// Only fills in the field if it's genuinely missing; never overwrites a hand-authored value.
+const FALLBACK_WEAPON_DICE_BY_RARITY = {common:'1d6',uncommon:'1d8',rare:'2d6',superrare:'2d8',legendary:'3d8',celestial:'4d10'};
+const FALLBACK_ARMOR_AC_BY_RARITY = {common:'11',uncommon:'13',rare:'15',superrare:'17',legendary:'19',celestial:'21'};
 function inferItemMetadata(item, rarity){
   const n=item.name.toLowerCase();
   if(!item.type){
@@ -4262,6 +4307,8 @@ function inferItemMetadata(item, rarity){
   if(!item.slotSize) item.slotSize=SUBCATEGORY_SLOT_SIZE[item.subcategory]||1;
   if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
   if(item.weight===undefined || item.weight===null) item.weight=computeItemWeight(item);
+  if(item.type==='weapon' && !item.dmg) item.dmg=FALLBACK_WEAPON_DICE_BY_RARITY[rarity]||FALLBACK_WEAPON_DICE_BY_RARITY.common;
+  if(item.type==='armor' && !item.ac) item.ac=FALLBACK_ARMOR_AC_BY_RARITY[rarity]||FALLBACK_ARMOR_AC_BY_RARITY.common;
   ensureChargeFormat(item);
   classifyItemFull(item, rarity);
   return item;
@@ -4287,8 +4334,7 @@ function showTab(tab, btn) {
   // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
   // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
   // browsable Token Library plus Saved Loadouts.
-  if (tab === 'player') { renderTokensTab(); renderSavedLoadouts(); }
-  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); renderPlayerSlots(); renderActiveEffects(); }
+  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   // The Item Compendium tab holds three sub-panels (Items/Spells/Monsters, see
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
@@ -5720,6 +5766,7 @@ function renderItemsList() {
   list.innerHTML = entries.map(({item, rarity, i}) => `
     <div class="item-row">
       <span class="item-num">${i+1}</span>
+      ${itemPixelIcon(item, 28, rarity)}
       <div class="item-info">
         <div class="item-name">${item.name}</div>
         <div class="item-desc">${item.desc}</div>
@@ -7998,7 +8045,7 @@ function saveFleshItem() {
   lootData[_pendingFleshItem.rarity].unshift(_pendingFleshItem);
   const actionsEl = document.getElementById('fleshSaveActions');
   if (actionsEl) {
-    actionsEl.innerHTML = `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved — find and edit it on the Edit Items tab, or equip it as a token from the Player &amp; Tokens tab.</span>`;
+    actionsEl.innerHTML = `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved — find and edit it on the Edit Items tab, or equip it as a token from the Inventory tab.</span>`;
   }
   _pendingFleshItem = null;
 }
@@ -9970,34 +10017,6 @@ function getItemEffectText(item) {
 
 function setTokenSlotOverride(key, value) {
   tokenSlotOverrides[key] = value;
-}
-
-// ---------- Tokens tab ----------
-function renderTokensTab() {
-  buildTokenIndex();
-  const searchEl = document.getElementById('tokenSearch');
-  const rarityEl = document.getElementById('tokenRarityFilter');
-  const slotEl = document.getElementById('tokenSlotFilter');
-  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const rarityFilter = rarityEl ? rarityEl.value : 'all';
-  const slotFilter = slotEl ? slotEl.value : 'all';
-
-  const entries = Object.values(TOKEN_INDEX).filter(e => {
-    if (rarityFilter !== 'all' && e.rarity !== rarityFilter) return false;
-    if (slotFilter !== 'all' && getTokenSlotType(e) !== slotFilter) return false;
-    if (search && !e.item.name.toLowerCase().includes(search)) return false;
-    return true;
-  });
-
-  const grid = document.getElementById('tokenGrid');
-  const countEl = document.getElementById('tokenCount');
-  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
-  if (!grid) return;
-  if (!entries.length) {
-    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your filters.</div>';
-    return;
-  }
-  grid.innerHTML = entries.map(tokenCardHtml).join('');
 }
 
 function tokenCardHtml(e) {
