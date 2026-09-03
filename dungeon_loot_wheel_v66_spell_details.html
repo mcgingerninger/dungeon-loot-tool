@@ -1605,6 +1605,19 @@
   .combat-picker-row:last-child{border-bottom:none}
   .combat-picker-name{flex:1;font-size:.92rem}
   .combat-picker-cr{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--text-dim);white-space:nowrap}
+  /* Roll Loot tab: creature-driven loot source */
+  .spin-source-toggle{display:flex;gap:.6rem;margin-bottom:.8rem}
+  .spin-mode-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem 1rem;cursor:pointer;transition:all .2s}
+  .spin-mode-btn:hover{border-color:var(--gold);color:var(--gold)}
+  .spin-mode-btn.active{background:var(--surface2);border-color:var(--gold);color:var(--gold-bright)}
+  .spin-selected-list{margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem}
+  .spin-selected-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.4rem .7rem;background:var(--surface2);border-left:3px solid var(--border);font-size:.88rem}
+  .spin-selected-row.common{border-left-color:var(--common)}
+  .spin-selected-row.uncommon{border-left-color:var(--uncommon)}
+  .spin-selected-row.rare{border-left-color:var(--rare)}
+  .spin-selected-row.superrare{border-left-color:var(--superrare)}
+  .spin-selected-row.legendary{border-left-color:var(--legendary)}
+  .spin-selected-row.celestial{border-left-color:var(--celestial)}
   .combat-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
   .combat-card{background:var(--surface);border:2px solid var(--border);padding:1rem;display:flex;flex-direction:column;gap:.6rem}
   .combat-card.has-variant.common{border-color:var(--common)}
@@ -1731,6 +1744,23 @@
     <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
     <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
   </div>
+
+  <!-- Loot source: "Random" is the original flat-slider behavior below, untouched. "From
+       Creatures" rolls loot for specific monsters instead — each selected creature becomes
+       one enemy, and its own CR (or rolled variant tier) drives its loot rarity via the same
+       per-tier presets the Combat tab's monster-defeat loot uses (combatLootSettings), so
+       adjusting one adjusts the other. -->
+  <div class="spin-source-toggle">
+    <button class="spin-mode-btn active" id="spinModeRandomBtn" onclick="setSpinLootMode('random')">🎲 Random Loot</button>
+    <button class="spin-mode-btn" id="spinModeCreatureBtn" onclick="setSpinLootMode('creatures')">👹 From Creatures</button>
+  </div>
+  <div id="spinCreaturePicker" style="display:none;">
+    <input id="spinMonsterSearch" type="text" placeholder="Search a creature name to roll loot from…" oninput="renderSpinMonsterPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
+    <div class="combat-picker-results" id="spinPickerResults"><div class="spell-loading">Type at least 2 characters to search creatures.</div></div>
+    <div class="spin-selected-list" id="spinSelectedList"></div>
+    <p class="combat-variant-note">Each creature added below becomes one "enemy" when you roll — the Min/Max Items and Enemies fields are ignored while any are selected (an item count is rolled per-creature instead, from its own tier's preset). Add the same creature more than once for multiple copies. Adjust each tier's item count, monster-part odds, and rarity weights from the Combat tab's "Monster Loot Settings" panel — the same presets apply here.</p>
+  </div>
+
   <div class="wheel-layout">
     <div class="wheel-wrap">
 
@@ -4058,7 +4088,117 @@ function spawnLootPop(text, color) {
   setTimeout(() => el.remove(), 1000);
 }
 
+// ===================== ROLL LOOT: CREATURE-DRIVEN SOURCE =====================
+// "Random" mode (default) is the original flat-slider behavior in resolveRoll() below,
+// completely untouched. "From Creatures" mode instead rolls loot for specific monsters
+// picked from the same registry the Combat tab searches — each one becomes one "enemy,"
+// and its own CR (or a rolled variant tier, via monsterRarityTier() — defined later in the
+// Combat/Monster Looting section, but only ever called here at roll time, well after the
+// whole script has parsed) drives its loot rarity through the exact same per-tier presets
+// (combatLootSettings) the Combat tab's monster-defeat loot already uses. Adjusting a
+// preset from either tab adjusts it for both, since it's the same shared settings object.
+let spinLootMode = 'random';
+let spinSelectedMonsters = [];
+function setSpinLootMode(mode) {
+  spinLootMode = mode;
+  const randomBtn = document.getElementById('spinModeRandomBtn');
+  const creatureBtn = document.getElementById('spinModeCreatureBtn');
+  const picker = document.getElementById('spinCreaturePicker');
+  if (randomBtn) randomBtn.classList.toggle('active', mode === 'random');
+  if (creatureBtn) creatureBtn.classList.toggle('active', mode === 'creatures');
+  if (picker) picker.style.display = mode === 'creatures' ? 'block' : 'none';
+  // These three fields are meaningless once loot comes from a creature list — each
+  // creature rolls its own item count from its tier's own preset instead — so grey them
+  // out rather than leaving them looking live but silently ignored.
+  ['minItems', 'maxItems', 'numEnemies'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = mode === 'creatures';
+  });
+  if (mode === 'creatures') renderSpinSelectedList();
+}
+function renderSpinMonsterPicker() {
+  const wrap = document.getElementById('spinPickerResults');
+  if (!wrap) return;
+  const q = (document.getElementById('spinMonsterSearch')?.value || '').toLowerCase().trim();
+  if (q.length < 2) { wrap.innerHTML = '<div class="spell-loading">Type at least 2 characters to search creatures.</div>'; return; }
+  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) {
+    wrap.innerHTML = '<div class="spell-loading">Monster database still loading…</div>';
+    return;
+  }
+  const rows = monsterDatabase.filter(m => m.name.toLowerCase().includes(q))
+    .sort((a, b) => crSortValue(a.cr) - crSortValue(b.cr) || a.name.localeCompare(b.name))
+    .slice(0, 40);
+  if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match that search.</div>'; return; }
+  wrap.innerHTML = rows.map(m => {
+    const tier = monsterRarityTier(m, null);
+    return `<div class="combat-picker-row">
+      <span class="combat-picker-name">${escapeHtml(m.name)} <span style="color:${rarityColors[tier]}">(${rarityNames[tier]})</span></span>
+      <span class="combat-picker-cr">CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.type)}</span>
+      <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToSpinSelection(${monsterDatabase.indexOf(m)})">+ Add</button>
+    </div>`;
+  }).join('');
+}
+function addMonsterToSpinSelection(idx) {
+  const m = monsterDatabase[idx];
+  if (!m) return;
+  spinSelectedMonsters.push(m);
+  renderSpinSelectedList();
+}
+function removeSpinSelection(i) {
+  spinSelectedMonsters.splice(i, 1);
+  renderSpinSelectedList();
+}
+function renderSpinSelectedList() {
+  const wrap = document.getElementById('spinSelectedList');
+  if (!wrap) return;
+  if (!spinSelectedMonsters.length) {
+    wrap.innerHTML = '<div class="spell-loading">No creatures selected yet — search above and add some.</div>';
+    return;
+  }
+  wrap.innerHTML = spinSelectedMonsters.map((m, i) => {
+    const tier = monsterRarityTier(m, null);
+    return `<div class="spin-selected-row ${tier}">
+      <span>${escapeHtml(m.name)}</span>
+      <span style="color:${rarityColors[tier]}">${rarityNames[tier]} · CR ${escapeHtml(String(m.cr))}</span>
+      <button class="combat-card-remove" onclick="removeSpinSelection(${i})" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+// One "enemy" per selected creature — item count, rarity weights, and monster-part odds all
+// come from that creature's own tier preset (combatLootSettings), same math the Combat
+// tab's defeat-loot uses, just keyed off the creature's book CR instead of a rolled variant.
+function resolveCreatureRoll() {
+  spinSelectedMonsters.forEach(monster => {
+    const tier = monsterRarityTier(monster, null);
+    const settings = (typeof combatLootSettings !== 'undefined' && combatLootSettings[tier]) || freshCombatLootSettings(tier);
+    const count = rn(settings.minItems, settings.maxItems);
+    const items = [];
+    const usedNames = new Set();
+    for (let i = 0; i < count; i++) {
+      const r = weightedPickFromObject(settings.weights);
+      const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
+      if (!pool.length) continue;
+      const raw = ri(pool);
+      usedNames.add(raw.name);
+      const item = resolveScrollSpell(raw);
+      const descText = item.desc || '';
+      items.push({ rarity: r, name: item.name, desc: descText, type: item.type, slotSize: item.slotSize, dmg: item.dmg, ac: item.ac, hp: item.hp, effect: item.effect, gp: item.gp, charges: item.charges, requirement: item.requirement });
+    }
+    if (Math.random() * 100 < settings.partChance) items.push(generateMonsterPart(monster, tier));
+    spinResults.push({ enemy: spinResults.length + 1, items, sourceCreature: monster.name, sourceTier: tier });
+  });
+  const lastResult = spinResults[spinResults.length - 1];
+  if (lastResult) {
+    const rarityColorMap = {common:'#a0a8b0',uncommon:'#4caf7d',rare:'#5b9cf6',superrare:'#c47cf5',legendary:'#ff9f43',celestial:'#7de7ff'};
+    lastResult.items.slice(0, 3).forEach((it, i) => {
+      setTimeout(() => spawnLootPop(it.name.split(' ')[0], rarityColorMap[it.rarity]), i * 150);
+    });
+  }
+  renderResults();
+}
+
 function resolveRoll(numEnemies, minItems, maxItems) {
+  if (spinLootMode === 'creatures' && spinSelectedMonsters.length) { resolveCreatureRoll(); return; }
   for(let e=0;e<numEnemies;e++){
     const count=minItems+Math.floor(Math.random()*(maxItems-minItems+1));
     const items=[];
@@ -4316,9 +4456,16 @@ function renderResults() {
   if(!spinResults.length){ empty.style.display='flex'; list.innerHTML=''; return; }
   empty.style.display='none';
   const inspectMode = document.getElementById('inspectModeRoll')?.checked || false;
-  list.innerHTML=spinResults.map(result=>`
+  list.innerHTML=spinResults.map(result=>{
+    // Creature-sourced results (see resolveCreatureRoll) carry the monster's own name and
+    // loot tier — show that instead of the generic "Enemy #N" label so it's clear which
+    // roll came from which creature.
+    const label = result.sourceCreature
+      ? `${escapeHtml(result.sourceCreature)} <span style="color:${rarityColors[result.sourceTier]}">(${rarityNames[result.sourceTier]} tier)</span> — ${result.items.length} item${result.items.length!==1?'s':''}`
+      : `Enemy #${result.enemy} — ${result.items.length} item${result.items.length!==1?'s':''}`;
+    return `
     <div class="enemy-result">
-      <div class="enemy-label">Enemy #${result.enemy} — ${result.items.length} item${result.items.length!==1?'s':''}</div>
+      <div class="enemy-label">${label}</div>
       ${result.items.map((it,ii)=>`
         <div class="loot-item ${it.rarity}">
           <div class="rarity-dot"></div>
@@ -4330,7 +4477,8 @@ function renderResults() {
         </div>
       `).join('')}
     </div>
-  `).join('');
+  `;
+  }).join('');
   const panel=document.getElementById('resultsPanel');
   panel.scrollTop=panel.scrollHeight;
 }
