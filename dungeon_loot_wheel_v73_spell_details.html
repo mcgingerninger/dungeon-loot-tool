@@ -3622,7 +3622,10 @@ function classifySubcategory(name, type) {
   }
   if (type === 'misc') {
     if (/\bring\b/.test(n)) return 'ring';
-    if (/amulet|necklace|pendant|periapt|torc|gorget|holy symbol/.test(n)) return 'amulet';
+    // \btorc\b (not bare "torc") — bare "torc" is a substring of "torch" and was
+    // misrouting every torch into Accessory > Neck > Amulet. Also added talisman/
+    // locket/brooch/medallion as common jewelry synonyms that were missing entirely.
+    if (/amulet|necklace|pendant|periapt|\btorc\b|gorget|holy symbol|talisman|locket|brooch|medallion/.test(n)) return 'amulet';
     return 'charm';
   }
   if (type === 'limb') {
@@ -4051,10 +4054,36 @@ function classifyItemHierarchy(item) {
   if (sub === 'ring') return ['Accessory','Ring', /signet/.test(n) ? 'Signet Ring' : 'Magical Ring'];
   if (sub === 'amulet') {
     if (/talisman/.test(n)) return ['Accessory','Neck','Talisman'];
+    if (/locket/.test(n)) return ['Accessory','Neck','Locket'];
+    if (/brooch/.test(n)) return ['Accessory','Neck','Brooch'];
+    if (/medallion/.test(n)) return ['Accessory','Neck','Medallion'];
     if (/pendant/.test(n)) return ['Accessory','Neck','Pendant'];
     if (/necklace/.test(n)) return ['Accessory','Neck','Necklace'];
     return ['Accessory','Neck','Amulet'];
   }
+  // Wearable "of Elvenkind"-style magic items authored as type:'misc' rather than
+  // type:'armor' (e.g. "Boots of Speed", "Cloak of Invisibility", "Belt of Hill Giant
+  // Strength") used to have no Accessory route at all and fell all the way through the
+  // Tool/Material/Document/Treasure legacy-sniffing gauntlet into the Miscellaneous
+  // fallback — usually landing in the "Unidentified Object" catch-all, or worse, getting
+  // hijacked by an unrelated keyword partway through (e.g. "Cloak of the Hundred Faces"
+  // matching the Tool > Disguise Kit check on "disguise" in its effect text). Name-only
+  // matches (not desc/effect) so flavor text like a bottle's "lead cap" can't trigger these.
+  if (/\bboots\b|\bslippers\b|\bsandals\b|\bsocks?\b/.test(n)) return ['Accessory','Feet','Boots'];
+  if (/\bgauntlets\b/.test(n)) return ['Accessory','Hands','Gauntlets'];
+  if (/\bbracers\b/.test(n)) return ['Accessory','Hands','Bracers'];
+  if (/\bgloves\b/.test(n)) return ['Accessory','Hands','Gloves'];
+  if (/\bcape\b/.test(n)) return ['Accessory','Back','Cape'];
+  if (/\bmantle\b/.test(n)) return ['Accessory','Back','Mantle'];
+  if (/\bcloak\b/.test(n)) return ['Accessory','Back','Cloak'];
+  if (/\bbelt\b(?!\s*pouch)|\bgirdle\b|\bsash\b/.test(n)) return ['Accessory','Waist','Belt'];
+  if (/\bcirclet\b|\btiara\b|\bcoronet\b/.test(n)) return ['Accessory','Head','Circlet'];
+  if (/\bdiadem\b/.test(n)) return ['Accessory','Head','Diadem'];
+  if (/\bheadband\b/.test(n)) return ['Accessory','Head','Headband'];
+  if (/\bhat\b/.test(n)) return ['Accessory','Head','Hat'];
+  if (/\bgoggles\b|\bspectacles\b|\bmonocle\b/.test(n)) return ['Accessory','Face','Goggles'];
+  if (/\bears?\b/.test(n)) return ['Accessory','Face','Ear'];
+  if (/\beyes?\b/.test(n)) return ['Accessory','Face','Ocular Item'];
 
   // ---- Companions — a creature, not really an "item" in this taxonomy, but given real
   // depth (Mount/Pet) matching the rest of the tree instead of one bare flat leaf.
@@ -4127,12 +4156,24 @@ function classifyItemHierarchy(item) {
   // leaf. Ends with a "General Tools" catch-all reached only if the item clearly reads as
   // some kind of tool/kit/supplies but doesn't match a specific discipline, so unrecognized
   // tools don't silently fall all the way through to Material/Misc.)
-  if (/\bwand\b|\brod\b/.test(n)) return ['Tool','Magical','Wand'];
+  if (/\bwand\b/.test(n)) return ['Tool','Magical','Wand'];
+  if (/\brod\b/.test(n)) return ['Tool','Magical','Rod'];
   if (/spellbook|grimoire|component pouch|focus\b/.test(text)) return ['Tool','Magical','Magical Focus'];
   if (/diviner|divination/.test(text)) return ['Tool','Magical','Divination Tool'];
   if (/ritual (tool|kit|dagger|candle)/.test(text)) return ['Tool','Magical','Ritual Tool'];
+  // Musical instruments checked by name before Magical Focus, so an instrument that
+  // also doubles as a spellcasting focus (e.g. a bard's lute) still classifies primarily
+  // as the instrument it visibly is, rather than being swallowed by the Focus check above.
+  if (/\blute\b|\bmusical\b|minstrel|\bdrum\b|\bhorn\b instrument|\bflute\b/.test(n)) return ['Tool','Professional','Musical'];
+  // A physical lock/padlock (something you pick) is not the same as lockpicking tools
+  // (something you pick WITH) — checked first so "Lock of Eternal Binding" or "Small Iron
+  // Padlock" don't get mistaken for a thieves'-tools kit just for mentioning DC-to-pick.
+  if (/padlock|\block\b(?!pick)/.test(n)) return ['Tool','Adventuring','Padlock'];
   if (/lockpick|thieves.? tools/.test(text)) return ['Tool',"Thieves' Tools",'Lockpicks'];
-  if (/disguise/.test(text)) return ['Tool',"Thieves' Tools",'Disguise Kit'];
+  // Requires "disguise kit" specifically — bare "disguise" also matches worn magic items
+  // whose effect just mentions disguising the wearer (a hat, a tattoo, a cloak), which
+  // aren't disguise KITS at all.
+  if (/disguise kit/.test(text)) return ['Tool',"Thieves' Tools",'Disguise Kit'];
   if (/manacles|shackles|restraints?/.test(text)) return ['Tool',"Thieves' Tools",'Manacles / Restraints'];
   if (/grappling hook/.test(n)) return ['Tool','Adventuring','Grappling Hook'];
   if (/\brope\b/.test(n)) return ['Tool','Adventuring','Rope'];
@@ -4141,15 +4182,16 @@ function classifyItemHierarchy(item) {
   if (/crowbar/.test(n)) return ['Tool','Adventuring','Crowbar'];
   if (/climbing (gear|kit)|pitons?/.test(text)) return ['Tool','Adventuring','Climbing Gear'];
   if (/shovel|pickaxe|digging/.test(text)) return ['Tool','Adventuring','Digging Tool'];
+  if (/\bbandage/.test(n)) return ['Tool','Medical','Bandage'];
   if (/surgical|surgeon/.test(text)) return ['Tool','Medical','Surgical Tools'];
   if (/medical|healer'?s? kit|diagnos/.test(text)) return ['Tool','Medical', /diagnos/.test(text) ? 'Diagnostic Tools' : 'Medical Kit'];
-  if (/herbalis(m|t)/.test(text)) return ['Tool','Medical','Herbalism Kit'];
+  if (/herbalis(m|t)/.test(text) && /kit|supplies|satchel|pouch/.test(text)) return ['Tool','Medical','Herbalism Kit'];
   if (/cartograph/.test(text)) return ['Tool','Professional','Cartography'];
   if (/navigat/.test(text)) return ['Tool','Professional','Navigation'];
-  if (/\blute\b|\bmusical\b|minstrel|\bdrum\b|\bhorn\b instrument|\bflute\b/.test(text)) return ['Tool','Professional','Musical'];
-  if (/quill|writing|calligraphy/.test(text)) return ['Tool','Professional','Writing'];
+  if (/\bquill\b|\bwriting\b|calligraphy/.test(text)) return ['Tool','Professional','Writing'];
   if (/cook'?s? (utensils|kit)|culinary/.test(text)) return ['Tool','Professional','Culinary'];
   if (/fishing/.test(text)) return ['Tool','Professional','Fishing'];
+  if (/\bthimble\b/.test(n)) return ['Tool','Crafting','Tailoring Tools'];
   if (/enchant(er|ing)/.test(text)) return ['Tool','Crafting','Enchanting Tools'];
   if (/smithing/.test(text)) return ['Tool','Crafting','Smithing Tools'];
   if (/leatherworking/.test(text)) return ['Tool','Crafting','Leatherworking Tools'];
@@ -4164,19 +4206,28 @@ function classifyItemHierarchy(item) {
   // ---- 6. MATERIAL ---- (reagents, alchemical ingredients, raw crafting stock that isn't
   // a monster part — Organic added for generic wood/cloth/leather/plant stock, which used
   // to have no home but Miscellaneous.)
-  if (/dust|powder|reagent|solvent|catalyst/.test(n) && type === 'misc') {
-    if (/catalyst/.test(n)) return ['Material','Alchemical','Catalyst'];
-    if (/solvent/.test(n)) return ['Material','Alchemical','Solvent'];
+  // Word-boundaried now — bare "dust" was matching inside "Dusty" (e.g. "Dusty Porcelain
+  // Figurine"), misrouting decorative items into raw alchemical reagent stock.
+  if (/\bdust\b|\bpowder\b|\breagent\b|\bsolvent\b|\bcatalyst\b/.test(n) && type === 'misc') {
+    if (/\bcatalyst\b/.test(n)) return ['Material','Alchemical','Catalyst'];
+    if (/\bsolvent\b/.test(n)) return ['Material','Alchemical','Solvent'];
     return ['Material','Alchemical','Reagent'];
   }
   if (/\bore\b/.test(n)) return ['Material','Mineral','Ore'];
   if (/\bingot\b/.test(n)) return ['Material','Mineral','Ingot'];
   if (/\bgem\b|\bcrystal\b/.test(n) && !item.gp) return ['Material','Mineral','Gem'];
   if (type === 'misc') {
-    if (/\btimber\b|\blumber\b|\bwood\b/.test(n)) return ['Material','Organic','Wood'];
-    if (/cloth|fabric|\bsilk\b|linen|\bwool\b/.test(n)) return ['Material','Organic','Cloth / Fabric'];
-    if (/leather scrap|hide scrap/.test(n)) return ['Material','Organic','Leather'];
-    if (/plant fiber|\bvine\b|\breed\b/.test(n)) return ['Material','Organic','Plant Fiber'];
+    // Excludes finished garments (a cloak, socks, clothes) so raw-material checks below
+    // only catch actual bolts/scraps of stock — "Common Clothes" contains "cloth" as a
+    // substring and "Wool Cloak"/"Pair of Wool Socks" contain "wool" as a real word, but
+    // none of these are crafting material.
+    const finishedGarment = /cloak|sock|shirt|dress|\brobe\b|tunic|\bvest\b|glove|\bhat\b|scarf|trousers|pants|clothes|clothing|bandage/;
+    if (!finishedGarment.test(n)) {
+      if (/\btimber\b|\blumber\b|\bwood\b/.test(n)) return ['Material','Organic','Wood'];
+      if (/\bcloth\b|fabric|\bsilk\b|\blinen\b|\bwool\b/.test(n)) return ['Material','Organic','Cloth / Fabric'];
+      if (/leather scrap|hide scrap/.test(n)) return ['Material','Organic','Leather'];
+      if (/plant fiber|\bvine\b|\breed\b/.test(n)) return ['Material','Organic','Plant Fiber'];
+    }
   }
 
   // ---- 7. KEY / QUEST OBJECT ---- (legacy keyword sniffing for old untyped items —
@@ -4192,7 +4243,7 @@ function classifyItemHierarchy(item) {
   if (/ledger|journal|diary/.test(n)) return ['Document','Journal','Personal'];
   if (/\bletter\b/.test(n)) return ['Document','Letter', /official|decree|noble|contract/.test(text) ? 'Official' : (/threat/.test(text) ? 'Threat' : 'Personal')];
   if (/recipe|blueprint|formula|contract\b|\bdeed\b/.test(n)) return ['Document','Formula', /recipe/.test(n) ? 'Recipe' : (/blueprint/.test(n) ? 'Blueprint' : (/contract|deed/.test(n) ? 'Contract / Deed' : 'Spell Formula'))];
-  if (/tome|grimoire|spellbook|\bbook\b/.test(n)) return ['Document','Book', /history|king|chronicle/.test(text) ? 'History' : (/magic|arcane|spell/.test(text) ? 'Magic' : (/beast|bestiary|creature/.test(text) ? 'Bestiary' : 'Other'))];
+  if (/tome|grimoire|spellbook|\bbook\b|\bmanual\b/.test(n)) return ['Document','Book', /history|king|chronicle/.test(text) ? 'History' : (/magic|arcane|spell/.test(text) ? 'Magic' : (/beast|bestiary|creature/.test(text) ? 'Bestiary' : 'Other'))];
 
   // ---- 9. TREASURE ---- (flat currency/valuables with no other mechanical purpose —
   // legacy sniffing, mirrors the explicit type==='treasure' branch including Regalia.)
@@ -4210,14 +4261,35 @@ function classifyItemHierarchy(item) {
   if (/ornament/.test(n)) return ['Miscellaneous','Decoration','Ornament'];
   if (/\bmug\b|\bcup\b|utensil|cutlery|\bplate\b|\bbowl\b/.test(n)) return ['Miscellaneous','Household','Utensil'];
   if (/\bcrate\b|\bchest\b|\bbarrel\b|\bcontainer\b/.test(n)) return ['Miscellaneous','Household','Container'];
-  if (/\bchair\b|\btable\b|furniture/.test(text)) return ['Miscellaneous','Household','Furniture'];
+  // Excludes "roll on a table"/"DMG table"/"reference table" style rules-text phrasing —
+  // bare "table" was catching items like Robe of Useful Items and Deck of Many Things
+  // purely because their effect says to consult a table, not because they're furniture.
+  if (/\bchair\b|furniture/.test(text) || (/\btable\b/.test(text) && !/roll (on|a)|\bdmg\b|reference table|\bchart\b/.test(text))) return ['Miscellaneous','Household','Furniture'];
   if (/toy\b|game piece|board game/.test(text)) return ['Miscellaneous','Entertainment','Toy'];
   if (/\bgame\b|\bdice\b|playing cards/.test(text)) return ['Miscellaneous','Entertainment','Game'];
   if (/instrument|\blute\b|\bdrum\b|\bflute\b/.test(text)) return ['Miscellaneous','Entertainment','Instrument'];
-  if (type !== 'armor' && /\bhat\b|\bcap\b|bonnet|headscarf/.test(text)) return ['Miscellaneous','Clothing','Headwear'];
-  if (type !== 'armor' && /gloves|mittens/.test(text)) return ['Miscellaneous','Clothing','Handwear'];
-  if (type !== 'armor' && /\bscarf\b|\bshirt\b|\btunic\b|\btrousers\b|garment|\bvest\b|\bdress\b/.test(text)) return ['Miscellaneous','Clothing','Garment'];
+  // Name-only now (not desc/effect) — "hat" is handled earlier under Accessory > Head for
+  // actual magic headwear; this Clothing fallback is only for mundane cap/bonnet items and
+  // no longer risks a false hit like a bottle's "lead cap" stopper mentioned in flavor text.
+  if (type !== 'armor' && /\bcap\b|bonnet|headscarf/.test(n)) return ['Miscellaneous','Clothing','Headwear'];
+  if (type !== 'armor' && /mittens/.test(n)) return ['Miscellaneous','Clothing','Handwear'];
+  if (type !== 'armor' && /\bscarf\b|\bshirt\b|\btunic\b|\btrousers\b|garment|\bvest\b|\bdress\b|\bclothes\b|\bclothing\b/.test(n)) return ['Miscellaneous','Clothing','Garment'];
   if (/strange|humming|unidentif|inexplicable/.test(text)) return ['Miscellaneous','Unknown','Strange Object'];
+
+  // ---- Wondrous Item — the real D&D "Wondrous Item" classification: genuinely one-of-a-
+  // kind magic items (Bag of Holding, Efreeti Bottle, Ioun Stones, Eye of Vecna, Decanter
+  // of Endless Water, etc.) that don't fit any body slot, tool discipline, material, or
+  // document/treasure/quest-object category above. These used to all collapse into
+  // "Unidentified Object," which is wrong — that label should mean "we don't know what
+  // this does," and every item here has a known, documented `effect`. Gated on item.effect
+  // so it's only used for items that actually DO something; a true unknown curiosity with
+  // no mechanical effect still falls through to Unidentified Object below.
+  if (item.effect) {
+    if (/\bbag\b|\bhole\b|\bbottle\b|\bflask\b|\bvessel\b|\bwell\b|\bapparatus\b/.test(n)) return ['Miscellaneous','Wondrous Item','Storage / Container'];
+    if (/\bchime\b|\bdecanter\b|\bdriftglobe\b|\bram\b|\bfan\b|\bpipes?\b|\bhorn\b|\bcandle\b/.test(n)) return ['Miscellaneous','Wondrous Item','Environmental / Utility'];
+    if (/\beye of\b|\bhand of\b|\bsphere\b|\bcube\b|\bscarab\b|\bgem\b|\bcrystal ball\b|\bioun stone\b|\bshard\b|\borb\b/.test(n)) return ['Miscellaneous','Wondrous Item','Relic / Artifact'];
+    return ['Miscellaneous','Wondrous Item','Unique Wondrous Item'];
+  }
   return ['Miscellaneous','Unknown','Unidentified Object'];
 }
 
