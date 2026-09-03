@@ -414,6 +414,7 @@
   .loot-save-btn.saved { border-color: var(--uncommon); color: var(--uncommon); cursor: default; }
   .meta-tag { font-family:'Share Tech Mono',monospace; font-size:0.68rem; color:var(--gold-bright); border:1px solid var(--border); background:rgba(0,0,0,0.2); padding:0.1rem 0.35rem; text-transform:uppercase; }
   .meta-tag.slot { color:var(--text-dim); }
+  .meta-tag.weight { color:var(--text-dim); }
   .meta-tag.dmg { color:var(--danger); border-color: rgba(224,82,82,0.4); }
   .meta-tag.ac { color:var(--rare); border-color: rgba(91,156,246,0.4); }
   .meta-tag.hp      { color:var(--uncommon); border-color: rgba(76,175,125,0.4); }
@@ -1313,6 +1314,9 @@
     transition:border-color 0.15s; flex-shrink:0;
   }
   .inv-item:active { cursor:grabbing; }
+  /* 2/3-wide items: no padding/gap so the icon frame can stretch edge-to-edge instead of
+     sitting as a small square next to a name label. */
+  .inv-item.inv-item-fill { padding:0; gap:0; }
   .inv-item.common    { border-color:var(--common); }
   .inv-item.uncommon  { border-color:var(--uncommon); }
   .inv-item.rare      { border-color:var(--rare); }
@@ -1362,8 +1366,11 @@
     75% { transform:translateX(4px); }
   }
   .slot-token {
-    font-size:0.8rem; font-weight:600; line-height:1.2; padding:0 0.2rem;
-    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; gap:0.2rem; padding:0 0.2rem; max-width:100%;
+  }
+  .slot-token-name {
+    font-size:0.7rem; font-weight:600; line-height:1.15;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
   .slot-token.common    { color:var(--common); }
   .slot-token.uncommon  { color:var(--uncommon); }
@@ -1633,6 +1640,7 @@
   <div class="inv-summary-bar" style="margin-bottom:1rem;">
     <span>💰 Inventory Value: <strong id="rollInvGp">0 gp</strong></span>
     <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
+    <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
   </div>
   <div class="wheel-layout">
     <div class="wheel-wrap">
@@ -1975,6 +1983,7 @@
           <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select>
           <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
         </div>
+        <input type="number" id="newItemWeight" step="0.1" min="0" placeholder="Weight in lbs (optional — auto-estimated if left blank)">
         <input type="text" id="newItemDmg" class="type-field" data-for="weapon" placeholder="Damage dice (e.g. 1d8+2)" style="display:none;">
         <input type="text" id="newItemAc" class="type-field" data-for="armor companion" placeholder="Armor Class (e.g. 16 or +2) — mounts only, leave blank for pets" style="display:none;">
         <input type="text" id="newItemHp" class="type-field" data-for="consumable" placeholder="Healing dice (e.g. 2d4+2) — leave blank if non-healing" style="display:none;">
@@ -2379,7 +2388,8 @@
       <label>Item Name</label><input id="editItemName" type="text">
       <label>Description</label><textarea id="editItemDesc"></textarea>
       <div class="item-form-meta"><div><label>Rarity</label><select id="editItemRarity"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="superrare">Super Rare</option><option value="legendary">Legendary</option><option value="celestial">Celestial</option></select></div><div><label>Item Type</label><select id="editItemType" onchange="updateEditFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc">Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select></div><div><label>Slot Size</label><select id="editItemSlot"><option value="1">Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select></div></div>
-      <label>Value (GP)</label><input id="editItemGp" type="text" placeholder="e.g. 500 gp"><div id="editWeaponField"><label>Damage Dice</label><input id="editItemDmg" type="text" placeholder="e.g. 1d8+2"></div>
+      <div class="item-form-meta"><div><label>Value (GP)</label><input id="editItemGp" type="text" placeholder="e.g. 500 gp"></div><div><label>Weight (lbs)</label><input id="editItemWeight" type="number" step="0.1" min="0" placeholder="e.g. 3"></div></div>
+      <div id="editWeaponField"><label>Damage Dice</label><input id="editItemDmg" type="text" placeholder="e.g. 1d8+2"></div>
       <div id="editArmorField"><label>Armor Class</label><input id="editItemAc" type="text" placeholder="e.g. 16 or +2 — for Companion, a mount's AC (leave blank for pets)"></div>
       <div id="editConsumableField"><label>Healing Dice</label><input id="editItemHp" type="text" placeholder="e.g. 2d4+2"></div>
       <label>Charges (optional)</label><input id="editItemCharges" type="text" placeholder="e.g. 7, 3/day, 1 use">
@@ -2569,6 +2579,7 @@
   <div class="inv-summary-bar">
     <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
     <span>🎒 Slots Used: <strong id="invSlotsUsed">0</strong> / <span id="invSlotsTotal">90</span></span>
+    <span>⚖ Total Weight: <strong id="invTotalWeight">0 lbs</strong></span>
     <button class="action-btn" style="width:auto;max-width:none" onclick="clearInventory()">Clear Inventory</button>
   </div>
   <div class="inv-layout-row">
@@ -3421,6 +3432,52 @@ function rollConsumableCharges(subcategory) {
   if (subcategory === 'potion' || subcategory === 'scroll' || subcategory === 'food') return '1 use';
   return '';
 }
+// ---------- Item weight (lbs) ----------
+// Every item gets a weight in pounds derived from its subcategory (a rough D&D-flavored
+// range for "what kind of thing is this") plus a deterministic hash of its own name for
+// variety within that range — the same consistent-but-varied approach already used for
+// item icon coloring elsewhere in this file, applied here to hundreds of hand-authored
+// items at once rather than guessing 500+ individual numbers by hand. Twohanded weapons
+// whose name reads as unusually massive (giant/titan/colossal mauls, greataxes, warhammers,
+// etc.) draw from a heavier range instead, topping out around 50 lbs — the heaviest things
+// in the game are meant to be exactly those: massive two-handed swords and axes. Companions
+// (pets and mounts) always weigh 0 — you don't carry them, they carry you (or nothing).
+const WEIGHT_RANGE_BY_SUBCATEGORY = {
+  head:[1,4], facewear:[0.2,1], chest:[6,40], cloak:[1,3], belt:[0.5,2],
+  boots:[1,4], leggings:[2,8], handwear:[0.5,2], offhand:[4,12],
+  onehanded:[1,8], twohanded:[6,20],
+  potion:[0.5,1.5], scroll:[0.02,0.1], food:[0.3,3], throwable:[0.5,2],
+  ring:[0.05,0.3], amulet:[0.2,1], charm:[0.1,2],
+  pet:[0,0], mount:[0,0],
+  arm:[4,15], hand:[1,4], leg:[5,18], foot:[1,4],
+  eye:[0.1,1], ear:[0.1,1], finger:[0.1,0.5], heart:[0.3,1.5], tongue:[0.2,1],
+};
+const HEAVY_WEAPON_KEYWORDS = /massive|giant'?s|titan|colossal|great.?axe|great.?sword|great.?club|maul|warhammer|zweihander|bonecrusher|earthbreaker|juggernaut|siege/i;
+const HEAVY_WEAPON_RANGE = [15, 50];
+function computeItemWeight(item) {
+  if (!item || item.type === 'companion') return 0;
+  const sub = item.subcategory || classifySubcategory(item.name, item.type);
+  let range = WEIGHT_RANGE_BY_SUBCATEGORY[sub];
+  if (!range) return 0;
+  // classifySubcategory only reads the item's name, so plenty of flavor-named "obviously
+  // massive" weapons (e.g. a maul whose name doesn't literally contain the word) never hit
+  // the twohanded regex — check name+desc+effect for size language, or just trust an
+  // explicit slotSize of 3 (the biggest weapons in the game already use it), rather than
+  // gating the heavy range on subcategory alone.
+  if (item.type === 'weapon') {
+    const text = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.effect || '')).toLowerCase();
+    if ((item.slotSize || 1) >= 3 || HEAVY_WEAPON_KEYWORDS.test(text)) range = HEAVY_WEAPON_RANGE;
+  }
+  const t = (hashItemName(item.name) % 1000) / 1000;
+  let w = range[0] + t * (range[1] - range[0]);
+  // Coarser rounding for heavier items (nobody needs an axe to say "14.37 lbs"), finer for
+  // genuinely light ones — rounding sub-1 lb items to the nearest 0.5 would collapse rings,
+  // scrolls, and the like straight down to a meaningless 0.
+  if (w >= 10) w = Math.round(w);
+  else if (w >= 1) w = Math.round(w * 2) / 2;
+  else w = Math.round(w * 20) / 20;
+  return w;
+}
 function inferItemMetadata(item){
   const n=item.name.toLowerCase();
   if(!item.type){
@@ -3432,6 +3489,7 @@ function inferItemMetadata(item){
   if(!item.subcategory) item.subcategory=classifySubcategory(item.name, item.type);
   if(!item.slotSize) item.slotSize=SUBCATEGORY_SLOT_SIZE[item.subcategory]||1;
   if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
+  if(item.weight===undefined || item.weight===null) item.weight=computeItemWeight(item);
   return item;
 }
 Object.values(lootData).forEach(arr=>arr.forEach(inferItemMetadata));
@@ -4661,6 +4719,7 @@ function metaTagsFor(item, rarity){
   let tags = '';
   if (rarity) tags += `<span class="meta-tag rarity" style="color:${rarityColors[rarity]||''};border-color:${rarityColors[rarity]||''}">${rarityNames[rarity]||rarity}</span>`;
   tags += `<span class="meta-tag type">Type: ${item.type || 'unknown'}</span><span class="meta-tag slot">Slot: ${item.slotSize || 1}</span>`;
+  tags += `<span class="meta-tag weight">Weight: ${item.weight != null ? item.weight : computeItemWeight(item)} lbs</span>`;
   if(item.gp) tags += `<span class="meta-tag gp">Value: ${item.gp}</span>`;
   if(item.dmg) tags += `<span class="meta-tag dmg">DMG: ${item.dmg}</span>`;
   if(item.ac) tags += `<span class="meta-tag ac">AC: ${item.ac}</span>`;
@@ -4758,6 +4817,10 @@ function addItem() {
   const charges=document.getElementById('newItemCharges').value.trim();
   const effect=document.getElementById('newItemEffect').value.trim();
   const gp=document.getElementById('newItemGp') ? document.getElementById('newItemGp').value.trim() : '';
+  const weightRaw=document.getElementById('newItemWeight') ? document.getElementById('newItemWeight').value.trim() : '';
+  // Companions never carry weight; anything else defaults to the same auto-estimate used
+  // everywhere else in the project if the field's left blank, but an explicit value wins.
+  item.weight = (type==='companion') ? 0 : (weightRaw !== '' ? Math.max(0, parseFloat(weightRaw)) || 0 : computeItemWeight(item));
   if(type==='weapon' && dmg) item.dmg=dmg;
   if((type==='armor' || type==='companion') && ac) item.ac=ac;
   if(type==='consumable' && hp) item.hp=hp;
@@ -4768,6 +4831,7 @@ function addItem() {
   lootData[rarity].push(item);
   document.getElementById('newItemName').value='';
   document.getElementById('newItemDesc').value='';
+  document.getElementById('newItemWeight').value='';
   document.getElementById('newItemDmg').value='';
   document.getElementById('newItemAc').value='';
   document.getElementById('newItemHp').value='';
@@ -4864,6 +4928,7 @@ function editItem(rarity, index) {
   document.getElementById('editItemType').value    = item.type    || 'unknown';
   document.getElementById('editItemSlot').value    = item.slotSize|| 1;
   document.getElementById('editItemGp').value      = item.gp      || '';
+  document.getElementById('editItemWeight').value  = item.weight != null ? item.weight : '';
   document.getElementById('editItemDmg').value     = item.dmg     || '';
   document.getElementById('editItemAc').value      = item.ac      || '';
   document.getElementById('editItemHp').value      = item.hp      || '';
@@ -4902,12 +4967,17 @@ function saveEditedItem() {
   item.slotSize = parseInt(document.getElementById('editItemSlot').value) || 1;
   ['dmg','ac','hp','charges'].forEach(k => delete item[k]);
   const gp      = document.getElementById('editItemGp').value.trim();
+  const weightRaw = document.getElementById('editItemWeight').value.trim();
   const dmg     = document.getElementById('editItemDmg').value.trim();
   const ac      = document.getElementById('editItemAc').value.trim();
   const hp      = document.getElementById('editItemHp').value.trim();
   const charges = document.getElementById('editItemCharges').value.trim();
   const effect  = document.getElementById('editItemEffect').value.trim();
   const unlocks = readUnlockTiers();
+  // Companions never carry weight — you don't tote your mount around. Otherwise use
+  // whatever the field says; leaving it blank re-derives a sensible default from the
+  // (possibly just-changed) type/subcategory instead of silently keeping a stale value.
+  item.weight = (type === 'companion') ? 0 : (weightRaw !== '' ? Math.max(0, parseFloat(weightRaw)) || 0 : computeItemWeight(item));
   if (gp)      item.gp      = gp;      else delete item.gp;
   if (type === 'weapon' && dmg) item.dmg = dmg;
   if ((type === 'armor' || type === 'companion') && ac) item.ac = ac;
@@ -5793,11 +5863,14 @@ function generateUniqueItem() {
   const typeLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
   const subcategoryLabel = SUBCATEGORY_LABELS[subcategory] || '';
 
+  const weight = computeItemWeight({ type: cat, subcategory, name: itemName });
+
   const statsHtml = `
     <div class="ic-stats">
       <span class="ic-stat type">📦 ${typeLabel}${subcategoryLabel ? ' · ' + subcategoryLabel : ''}</span>
       <span class="ic-stat slot">Slot ${slotSize}</span>
       <span class="ic-stat gp">💰 ${gp}</span>
+      <span class="ic-stat weight">⚖ ${weight} lbs</span>
       ${dmg ? `<span class="ic-stat dmg">⚔ ${dmg}</span>` : ''}
       ${ac  ? `<span class="ic-stat ac">🛡 AC ${ac}</span>` : ''}${requirement ? `<span class="ic-stat">Req: ${requirement}</span>` : ''}
       ${hp  ? `<span class="ic-stat hp">❤ Heals ${hp}</span>` : ''}
@@ -5816,7 +5889,7 @@ function generateUniqueItem() {
 
   const descParagraphsHtml = renderDescParagraphs(descParagraphs);
 
-  const itemObj = { name: itemName, rarity, cat, type: cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, mods, flavor, descParagraphs, tags };
+  const itemObj = { name: itemName, rarity, cat, type: cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, weight, mods, flavor, descParagraphs, tags };
   window._lastGenItem = itemObj;
 
   const safeFlavorForTextarea = flavor.replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -6901,6 +6974,7 @@ function attemptFleshAttach() {
     flavor: c.desc + (note ? '\n\n' + note : ''),
     tags: [],
   };
+  item.weight = computeItemWeight(item);
   _pendingFleshItem = item;
 
   // The mods here are already the outcome-rescaled ones (see fleshApplyQuality above),
@@ -7213,7 +7287,11 @@ function itemIconColor(item) {
 // frame tells you an item's rarity even before reading text), and — for legendary/celestial
 // only — a name-themed flourish color, a two-tone gilded render, and corner "gleam" pixels,
 // so those items visibly stand out rather than just being a differently-colored common icon.
-function itemPixelIcon(item, size, rarity) {
+// `fillParent`, when true, drops the fixed pixel sizing and instead renders the icon (and
+// its frame) at 100%/100% of whatever container it's placed in — used for multi-slot
+// inventory items, whose pixel art should fill their whole footprint on the grid rather
+// than sitting as one small icon off to the side of the item's name.
+function itemPixelIcon(item, size, rarity, fillParent) {
   const category = itemIconCategory(item);
   const shape = resolveIconShape(category);
   const color = itemIconColor(item);
@@ -7226,8 +7304,8 @@ function itemPixelIcon(item, size, rarity) {
   const isHighTier = rarity === 'legendary' || rarity === 'celestial';
   const flourishColor = isHighTier ? (legendaryFlourishColor(item) || rarityColors[rarity]) : null;
   const rects = shape.rects.map(([x, y, w, rh], i) => {
-    const fill = (isHighTier && i % 3 === 1) ? hslLighten(color, 16) : color;
-    return `<rect x="${x}" y="${y}" width="${w}" height="${rh}" fill="${fill}"/>`;
+    const fillColor = (isHighTier && i % 3 === 1) ? hslLighten(color, 16) : color;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${rh}" fill="${fillColor}"/>`;
   }).join('');
   const accent = `<rect x="${ax}" y="${ay}" width="1" height="1" fill="${accentColor}"/>`;
   let gleam = '';
@@ -7236,11 +7314,15 @@ function itemPixelIcon(item, size, rarity) {
     gleam = pts.map(([gx, gy]) => `<rect x="${gx}" y="${gy}" width="1" height="1" fill="${flourishColor}"/>`).join('');
   }
   const px = size || 28;
-  const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}${gleam}</svg>`;
   const frameColor = rarityColors[rarity] || rarityColors.common;
+  const glow = isHighTier ? `box-shadow:0 0 ${rarity === 'celestial' ? 7 : 5}px ${frameColor};` : '';
+  if (fillParent) {
+    const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="image-rendering:pixelated;display:block;">${rects}${accent}${gleam}</svg>`;
+    return `<span class="item-icon-frame item-icon-frame-fill" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box;background:${frameColor}26;border:1px solid ${frameColor};border-radius:3px;${glow}">${svg}</span>`;
+  }
+  const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}${gleam}</svg>`;
   const pad = Math.max(2, Math.round(px * 0.14));
   const frameSize = px + pad * 2;
-  const glow = isHighTier ? `box-shadow:0 0 ${rarity === 'celestial' ? 7 : 5}px ${frameColor};` : '';
   return `<span class="item-icon-frame" style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${frameSize}px;height:${frameSize}px;background:${frameColor}26;border:1px solid ${frameColor};border-radius:4px;${glow}">${svg}</span>`;
 }
 
@@ -7347,8 +7429,9 @@ function generateStoreItem(merchantKey) {
   const descParagraphs = buildDescParagraphs(baseName, cat, rarity, tags, mods, { dmg, ac, hp });
   const flavor = descParagraphs.map(p => p.text).join('\n\n');
   const gp = formatGpAmount(commercePrice(rarity, mods.length));
+  const weight = computeItemWeight({ type: cat, subcategory, name: itemName });
 
-  return { name:itemName, rarity, cat, type:cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, mods, flavor, descParagraphs, tags, merchant:merchantKey };
+  return { name:itemName, rarity, cat, type:cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, weight, mods, flavor, descParagraphs, tags, merchant:merchantKey };
 }
 
 let currentMerchant = null;
@@ -7552,7 +7635,7 @@ function buyStapleItem(merchantKey, idx) {
     id, name: staple.name, rarity: 'common', cat: type, type, subcategory,
     gp: staple.gp, dmg: staple.dmg||'', ac: staple.ac||'', hp: staple.hp||'', requirement:'',
     charges: staple.charges||'',
-    slotSize, mods: [],
+    slotSize, weight: computeItemWeight({ type, subcategory, name: staple.name }), mods: [],
     desc: staple.desc, flavor: staple.desc + (staple.effect ? '\n\n' + staple.effect : ''),
     tags: [], effect: staple.effect,
   };
@@ -8969,10 +9052,28 @@ function unequipSlot(slotId) {
   renderActiveEffects();
 }
 
+// "Unequip All" tries to send every equipped item back into the inventory grid first,
+// respecting each item's slot-size footprint and whatever's already stored there — first
+// come, first served in slot order. Anything that doesn't fit (inventory's full) stays
+// equipped instead of vanishing, and its slot flashes red so it's obvious at a glance
+// which items didn't move.
 function clearAllSlots() {
-  Object.keys(playerSlots).forEach(k => playerSlots[k] = null);
+  buildTokenIndex();
+  const stillEquipped = [];
+  Object.keys(playerSlots).forEach(slotId => {
+    const key = playerSlots[slotId];
+    if (!key) return;
+    const entry = TOKEN_INDEX[key];
+    const w = entry ? Math.min(3, Math.max(1, entry.item.slotSize || 1)) : 1;
+    const spot = findFirstOpenInventorySpot(w);
+    if (!spot) { stillEquipped.push(slotId); return; }
+    placeNewInventoryItem(key, spot.row, spot.col);
+    playerSlots[slotId] = null;
+  });
+  renderInventoryGrid();
   renderPlayerSlots();
   renderActiveEffects();
+  stillEquipped.forEach(slotId => flashSlotInvalid(slotId));
 }
 
 // ---------- Inventory tab ----------
@@ -8996,6 +9097,17 @@ function invCanPlaceAt(row, col, w, ignoreId) {
     if (occupant && occupant !== ignoreId) return false;
   }
   return true;
+}
+
+// Scans left-to-right, top-to-bottom for the first free spot wide enough for a w-slot
+// item — used by "Unequip All" to find somewhere to put each equipped item back.
+function findFirstOpenInventorySpot(w) {
+  for (let row = 0; row < INV_ROWS; row++) {
+    for (let col = 0; col <= INV_COLS - w; col++) {
+      if (invCanPlaceAt(row, col, w)) return { row, col };
+    }
+  }
+  return null;
 }
 
 let _draggedInvPlacement = null;
@@ -9107,19 +9219,26 @@ function renderInventoryGrid() {
           const entry = TOKEN_INDEX[p.key];
           const name = entry ? entry.item.name : '(missing item)';
           const rarity = entry ? entry.rarity : 'common';
-          const icon = entry ? itemPixelIcon(entry.item, 22, rarity) : '';
           const safeKey = p.key.replace(/'/g, "\\'");
+          // 2- and 3-wide items get their pixel art scaled to fill their whole footprint
+          // instead of one small icon sitting next to a name label — there's room for it,
+          // and it reads at a glance which cells belong to the same item. 1-wide items keep
+          // the small-icon-plus-name layout since there isn't room for anything bigger.
+          const wide = p.w > 1;
+          const body = wide
+            ? (entry ? itemPixelIcon(entry.item, null, rarity, true) : '')
+            : `${entry ? itemPixelIcon(entry.item, 22, rarity) : ''}<span class="inv-item-name">${escapeHtml(name)}</span>`;
           // Deliberately NOT a drop target — only genuinely empty cells (below) accept
           // drops, so there's never any ambiguity about two different items overlapping.
           // Repositioning onto a spot that overlaps the item's OWN old footprint still
           // works because invCanPlaceAt ignores the dragged item's own cells; it just has
           // to be dropped starting on an empty cell, same as any other move.
-          html += `<div class="inv-item ${rarity}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
+          html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
             ondragstart="inventoryItemDragStart(event,'${placementId}')"
             onclick="removeFromInventory('${placementId}')"
             onmouseenter="showTokenTooltip(event,'${safeKey}')"
             onmousemove="moveTokenTooltip(event)"
-            onmouseleave="hideTokenTooltip()">${icon}<span class="inv-item-name">${escapeHtml(name)}</span></div>`;
+            onmouseleave="hideTokenTooltip()">${body}</div>`;
           col += p.w;
         } else {
           html += `<div class="inv-cell" id="inv-cell-${row}-${col}" ondragover="slotDragOver(event)" ondrop="inventoryCellDrop(event,${row},${col})"></div>`;
@@ -9152,26 +9271,35 @@ function renderInventoryTokenGrid() {
 // Totals up everything currently placed in the inventory grid and mirrors the result both
 // on the Inventory tab itself and in the summary bar at the top of the Roll Loot tab.
 function updateInventorySummary() {
-  let totalGp = 0, slotsUsed = 0;
+  let totalGp = 0, slotsUsed = 0, totalWeight = 0;
   Object.values(inventoryPlacements).forEach(p => {
     const entry = TOKEN_INDEX[p.key];
-    if (entry) totalGp += gpToNumber(entry.item.gp);
+    if (entry) {
+      totalGp += gpToNumber(entry.item.gp);
+      totalWeight += entry.item.weight != null ? entry.item.weight : computeItemWeight(entry.item);
+    }
     slotsUsed += p.w;
   });
   totalGp = Math.round(totalGp * 100) / 100;
+  totalWeight = Math.round(totalWeight * 100) / 100;
   const totalSlots = INV_ROWS * INV_COLS;
   const gpText = formatGpAmount(totalGp);
+  const weightText = totalWeight + ' lbs';
   const slotsText = slotsUsed + ' / ' + totalSlots;
   const invGpEl = document.getElementById('invTotalGp');
   const invSlotsEl = document.getElementById('invSlotsUsed');
   const invSlotsTotalEl = document.getElementById('invSlotsTotal');
+  const invWeightEl = document.getElementById('invTotalWeight');
   if (invGpEl) invGpEl.textContent = gpText;
   if (invSlotsEl) invSlotsEl.textContent = slotsUsed;
   if (invSlotsTotalEl) invSlotsTotalEl.textContent = totalSlots;
+  if (invWeightEl) invWeightEl.textContent = weightText;
   const rollGpEl = document.getElementById('rollInvGp');
   const rollSlotsEl = document.getElementById('rollInvSlots');
+  const rollWeightEl = document.getElementById('rollInvWeight');
   if (rollGpEl) rollGpEl.textContent = gpText;
   if (rollSlotsEl) rollSlotsEl.textContent = slotsText;
+  if (rollWeightEl) rollWeightEl.textContent = weightText;
 }
 
 // ---------- Saved loadouts ----------
@@ -9281,7 +9409,7 @@ function renderPlayerSlots() {
       return;
     }
     el.classList.add('filled');
-    el.innerHTML = `<div class="slot-token ${entry.rarity}">${escapeHtml(entry.item.name)}</div>`;
+    el.innerHTML = `<div class="slot-token ${entry.rarity}">${itemPixelIcon(entry.item, 26, entry.rarity)}<span class="slot-token-name">${escapeHtml(entry.item.name)}</span></div>`;
     el.title = SLOT_LABELS[slotId] || '';
     // Equipped items are themselves draggable now — off onto the inventory grid to re-store
     // them, onto the remove zone to unequip, or onto another matching slot to move them.
@@ -9333,11 +9461,14 @@ function renderActiveEffects() {
 function buildTooltipHtml(entry) {
   const item = entry.item;
   const rarity = entry.rarity;
+  const weight = item.weight != null ? item.weight : computeItemWeight(item);
   const stats = [];
   if (item.dmg) stats.push('⚔ ' + item.dmg);
   if (item.ac) stats.push('🛡 AC ' + item.ac);
   if (item.hp) stats.push('❤ ' + item.hp);
   if (item.gp) stats.push('💰 ' + item.gp);
+  stats.push('📦 Slot ' + (item.slotSize || 1));
+  stats.push('⚖ ' + weight + ' lbs');
   if (item.charges) stats.push('✦ ' + item.charges);
   const statsLine = stats.length ? `<div class="tt-stats">${stats.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div>` : '';
   const effect = getItemEffectText(item);
