@@ -2095,6 +2095,7 @@
           <option value="misc">Misc</option>
           <option value="limb">Limb</option>
           <option value="companion">Companion</option>
+          <option value="craftable">Craftable (Monster Parts)</option>
           <option value="unknown">Unknown</option>
         </select>
         <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
@@ -3905,6 +3906,11 @@ const rarityNames  = { common:'Common', uncommon:'Uncommon', rare:'Rare', superr
 
 // ===================== TABS =====================
 function showTab(tab, btn) {
+  // The hover tooltip is a single shared, absolutely-positioned element outside the normal
+  // layout flow — switching tabs doesn't naturally fire a mouseleave on whatever it was
+  // last shown for, so without this it could keep floating on screen, pointed at content
+  // that's no longer even visible.
+  if (typeof hideTokenTooltip === 'function') hideTokenTooltip();
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -4541,6 +4547,13 @@ function renderResults() {
     const label = result.sourceCreature
       ? `${escapeHtml(result.sourceCreature)} <span style="color:${rarityColors[result.sourceTier]}">(${rarityNames[result.sourceTier]} tier)</span> — ${result.items.length} item${result.items.length!==1?'s':''}`
       : `Enemy #${result.enemy} — ${result.items.length} item${result.items.length!==1?'s':''}`;
+    // Mob-generated results (anything with a sourceCreature — i.e. rolled from "From
+    // Creatures" mode) get "Loot" instead of "Save as Token": it moves the item straight
+    // into the inventory grid rather than just making it available in the Token Library.
+    // Plain Random-mode results are untouched.
+    const saveBtnHtml = (ii) => result.sourceCreature
+      ? `<button class="loot-save-btn" onclick="lootSpinItem(${result.enemy-1},${ii},this)">🎒 Loot</button>`
+      : `<button class="loot-save-btn" onclick="saveSpinItem(${result.enemy-1},${ii},this)">💾 Save as Token</button>`;
     return `
     <div class="enemy-result">
       <div class="enemy-label">${label}</div>
@@ -4550,7 +4563,7 @@ function renderResults() {
           <span class="rarity-label">[${rarityNames[it.rarity]}]</span>
           <div class="loot-item-text">
             ${renderItemWithInspection(it, inspectMode, `roll-${result.enemy}-${ii}`)}
-            <button class="loot-save-btn" onclick="saveSpinItem(${result.enemy-1},${ii},this)">💾 Save as Token</button>
+            ${saveBtnHtml(ii)}
           </div>
         </div>
       `).join('')}
@@ -6971,6 +6984,39 @@ function saveSpinItem(enemyIdx, itemIdx, btn) {
 function saveChestItemToken(chestIdx, itemIdx, btn) {
   saveLootResultItem(chestResults[chestIdx]?.items[itemIdx], btn);
 }
+// "Loot" — for mob-generated drops (Combat tab defeats, the Roll Loot "From Creatures"
+// mode) specifically: rather than just making the item available in the Token Library like
+// saveLootResultItem() does, this also finds it a spot in the inventory grid and places it
+// there right away — "killing something and looting its stuff" should end with the loot
+// actually in your bag, not just theoretically obtainable. Falls back to save-only (with a
+// clear "Inventory Full" label) if there's genuinely no room for its slot size anywhere.
+function lootItemToInventory(item, btn) {
+  if (!item) return;
+  const saved = { ...item, id: Date.now() + Math.random() };
+  inferItemMetadata(saved);
+  savedGeneratedItems.unshift(saved);
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+  buildTokenIndex();
+  const key = 'gen:' + saved.id;
+  const w = Math.min(3, Math.max(1, saved.slotSize || 1));
+  const spot = findFirstOpenInventorySpot(w);
+  if (spot && placeNewInventoryItem(key, spot.row, spot.col)) {
+    renderInventoryGrid();
+    if (btn) { btn.textContent = '✓ Looted'; btn.disabled = true; btn.classList.add('saved'); }
+  } else if (btn) {
+    btn.textContent = '⚠ Inventory Full';
+    btn.disabled = true;
+    btn.classList.add('saved');
+  }
+}
+function lootSpinItem(enemyIdx, itemIdx, btn) {
+  lootItemToInventory(spinResults[enemyIdx]?.items[itemIdx], btn);
+}
+function lootCombatItem(uid, idx, btn) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
+  lootItemToInventory(entry.loot.items[idx], btn);
+}
 
 function saveGenItem() {
   syncGeneratedItemEdits();
@@ -8435,6 +8481,13 @@ window.SpellCompendiumAPI = {
 updateChanceDisplay();
 renderPrintTable();
 updateAddFormFields();
+// The hover tooltip sometimes stuck around after clicking away from an item — dynamically
+// re-rendering the grid/list under the cursor (dropping an item, filtering a search, etc.)
+// can yank the hovered element out from under the pointer without the browser ever firing
+// its mouseleave, so hideTokenTooltip() never got its normal call. A capture-phase click
+// listener on the whole document is a robust catch-all: any click anywhere dismisses it,
+// and hideTokenTooltip() is a no-op if it's already hidden, so this can't misfire.
+document.addEventListener('click', () => { if (typeof hideTokenTooltip === 'function') hideTokenTooltip(); }, true);
 // Init battle stage idle state after DOM ready
 setTimeout(() => setBattleState(false), 100);
 setTimeout(() => renderChestSVG(), 150);
@@ -10623,6 +10676,9 @@ async function loadMonsterDatabase(force = false) {
     monsterDatabaseLoaded = true;
     populateMonsterFilters();
     renderMonsterTable();
+    // One-time: build every monster's full set of part items into lootData now that the
+    // registry actually has creatures in it — see generatePremadeMonsterParts()'s comment.
+    if (typeof generatePremadeMonsterParts === 'function') generatePremadeMonsterParts();
   } catch (err) {
     wrap.innerHTML = '<div class="spell-loading">Unable to load the monster database. This tab needs an internet connection to retrieve the structured source records. Try Refresh Monster Data.</div>';
     const countEl = document.getElementById('monsterCount');
@@ -11072,8 +11128,10 @@ function describeNamedModifier(mod) {
   const parts = [...(mod.buffs || []).map(b => '+' + b), ...(mod.debuffs || []).map(d => '-' + d)];
   return `${mod.name} (${parts.join(', ')})`;
 }
-function generateMonsterPart(monster, tier) {
-  const partType = ri(MONSTER_PART_TYPES);
+// Builds one specific part-type item for a monster at a given tier — shared by the random
+// per-kill roll (generateMonsterPart, picks one partType at random) and the premade catalog
+// generator (generatePremadeMonsterParts, below, which builds all of them up front).
+function buildMonsterPartItem(monster, tier, partType) {
   const name = `${monster.name} ${partType.label}`;
   const [wLo, wHi] = MONSTER_PART_WEIGHT_RANGE[tier] || MONSTER_PART_WEIGHT_RANGE.common;
   const weight = Math.round((wLo + Math.random() * (wHi - wLo)) * 10) / 10;
@@ -11089,6 +11147,32 @@ function generateMonsterPart(monster, tier) {
     desc: `A ${partType.label.toLowerCase()} harvested from a defeated ${monster.name.toLowerCase()}, still faintly redolent of the creature it came from.`,
     effect, sourceMonster: monster.name, modifier: mod,
   };
+}
+function generateMonsterPart(monster, tier) {
+  return buildMonsterPartItem(monster, tier, ri(MONSTER_PART_TYPES));
+}
+// Pre-generates every part type for every creature in the registry, at that creature's own
+// natural CR tier (not every rarity for every monster — a Kobold's celestial-tier Fang
+// wouldn't make sense), and adds them straight into lootData like any other hand-authored
+// item. That makes them permanently browsable from the Item Compendium and eligible to turn
+// up in wheel spins/chests, at any time — not just something that appears after you defeat
+// the specific creature. Runs once, automatically, as soon as the creature registry finishes
+// loading (see loadMonsterDatabase()); safe to call again (e.g. a later force-reload of the
+// registry) since the completed flag makes every call after the first a no-op.
+let premadeMonsterPartsGenerated = false;
+function generatePremadeMonsterParts() {
+  if (premadeMonsterPartsGenerated || !monsterDatabase.length) return;
+  premadeMonsterPartsGenerated = true;
+  monsterDatabase.forEach(monster => {
+    const tier = monsterRarityTier(monster, null);
+    MONSTER_PART_TYPES.forEach(partType => {
+      lootData[tier].push(buildMonsterPartItem(monster, tier, partType));
+    });
+  });
+  // Refresh anything already on screen that reads from lootData/TOKEN_INDEX so the new
+  // entries show up without the player needing to manually switch tabs and back.
+  buildTokenIndex();
+  if (typeof renderItemsList === 'function') renderItemsList();
 }
 
 // ---------- Monster rarity tier (drives loot chances) ----------
@@ -11228,15 +11312,6 @@ function combatCardContextMenu(evt, uid) {
   entry.loot = rollMonsterCombatLoot(entry);
   renderCombatRoster();
 }
-// Saves one rolled loot item (or monster part) into the same savedGeneratedItems pool
-// everything else uses — reuses saveLootResultItem() exactly as the wheel-spin/chest "Save"
-// buttons do, so it shows up in the Token Library right away.
-function saveCombatLootItem(uid, idx, btn) {
-  const entry = battleRoster.find(e => e.uid === uid);
-  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
-  saveLootResultItem(entry.loot.items[idx], btn);
-}
-
 function removeFromBattle(uid) {
   battleRoster = battleRoster.filter(e => e.uid !== uid);
   renderCombatRoster();
@@ -11423,7 +11498,7 @@ function renderCombatRoster() {
           ${entry.loot.items.length ? entry.loot.items.map((it, idx) => `
             <div class="combat-loot-item ${it.rarity}">
               <span>${escapeHtml(it.name)}</span>
-              <button class="loot-save-btn" onclick="saveCombatLootItem(${entry.uid}, ${idx}, this)">💾 Save</button>
+              <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
             </div>
           `).join('') : '<div class="combat-loot-item">Nothing but the gold.</div>'}
         </div>
