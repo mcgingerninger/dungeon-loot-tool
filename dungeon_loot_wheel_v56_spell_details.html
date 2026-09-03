@@ -1335,7 +1335,7 @@
   /* Doll, grafted limbs, AND active effects sit side by side in one top row so everything
      you'd want visible while dragging a token is on screen together, instead of limbs/effects
      being pushed down the page. Wraps to a stacked layout automatically on narrower widths. */
-  .player-top-row { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:flex-start; justify-content:center; }
+  .player-top-row { display:flex; flex-wrap:wrap; gap:1.2rem; align-items:flex-start; justify-content:center; margin-bottom:1.5rem; padding-bottom:1.3rem; border-bottom:1px solid var(--border); }
   .player-board { display:flex; flex-direction:column; align-items:center; }
   .player-doll {
     display:grid;
@@ -1354,7 +1354,7 @@
   }
   .doll-slot.ring, .doll-slot.charm { width:78px; height:78px; }
   .doll-slot-empty-icon { font-size:1.5rem; opacity:0.28; filter:grayscale(1); }
-  .doll-slot.filled { border-style:solid; border-color:var(--gold); background:var(--surface2); cursor:pointer; }
+  .doll-slot.filled { border-style:solid; border-color:var(--gold); background:var(--surface2); cursor:grab; }
   .doll-slot.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
   @keyframes slotShake {
     0%,100% { transform:translateX(0); }
@@ -2438,84 +2438,11 @@
      separate tabs isn't possible since only one tab is visible/interactive at a time) -->
 <div id="tab-player" class="tab-content">
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Drag a token from the library below onto a matching slot above. Click an equipped slot to remove it.
-    Every currently equipped item's effects appear in the Active Effects panel, right alongside your gear and limbs.
+    Browse everything you've collected and save gear loadouts for quick swapping. To actually
+    equip something — armor, weapons, a mount, grafted limbs — head to the Inventory tab:
+    items equip straight from your inventory grid there now.
   </p>
   <div class="player-tokens-layout">
-    <div class="player-top-row">
-      <div class="player-board">
-        <div class="player-doll">
-          <div class="doll-slot" id="slot-facewear" data-slot="facewear" style="grid-column:1;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'facewear')"></div>
-          <div class="doll-slot" id="slot-helmet" data-slot="helmet" style="grid-column:2;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'helmet')"></div>
-          <div class="doll-slot" id="slot-handwear" data-slot="handwear" style="grid-column:3;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'handwear')"></div>
-
-          <div class="doll-slot" id="slot-amulet1" data-slot="amulet1" style="grid-column:1;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'amulet1')"></div>
-          <div class="doll-slot" id="slot-armor" data-slot="armor" style="grid-column:2;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'armor')"></div>
-          <div class="doll-slot" id="slot-amulet2" data-slot="amulet2" style="grid-column:3;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'amulet2')"></div>
-
-          <div class="doll-slot" id="slot-cloak" data-slot="cloak" style="grid-column:1;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'cloak')"></div>
-          <div class="doll-slot" id="slot-beltwaist" data-slot="beltwaist" style="grid-column:2;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'beltwaist')"></div>
-          <div class="doll-slot" id="slot-offhand" data-slot="offhand" style="grid-column:3;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'offhand')"></div>
-
-          <div class="doll-slot" id="slot-weapon1" data-slot="weapon1" style="grid-column:1;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'weapon1')"></div>
-          <div class="doll-slot" id="slot-leggings" data-slot="leggings" style="grid-column:2;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'leggings')"></div>
-          <div class="doll-slot" id="slot-weapon2" data-slot="weapon2" style="grid-column:3;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'weapon2')"></div>
-
-          <div class="doll-slot" id="slot-boots" data-slot="boots" style="grid-column:2;grid-row:5;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'boots')"></div>
-
-          <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:6;">
-            <div class="doll-slot ring" id="slot-ring1" data-slot="ring1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring1')"></div>
-            <div class="doll-slot ring" id="slot-ring2" data-slot="ring2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring2')"></div>
-            <div class="doll-slot ring" id="slot-ring3" data-slot="ring3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring3')"></div>
-            <div class="doll-slot ring" id="slot-ring4" data-slot="ring4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring4')"></div>
-          </div>
-
-          <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:7;">
-            <div class="doll-slot charm" id="slot-charm1" data-slot="charm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm1')"></div>
-            <div class="doll-slot charm" id="slot-charm2" data-slot="charm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm2')"></div>
-            <div class="doll-slot charm" id="slot-charm3" data-slot="charm3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm3')"></div>
-            <div class="doll-slot charm" id="slot-charm4" data-slot="charm4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm4')"></div>
-            <div class="doll-slot charm" id="slot-charm5" data-slot="charm5" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm5')"></div>
-          </div>
-        </div>
-        <div class="companion-slot-wrap">
-          <span class="limb-slot-label">Mount / Pet</span>
-          <div class="doll-slot companion" id="slot-companion" data-slot="companion" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'companion')"></div>
-        </div>
-        <button class="action-btn" style="margin-top:1rem;" onclick="clearAllSlots()">Unequip All</button>
-      </div>
-
-      <div class="limbs-panel">
-        <h3>🩸 Grafted Limbs</h3>
-        <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab go here. Any slot accepts any grafted body part — an eye, a heart, an extra arm, whatever you've got.</p>
-        <div class="limbs-grid">
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 1</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 2</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 3</span><div class="doll-slot limb" id="slot-limbHand1" data-slot="limbHand1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 4</span><div class="doll-slot limb" id="slot-limbHand2" data-slot="limbHand2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 5</span><div class="doll-slot limb" id="slot-limbLeg1" data-slot="limbLeg1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 6</span><div class="doll-slot limb" id="slot-limbLeg2" data-slot="limbLeg2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 7</span><div class="doll-slot limb" id="slot-limbFoot1" data-slot="limbFoot1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 8</span><div class="doll-slot limb" id="slot-limbFoot2" data-slot="limbFoot2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFoot2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 9</span><div class="doll-slot limb" id="slot-limbEye1" data-slot="limbEye1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 10</span><div class="doll-slot limb" id="slot-limbEye2" data-slot="limbEye2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEye2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 11</span><div class="doll-slot limb" id="slot-limbEar1" data-slot="limbEar1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 12</span><div class="doll-slot limb" id="slot-limbEar2" data-slot="limbEar2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbEar2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 13</span><div class="doll-slot limb" id="slot-limbFinger1" data-slot="limbFinger1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger1')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 14</span><div class="doll-slot limb" id="slot-limbFinger2" data-slot="limbFinger2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger2')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 15</span><div class="doll-slot limb" id="slot-limbFinger3" data-slot="limbFinger3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger3')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 16</span><div class="doll-slot limb" id="slot-limbFinger4" data-slot="limbFinger4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbFinger4')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 17</span><div class="doll-slot limb" id="slot-limbHeart" data-slot="limbHeart" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHeart')"></div></div>
-          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 18</span><div class="doll-slot limb" id="slot-limbTongue" data-slot="limbTongue" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbTongue')"></div></div>
-        </div>
-      </div>
-
-      <div class="active-effects-panel">
-        <h3>⚡ Active Effects</h3>
-        <div id="activeEffectsList"></div>
-      </div>
-    </div>
-
     <div class="player-bottom-row">
       <div class="tokens-column">
         <div class="token-toolbar">
@@ -2576,7 +2503,69 @@
 <div id="tab-inventory" class="tab-content">
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
     Drag a token from the library below onto the grid to store it. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Drag a placed item to move it, or click it to remove it.
+    To equip something, drag it from the grid onto a matching slot on your character below — it leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it, onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
   </p>
+  <div class="player-top-row">
+    <div class="player-board">
+      <div class="player-doll">
+        <div class="doll-slot" id="slot-facewear" data-slot="facewear" style="grid-column:1;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'facewear')"></div>
+        <div class="doll-slot" id="slot-helmet" data-slot="helmet" style="grid-column:2;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'helmet')"></div>
+        <div class="doll-slot" id="slot-handwear" data-slot="handwear" style="grid-column:3;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'handwear')"></div>
+
+        <div class="doll-slot" id="slot-amulet1" data-slot="amulet1" style="grid-column:1;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'amulet1')"></div>
+        <div class="doll-slot" id="slot-armor" data-slot="armor" style="grid-column:2;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'armor')"></div>
+        <div class="doll-slot" id="slot-amulet2" data-slot="amulet2" style="grid-column:3;grid-row:2;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'amulet2')"></div>
+
+        <div class="doll-slot" id="slot-cloak" data-slot="cloak" style="grid-column:1;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'cloak')"></div>
+        <div class="doll-slot" id="slot-beltwaist" data-slot="beltwaist" style="grid-column:2;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'beltwaist')"></div>
+        <div class="doll-slot" id="slot-offhand" data-slot="offhand" style="grid-column:3;grid-row:3;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'offhand')"></div>
+
+        <div class="doll-slot" id="slot-weapon1" data-slot="weapon1" style="grid-column:1;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'weapon1')"></div>
+        <div class="doll-slot" id="slot-leggings" data-slot="leggings" style="grid-column:2;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'leggings')"></div>
+        <div class="doll-slot" id="slot-weapon2" data-slot="weapon2" style="grid-column:3;grid-row:4;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'weapon2')"></div>
+
+        <div class="doll-slot" id="slot-boots" data-slot="boots" style="grid-column:2;grid-row:5;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'boots')"></div>
+
+        <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:6;">
+          <div class="doll-slot ring" id="slot-ring1" data-slot="ring1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring1')"></div>
+          <div class="doll-slot ring" id="slot-ring2" data-slot="ring2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring2')"></div>
+          <div class="doll-slot ring" id="slot-ring3" data-slot="ring3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring3')"></div>
+          <div class="doll-slot ring" id="slot-ring4" data-slot="ring4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'ring4')"></div>
+        </div>
+
+        <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:7;">
+          <div class="doll-slot charm" id="slot-charm1" data-slot="charm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm1')"></div>
+          <div class="doll-slot charm" id="slot-charm2" data-slot="charm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm2')"></div>
+          <div class="doll-slot charm" id="slot-charm3" data-slot="charm3" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm3')"></div>
+          <div class="doll-slot charm" id="slot-charm4" data-slot="charm4" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm4')"></div>
+          <div class="doll-slot charm" id="slot-charm5" data-slot="charm5" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'charm5')"></div>
+        </div>
+      </div>
+      <div class="companion-slot-wrap">
+        <span class="limb-slot-label">Mount / Pet</span>
+        <div class="doll-slot companion" id="slot-companion" data-slot="companion" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'companion')"></div>
+      </div>
+      <button class="action-btn" style="margin-top:1rem;" onclick="clearAllSlots()">Unequip All</button>
+    </div>
+
+    <div class="limbs-panel">
+      <h3>🩸 Grafted Limbs</h3>
+      <p class="limbs-panel-note">Body parts attached via the Fleshmancer tab go here. Any slot accepts any grafted body part — an eye, a heart, an extra arm, whatever you've got. Limited to 5 at a time.</p>
+      <div class="limbs-grid">
+        <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 1</span><div class="doll-slot limb" id="slot-limbArm1" data-slot="limbArm1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm1')"></div></div>
+        <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 2</span><div class="doll-slot limb" id="slot-limbArm2" data-slot="limbArm2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbArm2')"></div></div>
+        <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 3</span><div class="doll-slot limb" id="slot-limbHand1" data-slot="limbHand1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand1')"></div></div>
+        <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 4</span><div class="doll-slot limb" id="slot-limbHand2" data-slot="limbHand2" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbHand2')"></div></div>
+        <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 5</span><div class="doll-slot limb" id="slot-limbLeg1" data-slot="limbLeg1" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'limbLeg1')"></div></div>
+      </div>
+    </div>
+
+    <div class="active-effects-panel">
+      <h3>⚡ Active Effects</h3>
+      <div id="activeEffectsList"></div>
+    </div>
+  </div>
+
   <div class="inv-summary-bar">
     <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
     <span>🎒 Slots Used: <strong id="invSlotsUsed">0</strong> / <span id="invSlotsTotal">90</span></span>
@@ -3370,7 +3359,7 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   potion:'charm', scroll:'charm', food:'charm', throwable:'charm',
   ring:'ring', amulet:'amulet', charm:'charm',
   // All grafted-limb subcategories share the single generic 'limb' slot category, so any
-  // body part can go in any of the 18 limb slots — the slots don't care what kind of limb.
+  // body part can go in any of the 5 limb slots — the slots don't care what kind of limb.
   arm:'limb', hand:'limb', leg:'limb', foot:'limb', eye:'limb',
   ear:'limb', finger:'limb', heart:'limb', tongue:'limb',
   // Pets and mounts share the single Mount/Pet slot on the player doll.
@@ -3458,8 +3447,11 @@ function showTab(tab, btn) {
   if (tab === 'spin') updateInventorySummary();
   if (tab === 'print') renderPrintTable();
   if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
-  if (tab === 'player') { renderTokensTab(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
-  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); }
+  // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
+  // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
+  // browsable Token Library plus Saved Loadouts.
+  if (tab === 'player') { renderTokensTab(); renderSavedLoadouts(); }
+  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); renderPlayerSlots(); renderActiveEffects(); }
   // The Item Compendium tab holds three sub-panels (Items/Spells/Monsters, see
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
@@ -8697,16 +8689,12 @@ const SLOT_CATEGORY = {
   ring1:'ring', ring2:'ring', ring3:'ring', ring4:'ring',
   boots:'boots', leggings:'leggings',
   charm1:'charm', charm2:'charm', charm3:'charm', charm4:'charm', charm5:'charm',
-  // Grafted-limb slots (Fleshmancer) — 18 generic slots, all sharing the same 'limb' slot
-  // category so any grafted body part (arm, eye, heart, whatever) fits in any of them.
+  // Grafted-limb slots (Fleshmancer) — capped at 5 generic slots, all sharing the same
+  // 'limb' slot category so any grafted body part (arm, eye, heart, whatever) fits in any
+  // of them. (Was 18; the player asked to cap it at 5.)
   limbArm1:'limb', limbArm2:'limb',
   limbHand1:'limb', limbHand2:'limb',
-  limbLeg1:'limb', limbLeg2:'limb',
-  limbFoot1:'limb', limbFoot2:'limb',
-  limbEye1:'limb', limbEye2:'limb',
-  limbEar1:'limb', limbEar2:'limb',
-  limbFinger1:'limb', limbFinger2:'limb', limbFinger3:'limb', limbFinger4:'limb',
-  limbHeart:'limb', limbTongue:'limb',
+  limbLeg1:'limb',
   // Single Mount/Pet slot — accepts either subcategory (see SUBCATEGORY_TO_SLOT_CATEGORY).
   companion:'companion',
 };
@@ -8720,12 +8708,7 @@ const SLOT_LABELS = {
   charm1:'Charm', charm2:'Charm', charm3:'Charm', charm4:'Charm', charm5:'Charm',
   limbArm1:'Limb 1', limbArm2:'Limb 2',
   limbHand1:'Limb 3', limbHand2:'Limb 4',
-  limbLeg1:'Limb 5', limbLeg2:'Limb 6',
-  limbFoot1:'Limb 7', limbFoot2:'Limb 8',
-  limbEye1:'Limb 9', limbEye2:'Limb 10',
-  limbEar1:'Limb 11', limbEar2:'Limb 12',
-  limbFinger1:'Limb 13', limbFinger2:'Limb 14', limbFinger3:'Limb 15', limbFinger4:'Limb 16',
-  limbHeart:'Limb 17', limbTongue:'Limb 18',
+  limbLeg1:'Limb 5',
   companion:'Mount / Pet',
 };
 
@@ -8894,31 +8877,83 @@ function tokenDragStart(evt, key) {
   evt.dataTransfer.effectAllowed = 'copy';
 }
 
+// Normalizes the current drag payload on a drop event. dataTransfer.getData('text/plain')
+// is the real source of truth, but some browsers don't expose it reliably outside the
+// 'drop'/'dragstart' events, so every dragstart handler also stashes its payload in a
+// matching module-level variable as a fallback. Shared by every drop target on the Player/
+// Inventory tabs so a fresh library token, a stored inventory item ('invplace:<id>'), and an
+// equipped slot item ('slotitem:<slotId>') are all told apart the same way everywhere.
+function getDragPayload(evt) {
+  return evt.dataTransfer.getData('text/plain')
+    || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : null)
+    || (_draggedSlotId ? 'slotitem:' + _draggedSlotId : null)
+    || _draggedTokenKey;
+}
+
 // ---------- Player tab ----------
 function slotDragOver(evt) {
   evt.preventDefault();
   evt.dataTransfer.dropEffect = 'copy';
 }
 
+// Lets an already-equipped item be dragged back off its slot — onto the inventory grid to
+// re-store it, onto the remove zone to unequip it outright, or onto a different slot to
+// move it. Mirrors inventoryItemDragStart's 'copyMove' effectAllowed for the same reason
+// (has to be compatible with slotDragOver's dropEffect='copy' or the browser blocks the
+// drop with a "not allowed" cursor).
+let _draggedSlotId = null;
+function slotItemDragStart(evt, slotId) {
+  _draggedSlotId = slotId;
+  evt.dataTransfer.setData('text/plain', 'slotitem:' + slotId);
+  evt.dataTransfer.effectAllowed = 'copyMove';
+}
+
+// Accepts drops from the Token Library (plain token key), the Inventory grid (an
+// 'invplace:<id>' drag, set up by inventoryItemDragStart), or another equip slot (a
+// 'slotitem:<slotId>' drag, set up by slotItemDragStart just above). Equipping an item
+// dragged out of the inventory grid vacates the inventory slot it came from; equipping one
+// dragged from another equip slot vacates that slot instead — either way it ends up worn in
+// exactly one place at a time.
 function slotDrop(evt, slotId) {
   evt.preventDefault();
-  const key = evt.dataTransfer.getData('text/plain') || _draggedTokenKey;
-  placeTokenInSlot(key, slotId);
+  const raw = getDragPayload(evt);
+  if (!raw) return;
+  if (raw.indexOf('invplace:') === 0) {
+    const placementId = raw.slice('invplace:'.length);
+    const p = inventoryPlacements[placementId];
+    if (!p) return;
+    if (placeTokenInSlot(p.key, slotId)) removeFromInventory(placementId);
+    return;
+  }
+  if (raw.indexOf('slotitem:') === 0) {
+    const fromSlotId = raw.slice('slotitem:'.length);
+    if (fromSlotId === slotId) return;
+    const key = playerSlots[fromSlotId];
+    if (!key) return;
+    if (placeTokenInSlot(key, slotId)) {
+      playerSlots[fromSlotId] = null;
+      renderPlayerSlots();
+      renderActiveEffects();
+    }
+    return;
+  }
+  placeTokenInSlot(raw, slotId);
 }
 
 function placeTokenInSlot(key, slotId) {
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
-  if (!entry) return;
+  if (!entry) return false;
   const category = SLOT_CATEGORY[slotId];
   const tokenSlotType = getTokenSlotType(entry);
   if (tokenSlotType !== category) {
     flashSlotInvalid(slotId);
-    return;
+    return false;
   }
   playerSlots[slotId] = key;
   renderPlayerSlots();
   renderActiveEffects();
+  return true;
 }
 
 function flashSlotInvalid(slotId) {
@@ -8981,13 +9016,27 @@ function flashInvCellInvalid(row, col) {
   setTimeout(() => el.classList.remove('slot-invalid'), 350);
 }
 
-// Handles both a fresh token dragged in from the library (place it) and an existing
-// placement dragged to a new spot — anywhere in the grid, including a spot that overlaps
-// where it currently sits (see invCanPlaceAt's ignoreId), so it can be repositioned freely
-// rather than only onto cells that happen to already be empty of everything.
+// Places an already-resolved key at (row, col) as a brand-new placement — shared by both
+// a fresh library token drop and an equipped-slot item being dragged back into storage.
+function placeNewInventoryItem(key, row, col) {
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) return false;
+  const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+  if (!invCanPlaceAt(row, col, w)) { flashInvCellInvalid(row, col); return false; }
+  const placementId = 'inv' + (++inventoryPlacementCounter);
+  inventoryPlacements[placementId] = { key, row, col, w };
+  for (let c = col; c < col + w; c++) inventoryGrid[row][c] = placementId;
+  return true;
+}
+
+// Handles three kinds of drops onto a grid cell: a fresh token dragged in from the library
+// (place it), an existing placement dragged to a new spot (see invCanPlaceAt's ignoreId, so
+// it can be repositioned even onto cells it's already partly occupying), and an item dragged
+// back off an equip slot (un-equip it and store it here instead).
 function inventoryCellDrop(evt, row, col) {
   evt.preventDefault();
-  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
+  const raw = getDragPayload(evt);
   if (!raw) return;
 
   if (raw.indexOf('invplace:') === 0) {
@@ -9002,16 +9051,19 @@ function inventoryCellDrop(evt, row, col) {
     return;
   }
 
-  const key = raw;
-  if (!TOKEN_INDEX[key]) buildTokenIndex();
-  const entry = TOKEN_INDEX[key];
-  if (!entry) return;
-  const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
-  if (!invCanPlaceAt(row, col, w)) { flashInvCellInvalid(row, col); return; }
-  const placementId = 'inv' + (++inventoryPlacementCounter);
-  inventoryPlacements[placementId] = { key, row, col, w };
-  for (let c = col; c < col + w; c++) inventoryGrid[row][c] = placementId;
-  renderInventoryGrid();
+  if (raw.indexOf('slotitem:') === 0) {
+    const slotId = raw.slice('slotitem:'.length);
+    const key = playerSlots[slotId];
+    if (!key) return;
+    if (!placeNewInventoryItem(key, row, col)) return;
+    playerSlots[slotId] = null;
+    renderInventoryGrid();
+    renderPlayerSlots();
+    renderActiveEffects();
+    return;
+  }
+
+  if (placeNewInventoryItem(raw, row, col)) renderInventoryGrid();
 }
 
 function removeFromInventory(placementId) {
@@ -9022,14 +9074,17 @@ function removeFromInventory(placementId) {
   renderInventoryGrid();
 }
 
-// The dedicated "drag here to remove" zone next to the grid — only acts on an actual
-// placed item (an "invplace:" drag); dropping a fresh, not-yet-placed token from the
-// library here is a harmless no-op since there's nothing in the inventory to remove.
+// The dedicated "drag here to remove" zone next to the grid. An 'invplace:' drag deletes the
+// stored item outright. A 'slotitem:' drag (an equipped item dragged straight off its slot)
+// unequips it without ever passing back through the inventory — also removing it outright,
+// per the same "drag here to remove it" gesture. A fresh, not-yet-placed library token drag
+// is a harmless no-op since there's nothing to remove either way.
 function inventoryRemoveDrop(evt) {
   evt.preventDefault();
-  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : null);
-  if (!raw || raw.indexOf('invplace:') !== 0) return;
-  removeFromInventory(raw.slice('invplace:'.length));
+  const raw = getDragPayload(evt);
+  if (!raw) return;
+  if (raw.indexOf('invplace:') === 0) { removeFromInventory(raw.slice('invplace:'.length)); return; }
+  if (raw.indexOf('slotitem:') === 0) { unequipSlot(raw.slice('slotitem:'.length)); return; }
 }
 
 function clearInventory() {
@@ -9201,11 +9256,7 @@ const SLOT_EMPTY_ICON = {
   facewear:'🥽', handwear:'🧤',
   cloak:'🧣', beltwaist:'🔘', offhand:'🛡️',
   // All limb slots now use one generic icon since any body part can go in any slot.
-  limbArm1:'🩸', limbArm2:'🩸', limbHand1:'🩸', limbHand2:'🩸',
-  limbLeg1:'🩸', limbLeg2:'🩸', limbFoot1:'🩸', limbFoot2:'🩸',
-  limbEye1:'🩸', limbEye2:'🩸', limbEar1:'🩸', limbEar2:'🩸',
-  limbFinger1:'🩸', limbFinger2:'🩸', limbFinger3:'🩸', limbFinger4:'🩸',
-  limbHeart:'🩸', limbTongue:'🩸',
+  limbArm1:'🩸', limbArm2:'🩸', limbHand1:'🩸', limbHand2:'🩸', limbLeg1:'🩸',
   companion:'🐾',
 };
 
@@ -9221,6 +9272,8 @@ function renderPlayerSlots() {
       el.classList.remove('filled');
       el.innerHTML = `<div class="doll-slot-empty-icon">${SLOT_EMPTY_ICON[slotId] || '·'}</div>`;
       el.title = SLOT_LABELS[slotId] || '';
+      el.draggable = false;
+      el.ondragstart = null;
       el.onclick = null;
       el.onmouseenter = null;
       el.onmousemove = null;
@@ -9230,6 +9283,10 @@ function renderPlayerSlots() {
     el.classList.add('filled');
     el.innerHTML = `<div class="slot-token ${entry.rarity}">${escapeHtml(entry.item.name)}</div>`;
     el.title = SLOT_LABELS[slotId] || '';
+    // Equipped items are themselves draggable now — off onto the inventory grid to re-store
+    // them, onto the remove zone to unequip, or onto another matching slot to move them.
+    el.draggable = true;
+    el.ondragstart = (evt) => slotItemDragStart(evt, slotId);
     el.onclick = () => unequipSlot(slotId);
     el.onmouseenter = (evt) => showTokenTooltip(evt, key);
     el.onmousemove = (evt) => moveTokenTooltip(evt);
