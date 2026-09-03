@@ -1676,6 +1676,23 @@
   .combat-log{background:var(--surface);border:1px solid var(--border);max-height:400px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:.5rem;padding:.8rem}
   .combat-log-empty{color:var(--text-dim);font-style:italic;text-align:center;padding:1.5rem}
   .combat-empty-roster{color:var(--text-dim);font-style:italic;padding:1.5rem;text-align:center;border:1px dashed var(--border)}
+  /* Monster looting — right-click to defeat, right-click again to roll loot */
+  .combat-card.combat-card-defeated{opacity:.7;border-style:dashed}
+  .combat-defeated-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--danger);color:var(--danger);vertical-align:middle}
+  .combat-loot-hint{color:var(--text-dim);font-style:italic;font-size:.85rem;padding:.4rem 0}
+  .combat-loot-block{background:rgba(0,0,0,.2);border:1px solid var(--border);padding:.6rem .7rem;display:flex;flex-direction:column;gap:.35rem}
+  .combat-loot-title{font-weight:600;font-size:.9rem;color:var(--gold)}
+  .combat-loot-gold{font-family:'Share Tech Mono',monospace;font-size:.8rem;color:var(--gold-bright)}
+  .combat-loot-item{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.82rem;border-left:3px solid var(--border);padding:.2rem .5rem;background:rgba(0,0,0,.15)}
+  .combat-loot-item.common{border-left-color:var(--common)}
+  .combat-loot-item.uncommon{border-left-color:var(--uncommon)}
+  .combat-loot-item.rare{border-left-color:var(--rare)}
+  .combat-loot-item.superrare{border-left-color:var(--superrare)}
+  .combat-loot-item.legendary{border-left-color:var(--legendary)}
+  .combat-loot-item.celestial{border-left-color:var(--celestial)}
+  .cls-field-row{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;margin-bottom:1rem;font-size:.88rem;color:var(--text-dim)}
+  .cls-field-row input[type="number"]{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;padding:.3rem .4rem}
+  .cls-field-row input[type="range"]{accent-color:var(--gold);vertical-align:middle}
 
 </style>
 <style>
@@ -2530,6 +2547,9 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
     <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon).</p>
+
+    <p class="combat-variant-note">Right-click a roster card to defeat it, then right-click the defeated card again to roll its loot — rarity is driven by the monster's own tier (its rolled variant tier if it has one, otherwise its CR), and there's a chance of a monster part instead of (or alongside) normal gear. Each tier's loot preset — item count, monster part odds, and the rarity weights it draws from — is fully visible and adjustable below.</p>
+    <div id="combatLootSettingsPanel"></div>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -3462,6 +3482,7 @@ const SUBCATEGORY_LABELS = {
   arm:'Arm', hand:'Hand', leg:'Leg', foot:'Foot', eye:'Eye', ear:'Ear',
   finger:'Finger', heart:'Heart', tongue:'Tongue',
   pet:'Pet', mount:'Mount',
+  monsterpart:'Monster Part',
 };
 // Slot size is a property of the subcategory, not something rolled per item — a chest
 // piece is always 2 slots, a ring is always 1, etc.
@@ -3472,6 +3493,8 @@ const SUBCATEGORY_SLOT_SIZE = {
   ring:1, amulet:1, charm:1,
   pet:1, mount:1,
   arm:2, hand:1, leg:2, foot:1, eye:1, ear:1, finger:1, heart:1, tongue:1,
+  // Raw crafting materials (see MONSTER_PART_TYPES) — small enough to always be 1 slot.
+  monsterpart:1,
 };
 // Maps a subcategory to the equipment-slot category it fits on the player doll.
 const SUBCATEGORY_TO_SLOT_CATEGORY = {
@@ -3486,6 +3509,11 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   ear:'limb', finger:'limb', heart:'limb', tongue:'limb',
   // Pets and mounts share the single Mount/Pet slot on the player doll.
   pet:'companion', mount:'companion',
+  // Monster parts aren't meant to be worn — they're crafting materials for the (future)
+  // Monster Mangler — but every item needs *some* slot category for the Token Library's
+  // filter dropdown and inventory bookkeeping, so they ride in the same generic "charm"
+  // bucket as other small trinkets/materials.
+  monsterpart:'charm',
 };
 // Derives a subcategory purely from the item's name and general type — this is the one
 // place that decides "what kind of armor/weapon/consumable/misc item is this", so every
@@ -3562,6 +3590,7 @@ const WEIGHT_RANGE_BY_SUBCATEGORY = {
   pet:[0,0], mount:[0,0],
   arm:[4,15], hand:[1,4], leg:[5,18], foot:[1,4],
   eye:[0.1,1], ear:[0.1,1], finger:[0.1,0.5], heart:[0.3,1.5], tongue:[0.2,1],
+  monsterpart:[0.2,12],
 };
 const HEAVY_WEAPON_KEYWORDS = /massive|giant'?s|titan|colossal|great.?axe|great.?sword|great.?club|maul|warhammer|zweihander|bonecrusher|earthbreaker|juggernaut|siege/i;
 const HEAVY_WEAPON_RANGE = [15, 50];
@@ -3807,7 +3836,7 @@ function showTab(tab, btn) {
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
   if (tab === 'compendium') initCompendiumSub(activeCompendiumSub);
-  if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); }
+  if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); renderCombatLootSettings(); }
   if (tab === 'store') { renderStoreTab(); }
 }
 
@@ -10746,6 +10775,203 @@ function addMonsterToBattle(idx) {
   renderCombatRoster();
 }
 
+// ===================== MONSTER LOOTING =====================
+// Right-click a roster card once to mark it defeated; right-click the (now-defeated) card
+// again to roll its loot. Loot rarity is driven by the monster's own tier — its rolled
+// variant tier if it has one (a "Legendary" variant Kobold loots like a legendary creature),
+// otherwise a CR band — feeding into a per-tier weight/count/part-chance preset that's fully
+// visible and adjustable in the collapsible "Monster Loot Settings" panel above the search
+// box, seeded from the exact same CHEST_CASCADE_WEIGHTS used by treasure chests.
+
+// ---------- Monster Parts (new "craftable" item category) ----------
+// Works from any creature in the registry — the part is just the source monster's own name
+// plus a body-part label, so there's no hardcoded per-species list to maintain. Weight/GP
+// scale with the monster's loot tier, and each part has a chance to carry a "latent"
+// modifier pulled from the exact same named-trait pool used for player gear and monster
+// traits — flavor now, and the raw material the (future) Monster Mangler will consume to
+// actually imbue that modifier into a compatible weapon or piece of armor.
+const MONSTER_PART_TYPES = [
+  { key:'eye',      label:'Eye' },      { key:'fang',    label:'Fang' },
+  { key:'claw',     label:'Claw' },     { key:'hide',    label:'Hide' },
+  { key:'horn',     label:'Horn' },     { key:'wing',    label:'Wing' },
+  { key:'tail',     label:'Tail' },     { key:'venomsac',label:'Venom Sac' },
+  { key:'heart',    label:'Heart' },    { key:'bone',    label:'Bone' },
+  { key:'talon',    label:'Talon' },    { key:'tongue',  label:'Tongue' },
+  { key:'shell',    label:'Shell' },    { key:'pelt',    label:'Pelt' },
+];
+const MONSTER_PART_WEIGHT_RANGE = { common:[0.2,2], uncommon:[0.5,3], rare:[1,5], superrare:[2,8], legendary:[3,12], celestial:[5,20] };
+const MONSTER_PART_GP_RANGE = { common:[5,25], uncommon:[25,100], rare:[100,400], superrare:[400,1500], legendary:[1500,6000], celestial:[6000,20000] };
+const MONSTER_PART_MOD_CHANCE = { common:0.15, uncommon:0.25, rare:0.4, superrare:0.55, legendary:0.75, celestial:0.9 };
+let monsterPartCounter = 0;
+function describeNamedModifier(mod) {
+  const parts = [...(mod.buffs || []).map(b => '+' + b), ...(mod.debuffs || []).map(d => '-' + d)];
+  return `${mod.name} (${parts.join(', ')})`;
+}
+function generateMonsterPart(monster, tier) {
+  const partType = ri(MONSTER_PART_TYPES);
+  const name = `${monster.name} ${partType.label}`;
+  const [wLo, wHi] = MONSTER_PART_WEIGHT_RANGE[tier] || MONSTER_PART_WEIGHT_RANGE.common;
+  const weight = Math.round((wLo + Math.random() * (wHi - wLo)) * 10) / 10;
+  const [gLo, gHi] = MONSTER_PART_GP_RANGE[tier] || MONSTER_PART_GP_RANGE.common;
+  const gp = formatGpAmount(rn(gLo, gHi));
+  const mod = Math.random() < (MONSTER_PART_MOD_CHANCE[tier] || 0.15) ? ri(GEN.namedModifiers) : null;
+  const effect = mod
+    ? `Latent essence: ${describeNamedModifier(mod)}. Can be worked into a compatible weapon or piece of armor to imbue this effect.`
+    : `Raw crafting material — no effect on its own, but can be worked into a compatible weapon or piece of armor.`;
+  return {
+    id: 'part' + (++monsterPartCounter), name, type: 'craftable', subcategory: 'monsterpart',
+    partType: partType.key, rarity: tier, weight, gp, slotSize: 1,
+    desc: `A ${partType.label.toLowerCase()} harvested from a defeated ${monster.name.toLowerCase()}, still faintly redolent of the creature it came from.`,
+    effect, sourceMonster: monster.name, modifier: mod,
+  };
+}
+
+// ---------- Monster rarity tier (drives loot chances) ----------
+const MONSTER_LOOT_CR_BANDS = [
+  { max: 2, tier: 'common' }, { max: 5, tier: 'uncommon' }, { max: 9, tier: 'rare' },
+  { max: 14, tier: 'superrare' }, { max: 20, tier: 'legendary' }, { max: Infinity, tier: 'celestial' },
+];
+// A rolled variant tier ("this specific instance is a Legendary reskin") always wins over
+// the base creature's own CR band — a variant is explicitly "this monster, but stronger/
+// weaker than usual," and loot should reflect the instance actually fought, not the book stats.
+function monsterRarityTier(monster, variant) {
+  if (variant && variant.tier) return variant.tier;
+  const cr = crSortValue(monster.cr);
+  for (const band of MONSTER_LOOT_CR_BANDS) if (cr <= band.max) return band.tier;
+  return 'celestial';
+}
+
+// ---------- Loot settings: one adjustable preset per monster rarity tier ----------
+// Seeded from CHEST_CASCADE_WEIGHTS (the exact same "mostly this tier, some spillover"
+// distribution treasure chests already use) plus sensible item-count/part-chance defaults,
+// so common monsters drop a little junk and celestial ones drop a small hoard — but every
+// number here is a live, editable setting, not a hardcoded roll.
+const COMBAT_LOOT_PRESET_DEFAULTS = {
+  common:    { minItems:1, maxItems:2, partChance:10 },
+  uncommon:  { minItems:1, maxItems:3, partChance:20 },
+  rare:      { minItems:2, maxItems:3, partChance:35 },
+  superrare: { minItems:2, maxItems:4, partChance:50 },
+  legendary: { minItems:3, maxItems:5, partChance:70 },
+  celestial: { minItems:3, maxItems:6, partChance:85 },
+};
+function freshCombatLootSettings(tier) {
+  const d = COMBAT_LOOT_PRESET_DEFAULTS[tier];
+  return { minItems: d.minItems, maxItems: d.maxItems, partChance: d.partChance, weights: { ...(CHEST_CASCADE_WEIGHTS[tier] || {}) } };
+}
+let combatLootSettings = {};
+BAL.rarityOrder.forEach(tier => { combatLootSettings[tier] = freshCombatLootSettings(tier); });
+function resetCombatLootPreset(tier) {
+  combatLootSettings[tier] = freshCombatLootSettings(tier);
+  renderCombatLootSettings();
+}
+function updateCombatLootWeight(tier, outTier, value) {
+  combatLootSettings[tier].weights[outTier] = parseInt(value, 10) || 0;
+  const el = document.getElementById(`cls-${tier}-${outTier}`);
+  if (el) el.textContent = value;
+}
+function updateCombatLootField(tier, field, value) {
+  combatLootSettings[tier][field] = Math.max(0, parseInt(value, 10) || 0);
+}
+function combatLootSettingsHtml() {
+  return BAL.rarityOrder.map(tier => {
+    const s = combatLootSettings[tier];
+    const weightRows = BAL.rarityOrder.map(outTier => `
+      <div class="mw-row"><label style="color:${rarityColors[outTier]}">${rarityNames[outTier]}</label>
+        <input type="range" min="0" max="100" value="${s.weights[outTier] || 0}" oninput="updateCombatLootWeight('${tier}','${outTier}',this.value)">
+        <span class="mw-val" id="cls-${tier}-${outTier}">${s.weights[outTier] || 0}</span>
+      </div>`).join('');
+    return `
+      <details class="collapsible">
+        <summary><span style="color:${rarityColors[tier]}">${rarityNames[tier]}</span> Monster Loot Preset</summary>
+        <div class="collapsible-body">
+          <div class="cls-field-row">
+            <label>Item Count: <input type="number" min="0" max="10" value="${s.minItems}" style="width:3.2rem" onchange="updateCombatLootField('${tier}','minItems',this.value)"> to
+              <input type="number" min="0" max="10" value="${s.maxItems}" style="width:3.2rem" onchange="updateCombatLootField('${tier}','maxItems',this.value)"></label>
+            <label>Monster Part Drop Chance:
+              <input type="range" min="0" max="100" value="${s.partChance}" oninput="updateCombatLootField('${tier}','partChance',this.value); document.getElementById('clp-${tier}').textContent=this.value+'%'">
+              <span id="clp-${tier}">${s.partChance}</span>%
+            </label>
+          </div>
+          <div class="mw-card">
+            <h3>Output Rarity Weights</h3>
+            <p class="mw-desc">How likely each rarity of item is when this tier's loot is rolled — relative weights, not percentages.</p>
+            ${weightRows}
+          </div>
+          <button class="mw-reset-btn" onclick="resetCombatLootPreset('${tier}')">Reset to ${rarityNames[tier]} Default</button>
+        </div>
+      </details>
+    `;
+  }).join('');
+}
+function renderCombatLootSettings() {
+  const wrap = document.getElementById('combatLootSettingsPanel');
+  if (wrap) wrap.innerHTML = combatLootSettingsHtml();
+}
+
+// ---------- Rolling the actual loot ----------
+function weightedPickFromObject(weights) {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((a, [, w]) => a + w, 0);
+  if (!total) return entries.length ? entries[0][0] : 'common';
+  let r = Math.random() * total;
+  for (const [k, w] of entries) { r -= w; if (r <= 0) return k; }
+  return entries[0][0];
+}
+// Same gold-formatting logic as pickChestGold()/awardChestOfRarity(), duplicated rather than
+// shared since it hangs off a different settings object (combatLootSettings' tier, not the
+// Chest tab's own chestRarity global) — see awardChestOfRarity's comment for the reasoning.
+function rollCombatGoldForTier(tier) {
+  const g = CHEST_GOLD[tier] || CHEST_GOLD.common;
+  const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
+  if (tier === 'common') { const sp = Math.floor(amount * 0.3), cp = Math.floor(amount * 2); return `${sp} sp, ${cp} cp`; }
+  if (amount >= 10000) return (amount / 1000).toFixed(0) + ',000 gp';
+  if (amount >= 1000) return (amount / 1000).toFixed(1).replace('.0', '') + ',000 gp';
+  return amount + ' gp';
+}
+function rollMonsterCombatLoot(entry) {
+  const tier = monsterRarityTier(entry.monster, entry.variant);
+  const settings = combatLootSettings[tier] || freshCombatLootSettings(tier);
+  const itemCount = rn(settings.minItems, settings.maxItems);
+  const items = [];
+  const usedNames = new Set();
+  for (let i = 0; i < itemCount; i++) {
+    const r = weightedPickFromObject(settings.weights);
+    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
+    if (!pool.length) continue;
+    const raw = ri(pool);
+    usedNames.add(raw.name);
+    items.push({ ...resolveScrollSpell(raw), rarity: r, id: 'cloot' + (++monsterPartCounter) });
+  }
+  if (Math.random() * 100 < settings.partChance) {
+    items.push(generateMonsterPart(entry.monster, tier));
+  }
+  return { tier, gold: rollCombatGoldForTier(tier), items };
+}
+// Right-click handler shared by every roster card: first click defeats, second click (once
+// defeated) rolls loot. Anything after that is a no-op — loot doesn't reroll on a third
+// click, so the result stays put once it's shown.
+function combatCardContextMenu(evt, uid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  evt.preventDefault();
+  if (!entry.defeated) {
+    entry.defeated = true;
+    renderCombatRoster();
+    return;
+  }
+  if (entry.loot) return;
+  entry.loot = rollMonsterCombatLoot(entry);
+  renderCombatRoster();
+}
+// Saves one rolled loot item (or monster part) into the same savedGeneratedItems pool
+// everything else uses — reuses saveLootResultItem() exactly as the wheel-spin/chest "Save"
+// buttons do, so it shows up in the Token Library right away.
+function saveCombatLootItem(uid, idx, btn) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
+  saveLootResultItem(entry.loot.items[idx], btn);
+}
+
 function removeFromBattle(uid) {
   battleRoster = battleRoster.filter(e => e.uid !== uid);
   renderCombatRoster();
@@ -10879,7 +11105,7 @@ function rollBattleAttack(uid) {
 // renders once at the end so adding a big roster doesn't repaint per-creature.
 function rollAllBattleAttacks() {
   if (!battleRoster.length) return;
-  battleRoster.forEach(resolveBattleAttack);
+  battleRoster.forEach(entry => { if (!entry.defeated) resolveBattleAttack(entry); });
   if (battleLog.length > 50) battleLog = battleLog.slice(-50);
   renderCombatRoster();
   renderCombatLog();
@@ -10913,10 +11139,36 @@ function renderCombatRoster() {
     // side by side, so the same rarity highlight from the search results carries over.
     const bountyTag = m.bountyRarity ? ` bounty-tagged ${m.bountyRarity}` : '';
     const bountyBadge = m.bountyRarity ? `<span class="combat-bounty-badge ${m.bountyRarity}">🎯 Bounty</span>` : '';
-    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}">
+    // Right-click once to defeat, right-click the defeated card again to roll its loot —
+    // see combatCardContextMenu(). Once defeated, attacking no longer makes sense, so the
+    // "Roll Attack" button is replaced by the defeat/loot state instead.
+    const defeatedTag = entry.defeated ? ' combat-card-defeated' : '';
+    const defeatedBadge = entry.defeated ? '<span class="combat-defeated-badge">☠ Defeated</span>' : '';
+    let actionHtml;
+    if (!entry.loot) {
+      actionHtml = entry.defeated
+        ? '<div class="combat-loot-hint">☠ Defeated — right-click again to roll its loot.</div>'
+        : `<button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>`;
+    } else {
+      const lootTier = entry.loot.tier;
+      actionHtml = `
+        <div class="combat-loot-block ${lootTier}">
+          <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[lootTier]}">(${rarityNames[lootTier]} tier)</span></div>
+          <div class="combat-loot-gold">💰 ${escapeHtml(entry.loot.gold)}</div>
+          ${entry.loot.items.length ? entry.loot.items.map((it, idx) => `
+            <div class="combat-loot-item ${it.rarity}">
+              <span>${escapeHtml(it.name)}</span>
+              <button class="loot-save-btn" onclick="saveCombatLootItem(${entry.uid}, ${idx}, this)">💾 Save</button>
+            </div>
+          `).join('') : '<div class="combat-loot-item">Nothing but the gold.</div>'}
+        </div>
+      `;
+    }
+    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}${defeatedTag}"
+      oncontextmenu="combatCardContextMenu(event, ${entry.uid})">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}${defeatedBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
@@ -10924,7 +11176,7 @@ function renderCombatRoster() {
       <div class="combat-card-stats"><span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(String(entry.hp))}${hpDiceNote}</span></div>
       ${statLinesHtml}
       ${chaosLines}
-      <button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>
+      ${actionHtml}
       ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
     </div>`;
   }).join('');
