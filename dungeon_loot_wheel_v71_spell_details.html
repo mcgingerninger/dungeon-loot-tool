@@ -2990,6 +2990,22 @@ const lootData = {
     {name:"Draft Mule",desc:"A patient, hard-working mule, better suited to hauling than speed.",type:"companion",subcategory:"mount",slotSize:1,gp:"20 gp",ac:"10",effect:"Speed 40 ft. Exceptional load-bearer: carrying capacity 420 lbs. without penalty. Sure-footed on rough terrain — advantage on checks to avoid slipping or stumbling."},
     {name:"Riding Horse",desc:"A calm, reliable horse, unremarkable except for its dependability.",type:"companion",subcategory:"mount",slotSize:1,gp:"50 gp",ac:"10",effect:"Speed 60 ft. Suitable rider: Medium or smaller. Carrying capacity 480 lbs."},
     {name:"Mountain Goat",desc:"A surefooted mountain goat, small enough for a halfling or gnome to ride comfortably.",type:"companion",subcategory:"mount",slotSize:1,gp:"25 gp",ac:"10",effect:"Speed 40 ft. Climb speed 20 ft. Advantage on checks and saves to avoid falling or being knocked prone on rough or sloped terrain."},
+    // ── ITEM CLASSIFICATION COVERAGE: Document / Treasure / Key-Quest-Object / Tool /
+    // Miscellaneous branches had no representative items at all before this batch (see the
+    // classification system comment above inferItemMetadata) — these give every one of
+    // those branches at least a few real, fully-classified entries to browse.
+    {name:"Traveler's Journal",desc:"A worn leather-bound journal, its pages full of a stranger's cramped handwriting — travel routes, weather notes, and the occasional worried aside about being followed.",type:"document",gp:"2 gp",effect:"Reading it cover to cover reveals the route of a specific journey and a name the writer feared. GM discretion on relevance to the current adventure."},
+    {name:"Cartographer's Dungeon Map",desc:"A hand-inked map of a specific dungeon or ruin, corners curled from handling.",type:"document",gp:"5 gp",effect:"Shows the layout of one dungeon or ruin, including at least one route the party hasn't found yet. May be incomplete or slightly wrong."},
+    {name:"Stack of Gold Coins",desc:"A neat stack of coins bearing the crest of a kingdom that may or may not still exist.",type:"treasure",gp:"50 gp",effect:"Pure currency — no mechanical effect, just spendable wealth (assuming the kingdom's coin is still honored anywhere)."},
+    {name:"Chipped Rose Quartz",desc:"A fist-sized chunk of rose quartz, cloudy and imperfect but still pretty enough to sell.",type:"treasure",gp:"25 gp",effect:"A decorative semi-precious stone. Worth more to a jeweler than an alchemist."},
+    {name:"Corroded Vault Key",desc:"A heavy iron key, rusted nearly solid. Whatever it opens hasn't been touched in a long time.",type:"questitem",gp:"—",effect:"GM determines what lock this key fits, if any — likely something the current owner forgot existed."},
+    {name:"Bloodstained Evidence Cloth",desc:"A torn scrap of fabric, stained dark. Someone will want to know where this was found.",type:"questitem",gp:"—",effect:"Physical evidence tying its bearer (or whoever presents it) to a specific event. GM determines what it can prove and to whom."},
+    {name:"Cartographer's Surveying Set",desc:"A brass sighting scope, a set of measuring chains, and a well-used sketchbook.",type:"misc",gp:"15 gp",effect:"Proficiency with a cartographer's tools lets you produce an accurate map of any area you've thoroughly explored."},
+    {name:"Traveling Minstrel's Lute",desc:"A well-traveled lute with a few new scars but a still-true sound.",type:"misc",gp:"10 gp",effect:"A musical instrument. Proficiency with it lets you use it as a spellcasting focus (bard) or simply to play — and possibly earn a meal and a bed for the night."},
+    {name:"Carved Wooden Idol",desc:"A small idol carved from dark wood, worn smooth at the base from generations of hands.",type:"misc",gp:"3 gp",effect:"A minor religious keepsake. No mechanical effect, though it may be recognized by followers of whatever it depicts."},
+    {name:"Dusty Porcelain Figurine",desc:"A painted porcelain figurine of a shepherdess, missing one hand.",type:"misc",gp:"4 gp",effect:"A decorative curiosity. Worth more to a collector than to anyone practical."},
+    {name:"Set of Carved Game Pieces",desc:"A dozen small carved pieces for a strategy game, missing their board.",type:"misc",gp:"2 gp",effect:"A complete (if boardless) game set — draw a grid in the dirt and you're back in business."},
+    {name:"Chipped Clay Mug",desc:"A plain clay mug with a chip in the rim, otherwise perfectly serviceable.",type:"misc",gp:"1 cp",effect:"Holds a drink. That's it. That's the whole item."},
   ],
   uncommon: [
     {name:"Potion of Healing",desc:"A glass vial of faintly glowing pink liquid with a sweet, coppery taste.",type:"consumable",slotSize:1,gp:"150 gp",hp:"2d4+2",effect:"Restores 2d4+2 hit points. Action to drink. The most common magical item in existence."},
@@ -3200,6 +3216,17 @@ const lootData = {
     {name:"Desert Camel",desc:"A tall, ill-tempered but extremely hardy desert camel.",type:"companion",subcategory:"mount",slotSize:1,gp:"60 gp",ac:"10",effect:"Speed 50 ft. Can go up to 4 days without water. Rider has advantage on Constitution saves against extreme heat while mounted."},
     {name:"Riding-Trained Elk",desc:"A broad-antlered elk, calm enough to bear a rider despite its size.",type:"companion",subcategory:"mount",slotSize:1,gp:"350 gp",ac:"11",effect:"Speed 60 ft. Rider gains advantage on Survival checks to navigate forests or tundra while mounted."},
     {name:"Giant Goat",desc:"A goat the size of a small horse, bred in mountain holds for exactly this purpose.",type:"companion",subcategory:"mount",slotSize:1,gp:"500 gp",ac:"11",effect:"Speed 40 ft. Climb speed 40 ft. Never needs a check to climb even sheer, difficult surfaces at full speed."},
+    // ── ITEM CLASSIFICATION COVERAGE (uncommon tier) ──
+    {name:"Sealed Royal Decree",desc:"A rolled parchment sealed in wax bearing an unmistakable royal crest. Whatever it orders, it orders with authority.",type:"document",gp:"10 gp",effect:"An official decree from a ruling authority. GM determines its contents and how much weight it carries with whoever reads it."},
+    {name:"Tattered Treasure Map",desc:"A hand-drawn map, edges burnt, marking an X in a location that may or may not still be accurate.",type:"document",gp:"25 gp",effect:"Marks the location of a specific cache of treasure. GM determines what's actually there — and whether anyone's beaten you to it."},
+    {name:"Ancient Silver Ingot",desc:"A bar of tarnished silver, stamped with a mint mark no one currently alive recognizes.",type:"treasure",gp:"200 gp",effect:"Pure currency, denser and more valuable than coin. No mechanical effect."},
+    {name:"Antique Gold Necklace",desc:"A delicate gold necklace, old-fashioned in its craftsmanship but not in its shine.",type:"treasure",gp:"150 gp",effect:"A piece of jewelry with real resale value. No mechanical effect — this one's just for the coin."},
+    {name:"Sigil of the Silver Order",desc:"A small silver medallion stamped with a sigil — a mark of standing within some organization, current or defunct.",type:"questitem",gp:"—",effect:"Identifies the bearer as a member (or impostor) of the Silver Order. GM determines what doors — literal or otherwise — this opens."},
+    {name:"Wax-Sealed Noble's Pass",desc:"A folded letter of passage, sealed with a noble house's wax stamp, granting the bearer safe travel through their lands.",type:"questitem",gp:"—",effect:"Grants safe passage through territory controlled by the issuing house, so long as the seal is intact and unquestioned."},
+    {name:"Rune-Carved Puzzle Stone",desc:"A flat river stone carved with a single rune, clearly meant to slot into something else entirely.",type:"questitem",gp:"—",effect:"One piece of a larger mechanism or puzzle. GM determines what it fits and what happens when it does."},
+    {name:"Surgeon's Kit",desc:"A leather roll of surgical implements — scalpels, clamps, needle and gut — kept meticulously clean.",type:"misc",gp:"40 gp",effect:"Proficiency with this kit grants advantage on checks made to perform surgery, stabilize a dying creature, or treat a serious wound beyond what a basic healer's kit can manage."},
+    {name:"Master Thief's Lockpick Set",desc:"A compact roll of fine lockpicks and tension wrenches, clearly the tools of someone who took this seriously.",type:"misc",gp:"60 gp",effect:"A superior set of thieves' tools. Grants a +2 bonus on checks made to pick locks or disarm mechanical traps, on top of normal tool proficiency."},
+    {name:"Mounted Boar's Head Trophy",desc:"A boar's head, mounted and preserved, tusks still impressively sharp.",type:"misc",gp:"20 gp",effect:"A hunting trophy. No mechanical effect, but it makes a statement wherever it's hung."},
   ],
   rare: [
     {name:"Longsword +2",desc:"A longsword of exceptional craftsmanship, its blade inscribed with flowing runes.",type:"weapon",slotSize:2,gp:"4000 gp",dmg:"1d8+2",effect:"+2 to attack and damage rolls. Versatile (1d10+2). Counts as magical. Requires attunement.",unlocks:[{"type":"locked","tierLabel":"Hidden Power — Awakened","condition":"Score a critical hit against 10 different creatures with this sword.","reward":"The blade's edge sharpens permanently: its damage die increases to 1d10 (1d12 if used versatile)."}]},
@@ -3336,6 +3363,14 @@ const lootData = {
     {name:"Riding Giant Lizard",desc:"A stocky, broad-backed lizard bred for stability on vertical and inverted surfaces.",type:"companion",subcategory:"mount",slotSize:1,gp:"3000 gp",ac:"13",effect:"Speed 40 ft. Climb speed 40 ft., including upside-down and on ceilings. Never needs a check to climb difficult surfaces. Rider gains +1 to attack rolls made while mounted (the lizard's stability makes for a steadier strike)."},
     {name:"Giant Seahorse",desc:"A colorful, gentle seahorse the size of a warhorse, used for underwater travel by coastal folk.",type:"companion",subcategory:"mount",slotSize:1,gp:"3500 gp",ac:"12",effect:"Swim speed 60 ft. Cannot leave the water. Rider can breathe water while mounted, and has resistance to cold damage while submerged and mounted (the seahorse's natural field extends both courtesies)."},
     {name:"Broken Axe Beak",desc:"A flightless, big-beaked bird bred for speed across open ground, foul-tempered but fast.",type:"companion",subcategory:"mount",slotSize:1,gp:"2800 gp",ac:"12",effect:"Speed 70 ft. Rider gains advantage on checks to avoid being thrown or unhorsed at high speed, and +1 to attack rolls made on a turn the mount moved at least 20 ft. beforehand (a mounted charge)."},
+    // ── ITEM CLASSIFICATION COVERAGE (rare tier) ──
+    {name:"Grimoire of Forgotten Arcana",desc:"A heavy tome bound in cracked leather, its pages dense with arcane theory that predates most current schools of magic.",type:"document",gp:"150 gp",effect:"A scholarly work on arcane magic. Studying it for a full week grants advantage on the next Arcana check made regarding a topic it covers, GM discretion."},
+    {name:"Illustrated Bestiary of Vile Beasts",desc:"A richly illustrated bestiary cataloguing dozens of monstrous creatures, complete with margin notes on their weaknesses.",type:"document",gp:"120 gp",effect:"A bestiary covering a range of creatures. Consulting it before an encounter with a catalogued creature grants advantage on the relevant Nature or Arcana check to recall useful information about it."},
+    {name:"Flawless Sapphire",desc:"A deep blue sapphire cut to total clarity, without a single visible flaw.",type:"treasure",gp:"500 gp",effect:"A precious gem of exceptional quality. Pure currency value — no mechanical effect."},
+    {name:"Marble Statue of a Forgotten Hero",desc:"A finely carved marble statue depicting a warrior whose name has been lost to time, one hand still raised in a gesture no one alive can interpret.",type:"treasure",gp:"600 gp",effect:"A large art object of real value. No mechanical effect — and it's heavy enough that moving it is a project of its own."},
+    {name:"Everbright Key of Warding",desc:"A key of gleaming, untarnishable metal, faintly warm to the touch and etched with softly glowing enchanted sigils.",type:"questitem",gp:"—",effect:"A magically enchanted key. GM determines what warded lock or barrier it opens — ordinary means won't get through without it."},
+    {name:"Diviner's Scrying Kit",desc:"A polished obsidian mirror, a pouch of silver dust, and a set of diviner's cards, all kept in a padded velvet case.",type:"misc",gp:"180 gp",effect:"A set of divination tools. Proficiency with them grants advantage on checks made while casting or interpreting divination magic, such as scrying or augury."},
+    {name:"Ritual Candle Set of the Pale Circle",desc:"A bundle of black tallow ritual candles marked with the sigil of a secretive circle, meant to be burned in a specific pattern.",type:"misc",gp:"90 gp",effect:"A set of ritual tools. Using them while casting a spell with the ritual tag grants advantage on any ability check required as part of the casting."},
   ],
   superrare: [
     {name:"Vorpal Sword",desc:"A gleaming longsword of terrifying sharpness.",type:"weapon",slotSize:2,gp:"75000 gp",dmg:"1d8+3",effect:"+3 attack and damage. Natural 20: severs target's head (instantly killing most creatures). No effect on creatures that don't need heads. Ignores slashing resistance. Requires attunement.",unlocks:[{"type":"locked","tierLabel":"Hidden Power — Ascendant","condition":"Sever the head of 3 different creatures using the vorpal effect.","reward":"The vorpal effect now also triggers on a natural 19, and any creature slain this way cannot be raised as undead by means short of a Wish."}]},
@@ -3574,6 +3609,9 @@ const SUBCATEGORY_LABELS = {
   finger:'Finger', heart:'Heart', tongue:'Tongue',
   pet:'Pet', mount:'Mount',
   monsterpart:'Monster Part',
+  journal:'Journal', letter:'Letter', map:'Map', book:'Book',
+  gem:'Gem', jewelry:'Jewelry', art:'Art', currency:'Currency', currencybar:'Currency Bar',
+  key:'Key', accesstoken:'Access Token', puzzleobject:'Puzzle Object', questobject:'Quest Object',
 };
 // Slot size is a property of the subcategory, not something rolled per item — a chest
 // piece is always 2 slots, a ring is always 1, etc.
@@ -3586,6 +3624,11 @@ const SUBCATEGORY_SLOT_SIZE = {
   arm:2, hand:1, leg:2, foot:1, eye:1, ear:1, finger:1, heart:1, tongue:1,
   // Raw crafting materials (see MONSTER_PART_TYPES) — small enough to always be 1 slot.
   monsterpart:1,
+  // Document/Treasure/Key-Quest-Object branches — almost everything here is small and
+  // pocketable; Art is the one exception (statues/paintings), sized up accordingly.
+  journal:1, letter:1, map:1, book:1,
+  gem:1, jewelry:1, art:2, currency:1, currencybar:1,
+  key:1, accesstoken:1, puzzleobject:1, questobject:1,
 };
 // Maps a subcategory to the equipment-slot category it fits on the player doll.
 const SUBCATEGORY_TO_SLOT_CATEGORY = {
@@ -3605,6 +3648,11 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   // filter dropdown and inventory bookkeeping, so they ride in the same generic "charm"
   // bucket as other small trinkets/materials.
   monsterpart:'charm',
+  // Documents/treasure/quest objects aren't worn either — same reasoning as monster parts,
+  // they ride in the generic "charm" bucket purely for Token Library filtering purposes.
+  journal:'charm', letter:'charm', map:'charm', book:'charm',
+  gem:'charm', jewelry:'charm', art:'charm', currency:'charm', currencybar:'charm',
+  key:'charm', accesstoken:'charm', puzzleobject:'charm', questobject:'charm',
 };
 // Derives a subcategory purely from the item's name and general type — this is the one
 // place that decides "what kind of armor/weapon/consumable/misc item is this", so every
@@ -3653,6 +3701,26 @@ function classifySubcategory(name, type) {
     if (/mount|steed|charger|warhorse|destrier|palfrey|pony/.test(n)) return 'mount';
     return 'pet';
   }
+  if (type === 'document') {
+    if (/journal|diary/.test(n)) return 'journal';
+    if (/letter/.test(n)) return 'letter';
+    if (/\bmap\b/.test(n)) return 'map';
+    if (/recipe|blueprint|formula|contract|decree/.test(n)) return 'letter';
+    return 'book';
+  }
+  if (type === 'treasure') {
+    if (/\bgem\b|ruby|quartz|sapphire|emerald|diamond|opal|topaz|garnet/.test(n)) return 'gem';
+    if (/necklace|bracelet|earring|jewel/.test(n)) return 'jewelry';
+    if (/statue|painting|sculpture|tapestry/.test(n)) return 'art';
+    if (/\bbar\b|ingot/.test(n)) return 'currencybar';
+    return 'currency';
+  }
+  if (type === 'questitem') {
+    if (/\bkey\b/.test(n)) return 'key';
+    if (/sigil|seal|pass\b|token/.test(n)) return 'accesstoken';
+    if (/rune|puzzle|mechanism|\bsymbol\b/.test(n)) return 'puzzleobject';
+    return 'questobject';
+  }
   return '';
 }
 // Consumables get a charges value whenever their subcategory implies limited uses —
@@ -3682,6 +3750,9 @@ const WEIGHT_RANGE_BY_SUBCATEGORY = {
   arm:[4,15], hand:[1,4], leg:[5,18], foot:[1,4],
   eye:[0.1,1], ear:[0.1,1], finger:[0.1,0.5], heart:[0.3,1.5], tongue:[0.2,1],
   monsterpart:[0.2,12],
+  journal:[0.5,2], letter:[0.02,0.2], map:[0.05,0.5], book:[1,5],
+  gem:[0.02,0.3], jewelry:[0.1,1], art:[5,25], currency:[0.1,2], currencybar:[1,10],
+  key:[0.05,0.5], accesstoken:[0.02,0.3], puzzleobject:[0.2,3], questobject:[0.2,5],
 };
 const HEAVY_WEAPON_KEYWORDS = /massive|giant'?s|titan|colossal|great.?axe|great.?sword|great.?club|maul|warhammer|zweihander|bonecrusher|earthbreaker|juggernaut|siege/i;
 const HEAVY_WEAPON_RANGE = [15, 50];
@@ -4001,6 +4072,29 @@ function classifyItemHierarchy(item) {
   // shallow rather than forced into a misleading leaf.
   if (type === 'companion') return ['Miscellaneous'];
 
+  // ---- Document / Treasure / Key-Quest-Object — explicit type takes precedence over the
+  // name-keyword sniffing further down (which exists only to catch older items authored
+  // before these types existed, e.g. lootData's "Crude Map"/"Rusty Key").
+  if (type === 'document') {
+    if (sub === 'journal') return ['Document','Journal','Personal'];
+    if (sub === 'letter') return ['Document','Letter', /official|decree|noble|contract/.test(text) ? 'Official' : (/threat/.test(text) ? 'Threat' : 'Personal')];
+    if (sub === 'map') return ['Document','Map', /treasure/.test(text) ? 'Treasure Map' : (/dungeon/.test(text) ? 'Dungeon' : 'Region')];
+    return ['Document','Book', /history|king|chronicle/.test(text) ? 'History' : (/magic|arcane|spell/.test(text) ? 'Magic' : (/beast|bestiary|creature/.test(text) ? 'Bestiary' : 'Other'))];
+  }
+  if (type === 'treasure') {
+    if (sub === 'gem') return ['Treasure','Gem', /flawless|precious|rare/.test(text) ? 'Precious Gem' : 'Semi-Precious Gem'];
+    if (sub === 'jewelry') return ['Treasure','Jewelry', /necklace/.test(n) ? 'Necklace' : (/bracelet/.test(n) ? 'Bracelet' : (/earring/.test(n) ? 'Earring' : 'Ring'))];
+    if (sub === 'art') return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : (/tapestry/.test(n) ? 'Other' : 'Painting')];
+    if (sub === 'currencybar') return ['Treasure','Currency','Bar'];
+    return ['Treasure','Currency','Coin'];
+  }
+  if (type === 'questitem') {
+    if (sub === 'key') return ['Key / Quest Object','Key', /magical|enchant/.test(text) ? 'Magical Key' : 'Physical Key'];
+    if (sub === 'accesstoken') return ['Key / Quest Object','Access Token', /sigil/.test(n) ? 'Sigil' : (/pass/.test(n) ? 'Pass' : 'Seal')];
+    if (sub === 'puzzleobject') return ['Key / Quest Object','Puzzle Object', /rune/.test(n) ? 'Rune' : (/symbol/.test(n) ? 'Symbol' : (/mechanism/.test(n) ? 'Mechanism' : 'Puzzle Piece'))];
+    return ['Key / Quest Object','Quest Object', /evidence/.test(text) ? 'Evidence' : (/relic/.test(n) ? 'Relic' : (/deliver/.test(text) ? 'Delivery Object' : 'Artifact'))];
+  }
+
   // ---- Monster parts always land in Material > Monster Material, by part type.
   if (type === 'craftable' && sub === 'monsterpart') {
     const organParts = ['eye','heart','tongue'];
@@ -4047,6 +4141,15 @@ function classifyItemHierarchy(item) {
   if (/\btorch\b/.test(n)) return ['Tool','Adventuring','Torch'];
   if (/lantern/.test(n)) return ['Tool','Adventuring','Lantern'];
   if (/crowbar/.test(n)) return ['Tool','Adventuring','Crowbar'];
+  if (/surgical|surgeon/.test(text)) return ['Tool','Medical','Surgical Tools'];
+  if (/medical|healer'?s? kit|diagnos/.test(text)) return ['Tool','Medical', /diagnos/.test(text) ? 'Diagnostic Tools' : 'Medical Kit'];
+  if (/cartograph/.test(text)) return ['Tool','Professional','Cartography'];
+  if (/navigat/.test(text)) return ['Tool','Professional','Navigation'];
+  if (/\blute\b|\bmusical\b|minstrel|\bdrum\b|\bhorn\b instrument|\bflute\b/.test(text)) return ['Tool','Professional','Musical'];
+  if (/quill|writing|calligraphy/.test(text)) return ['Tool','Professional','Writing'];
+  if (/diviner|divination/.test(text)) return ['Tool','Magical','Divination Tool'];
+  if (/ritual (tool|kit|dagger|candle)/.test(text)) return ['Tool','Magical','Ritual Tool'];
+  if (/enchant(er|ing)/.test(text)) return ['Tool','Crafting','Enchanting Tools'];
   if (/smithing|leatherworking|woodworking|alchemist'?s? (kit|supplies)|tailoring|jewel/.test(text)) return ['Tool','Crafting','Alchemy Tools'];
 
   // ---- 6. MATERIAL ---- (reagents, alchemical ingredients, raw crafting stock that isn't
@@ -4073,8 +4176,18 @@ function classifyItemHierarchy(item) {
   if (/painting|statue|sculpture/.test(n)) return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : 'Painting'];
 
   // ---- 10. MISCELLANEOUS fallback ----
-  if (/idol|icon|holy symbol|shrine/.test(text)) return ['Miscellaneous','Religious','Idol'];
-  if (/toy|game piece|instrument/.test(text)) return ['Miscellaneous','Entertainment', /instrument/.test(text) ? 'Instrument' : 'Toy'];
+  if (/idol|icon|holy symbol|shrine/.test(text)) return ['Miscellaneous','Religious', /icon/.test(n) ? 'Icon' : (/holy symbol/.test(text) ? 'Religious Object' : 'Idol')];
+  if (/trophy|mounted head|taxidermy|stuffed head/.test(text)) return ['Miscellaneous','Trophy', /battle/.test(text) ? 'Battle Trophy' : 'Monster Trophy'];
+  if (/figurine/.test(n)) return ['Miscellaneous','Decoration','Figurine'];
+  if (/tapestry/.test(n)) return ['Miscellaneous','Decoration','Tapestry'];
+  if (/ornament/.test(n)) return ['Miscellaneous','Decoration','Ornament'];
+  if (/\bmug\b|\bcup\b|utensil|cutlery|\bplate\b|\bbowl\b/.test(n)) return ['Miscellaneous','Household','Utensil'];
+  if (/\bcrate\b|\bchest\b|\bbarrel\b|\bcontainer\b/.test(n)) return ['Miscellaneous','Household','Container'];
+  if (/\bchair\b|\btable\b|furniture/.test(text)) return ['Miscellaneous','Household','Furniture'];
+  if (/toy\b|game piece|board game/.test(text)) return ['Miscellaneous','Entertainment','Toy'];
+  if (/\bgame\b|\bdice\b|playing cards/.test(text)) return ['Miscellaneous','Entertainment','Game'];
+  if (/instrument|\blute\b|\bdrum\b|\bflute\b/.test(text)) return ['Miscellaneous','Entertainment','Instrument'];
+  if (/strange|humming|unidentif|inexplicable/.test(text)) return ['Miscellaneous','Unknown','Strange Object'];
   return ['Miscellaneous','Unknown','Unidentified Object'];
 }
 
@@ -7916,6 +8029,7 @@ const STORE_ICONS = {
   gloves: { viewBox:'0 0 8 10', rects:[[2,4,4,4],[0,0,2,5],[3,0,2,5],[6,0,2,5],[2,8,4,2]] },
   cloak:  { viewBox:'0 0 10 12', rects:[[3,0,4,2],[1,2,8,3],[0,5,10,7]] },
   belt:   { viewBox:'0 0 10 6',  rects:[[0,1,10,3],[3,2,4,2]] },
+  book:   { viewBox:'0 0 10 8',  rects:[[0,0,10,1],[0,7,10,1],[0,0,1,8],[9,0,1,8],[5,0,1,8],[2,2,2,1],[6,2,2,1],[2,4,2,1],[6,4,2,1]] },
 };
 function storeIconSvg(category, color) {
   return pixelIconSvg(STORE_ICONS[category] || STORE_ICONS.gem, color);
@@ -7942,6 +8056,7 @@ function storeIconCategory(item) {
   if (/amulet|necklace|pendant|periapt|torc|gorget/.test(n)) return 'amulet';
   if (/potion|draught|elixir|tonic|vial/.test(n)) return 'potion';
   if (/scroll/.test(n)) return 'scroll';
+  if (item.type === 'document' || /\btome\b|\bbook\b|journal|ledger|grimoire/.test(n)) return 'book';
   if (/sword|blade|rapier|saber|falchion|scythe|glaive|halberd|spear|trident|pike|whip/.test(n)) return 'sword';
   if (item.cat === 'armor' || /armor|mail|plate|cuirass|breastplate|vest|pauldron/.test(n)) return 'armor';
   if (item.cat === 'weapon') return 'sword';
@@ -8126,6 +8241,12 @@ function itemIconCategory(item) {
     return (sub && FLESH_LIMB_ICONS[sub]) ? ('limb:' + sub) : 'limb';
   }
   if (item.type === 'companion') return 'animal:' + petAnimalCategory(item);
+  // Treasure/quest-object subcategories get their thematically obvious shape directly
+  // instead of a hash-random pick from the charm pool — a coin should always look like a
+  // coin, not occasionally end up drawn as a claw.
+  if (item.subcategory === 'currency' || item.subcategory === 'currencybar') return 'charm:3';
+  if (item.subcategory === 'key') return 'charm:4';
+  if (item.subcategory === 'gem') return 'gem';
   const cat = storeIconCategory(item);
   if (cat === 'gem') {
     if (item.type === 'armor') return 'armor';
