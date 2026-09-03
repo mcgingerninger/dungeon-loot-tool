@@ -2512,10 +2512,10 @@
      the token library it drags from has to be in the same tab as the drop target) -->
 <div id="tab-inventory" class="tab-content">
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Drag a token from the library below onto the grid to store it. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Drag a placed item to move it, or click it to remove it.
-    To equip something, drag it from the grid onto a matching slot on your character below — it leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it, onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
+    Drag a token from the library below onto the grid to store it — you don't have to be pixel-precise, dropping it anywhere near open squares snaps it to the nearest spot that fits. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Items only move or leave the inventory while you're actively holding and dragging them; letting go mid-drag over empty space (or anywhere that isn't a valid target) just leaves it exactly where it was, and a plain click no longer removes it — drag it onto the remove zone for that.
+    To equip something, drag it from the grid onto your character below — get it anywhere near an open slot of the right kind (doll, limbs, mount/pet) and it snaps into place even if you're not dead-on over that exact square. It leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it (same forgiving snap-to-nearest-square), onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
   </p>
-  <div class="player-top-row">
+  <div class="player-top-row" ondragover="slotDragOver(event)" ondrop="smartEquipDrop(event)">
     <div class="player-board">
       <div class="player-doll">
         <div class="doll-slot" id="slot-facewear" data-slot="facewear" style="grid-column:1;grid-row:1;" ondragover="slotDragOver(event)" ondrop="slotDrop(event,'facewear')"></div>
@@ -2583,7 +2583,7 @@
     <button class="action-btn" style="width:auto;max-width:none" onclick="clearInventory()">Clear Inventory</button>
   </div>
   <div class="inv-layout-row">
-    <div class="inv-grid-wrap">
+    <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event)">
       <div id="inventoryGrid" class="inv-grid"></div>
     </div>
     <div class="inv-remove-zone" id="invRemoveZone" ondragover="slotDragOver(event)" ondrop="inventoryRemoveDrop(event)">
@@ -8999,6 +8999,11 @@ function slotItemDragStart(evt, slotId) {
 // exactly one place at a time.
 function slotDrop(evt, slotId) {
   evt.preventDefault();
+  // A precise drop on an actual slot element is fully handled right here — stop it from
+  // also bubbling up to the player-board's smartEquipDrop fallback, which would otherwise
+  // process the same drag a second time (e.g. sending it to a *different* open slot of the
+  // same category right after this one already placed it).
+  evt.stopPropagation();
   const raw = getDragPayload(evt);
   if (!raw) return;
   if (raw.indexOf('invplace:') === 0) {
@@ -9037,6 +9042,37 @@ function placeTokenInSlot(key, slotId) {
   renderPlayerSlots();
   renderActiveEffects();
   return true;
+}
+
+// Catch-all drop handler on the whole character panel (doll + companion + grafted limbs).
+// Fires only when a drop lands somewhere that isn't a specific slot element itself — those
+// call stopPropagation() in slotDrop() so they never reach here — i.e. "close enough,
+// somewhere over the person" rather than dead-on over the right square. Finds whichever
+// open slot actually matches the dragged item's type and routes the drop there via the
+// normal slotDrop() so every other rule (vacating an inventory slot/other equip slot,
+// rejecting things with nowhere to go) stays exactly the same.
+function smartEquipDrop(evt) {
+  const raw = getDragPayload(evt);
+  if (!raw) { evt.preventDefault(); return; }
+  let key = null;
+  if (raw.indexOf('invplace:') === 0) {
+    const p = inventoryPlacements[raw.slice('invplace:'.length)];
+    key = p ? p.key : null;
+  } else if (raw.indexOf('slotitem:') === 0) {
+    key = playerSlots[raw.slice('slotitem:'.length)];
+  } else {
+    key = raw;
+  }
+  if (!key) { evt.preventDefault(); return; }
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) { evt.preventDefault(); return; }
+  const category = getTokenSlotType(entry);
+  const targetSlotId = Object.keys(SLOT_CATEGORY).find(id => SLOT_CATEGORY[id] === category && !playerSlots[id]);
+  // No open slot of the right kind anywhere on the person — nothing sensible to snap to,
+  // so just let the drop fail quietly rather than flashing a slot that isn't the problem.
+  if (!targetSlotId) { evt.preventDefault(); return; }
+  slotDrop(evt, targetSlotId);
 }
 
 function flashSlotInvalid(slotId) {
@@ -9110,6 +9146,22 @@ function findFirstOpenInventorySpot(w) {
   return null;
 }
 
+// Finds whichever open w-wide spot is closest (plain grid distance, not pixels) to a given
+// row/col — used when a drop lands somewhere in the grid that isn't precisely on an empty
+// cell, so it still "snaps" to wherever's nearest instead of failing outright. The grid is
+// only 5x18 (90 cells), so a full scan every time is trivial — no need for anything cleverer.
+function findNearestOpenInventorySpot(row, col, w, ignoreId) {
+  let best = null, bestDist = Infinity;
+  for (let r = 0; r < INV_ROWS; r++) {
+    for (let c = 0; c <= INV_COLS - w; c++) {
+      if (!invCanPlaceAt(r, c, w, ignoreId)) continue;
+      const dist = Math.abs(r - row) + Math.abs(c - col);
+      if (dist < bestDist) { bestDist = dist; best = { row: r, col: c }; }
+    }
+  }
+  return best;
+}
+
 let _draggedInvPlacement = null;
 function inventoryItemDragStart(evt, placementId) {
   _draggedInvPlacement = placementId;
@@ -9148,6 +9200,10 @@ function placeNewInventoryItem(key, row, col) {
 // back off an equip slot (un-equip it and store it here instead).
 function inventoryCellDrop(evt, row, col) {
   evt.preventDefault();
+  // A precise drop on an actual empty cell is fully handled right here — stop it from also
+  // bubbling up to the grid wrapper's inventoryGridSmartDrop fallback, which would otherwise
+  // try to place the same drag a second time.
+  evt.stopPropagation();
   const raw = getDragPayload(evt);
   if (!raw) return;
 
@@ -9176,6 +9232,44 @@ function inventoryCellDrop(evt, row, col) {
   }
 
   if (placeNewInventoryItem(raw, row, col)) renderInventoryGrid();
+}
+
+// Catch-all drop handler on the grid wrapper. Fires only when a drop lands somewhere that
+// isn't a specific empty cell itself — those call stopPropagation() in inventoryCellDrop()
+// so they never reach here — i.e. "roughly over the grid" rather than dead-on over a free
+// square. Estimates which cell the pointer is nearest to from its raw pixel position, then
+// snaps to whichever actual open spot is closest to that estimate and hands off to the
+// normal inventoryCellDrop() so every placement rule (footprint, repositioning, unequip-
+// into-inventory) stays exactly the same as a precise drop.
+function inventoryGridSmartDrop(evt) {
+  const raw = getDragPayload(evt);
+  if (!raw) { evt.preventDefault(); return; }
+  let key = null, w = 1, ignoreId = null;
+  if (raw.indexOf('invplace:') === 0) {
+    ignoreId = raw.slice('invplace:'.length);
+    const p = inventoryPlacements[ignoreId];
+    if (!p) { evt.preventDefault(); return; }
+    key = p.key; w = p.w;
+  } else if (raw.indexOf('slotitem:') === 0) {
+    key = playerSlots[raw.slice('slotitem:'.length)];
+  } else {
+    key = raw;
+  }
+  if (!key) { evt.preventDefault(); return; }
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) { evt.preventDefault(); return; }
+  if (!ignoreId) w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+
+  const gridEl = document.getElementById('inventoryGrid');
+  if (!gridEl) { evt.preventDefault(); return; }
+  const rect = gridEl.getBoundingClientRect();
+  const cellSpan = 47; // 44px cell + 3px gap, matching .inv-cell/.inv-row's CSS
+  const approxCol = Math.min(INV_COLS - 1, Math.max(0, Math.floor((evt.clientX - rect.left) / cellSpan)));
+  const approxRow = Math.min(INV_ROWS - 1, Math.max(0, Math.floor((evt.clientY - rect.top) / cellSpan)));
+  const spot = findNearestOpenInventorySpot(approxRow, approxCol, w, ignoreId);
+  if (!spot) { evt.preventDefault(); return; } // grid's genuinely full for an item this wide
+  inventoryCellDrop(evt, spot.row, spot.col);
 }
 
 function removeFromInventory(placementId) {
@@ -9235,7 +9329,6 @@ function renderInventoryGrid() {
           // to be dropped starting on an empty cell, same as any other move.
           html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
             ondragstart="inventoryItemDragStart(event,'${placementId}')"
-            onclick="removeFromInventory('${placementId}')"
             onmouseenter="showTokenTooltip(event,'${safeKey}')"
             onmousemove="moveTokenTooltip(event)"
             onmouseleave="hideTokenTooltip()">${body}</div>`;
