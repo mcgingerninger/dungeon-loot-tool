@@ -6982,6 +6982,10 @@ const STORE_ICONS = {
   gem:    { viewBox:'0 0 8 8',  rects:[[2,0,4,2],[0,2,8,2],[1,4,6,2],[2,6,4,1],[3,7,2,1]] },
   paw:    { viewBox:'0 0 8 8',  rects:[[1,0,2,2],[5,0,2,2],[0,2,2,2],[6,2,2,2],[2,3,4,4]] },
   limb:   { viewBox:'0 0 10 6', rects:[[0,0,3,2],[0,4,3,2],[3,2,4,2],[7,0,3,2],[7,4,3,2]] },
+  helm:   { viewBox:'0 0 10 9', rects:[[2,0,6,2],[1,2,8,4],[0,6,2,2],[8,6,2,2],[3,6,4,2]] },
+  gloves: { viewBox:'0 0 8 10', rects:[[2,4,4,4],[0,0,2,5],[3,0,2,5],[6,0,2,5],[2,8,4,2]] },
+  cloak:  { viewBox:'0 0 10 12', rects:[[3,0,4,2],[1,2,8,3],[0,5,10,7]] },
+  belt:   { viewBox:'0 0 10 6',  rects:[[0,1,10,3],[3,2,4,2]] },
 };
 function storeIconSvg(category, color) {
   return pixelIconSvg(STORE_ICONS[category] || STORE_ICONS.gem, color);
@@ -6998,6 +7002,10 @@ function storeIconCategory(item) {
   if (/\bstaff\b/.test(n)) return 'staff';
   if (/\bwand\b|\brod\b/.test(n)) return 'wand';
   if (/shield/.test(n)) return 'shield';
+  if (/helm|helmet|crown|circlet|hood|diadem|tiara|coronet|headband|\bcap\b/.test(n)) return 'helm';
+  if (/gauntlet|glove|bracer|handwrap/.test(n)) return 'gloves';
+  if (/cloak|cape|mantle/.test(n)) return 'cloak';
+  if (/belt|girdle|sash/.test(n)) return 'belt';
   if (/robe|vestment/.test(n)) return 'robe';
   if (/boots|sandals|slippers|greaves/.test(n)) return 'boots';
   if (/\bring\b/.test(n)) return 'ring';
@@ -7012,37 +7020,210 @@ function storeIconCategory(item) {
 
 // ===================== UNIVERSAL ITEM ICONS =====================
 // Every item in the project — lootData, generated, Fleshmancer limbs, companions,
-// literally everything — gets a small 8-bit icon: a base pixel-art silhouette picked from
-// its type/name (the same STORE_ICONS shapes the Store already uses), tinted with a color
-// deterministically derived from the item's own name, plus a small accent pixel at a
-// hash-picked corner. Two swords still both look like swords, but never the same color or
-// accent — "mostly unique" without hand-drawing hundreds of individual sprites.
+// literally everything — gets a small 8-bit icon: a base pixel-art silhouette that actually
+// matches the object (a real sword shape for swords, a real animal shape for pets, etc.),
+// tinted with a color deterministically derived from the item's own name, plus a small
+// accent pixel at a hash-picked corner. The whole icon sits inside a small frame whose
+// border/background color matches the item's rarity, and legendary/celestial items get a
+// second, name-themed "flourish" color plus a gilded two-tone render and corner gleam so
+// they read as visibly more special than a common item of the same shape.
 function hashItemName(str) {
   let h = 0;
   const s = String(str || 'item');
   for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
   return Math.abs(h);
 }
+// Every grafted limb already has its own accurate silhouette (FLESH_LIMB_ICONS, keyed by
+// arm/hand/leg/foot/eye/ear/finger/heart/tongue — exactly the values classifySubcategory()
+// assigns as item.subcategory for limb-type items). Route limb tokens through those instead
+// of one shared generic blob shape.
+// ---------- Companion / pet animal silhouettes ----------
+// One shape per recognizable "kind of animal" rather than per exact species — a dog-shaped
+// icon reads as a dog whether it's a Mutt Puppy or a Guard-Trained Mastiff. Fantasy
+// companions (dragons, fey, archons, etc.) get their own distinct silhouettes too.
+const ANIMAL_ICONS = {
+  cat:      { viewBox:'0 0 12 9',  rects:[[2,4,7,3],[8,2,3,3],[8,1,1,1],[10,1,1,1],[3,7,1,2],[5,7,1,2],[7,7,1,2],[8,7,1,2],[0,2,2,1],[0,3,1,2]] },
+  dog:      { viewBox:'0 0 13 10', rects:[[2,4,8,3],[9,2,3,3],[9,1,1,2],[11,1,1,2],[12,3,1,1],[3,7,1,3],[5,7,1,3],[8,7,1,3],[10,7,1,3],[0,3,2,1],[0,2,1,1]] },
+  wolf:     { viewBox:'0 0 13 10', rects:[[2,4,8,2],[9,2,3,3],[9,1,1,2],[11,1,1,2],[12,3,1,1],[3,6,1,4],[5,6,1,4],[8,6,1,4],[10,6,1,4],[0,2,3,2],[0,4,1,2]] },
+  fox:      { viewBox:'0 0 12 9',  rects:[[2,4,6,2],[8,2,3,3],[8,0,1,2],[10,0,1,2],[11,3,1,1],[3,6,1,3],[5,6,1,3],[7,6,1,3],[0,2,3,2],[0,1,1,1]] },
+  weasel:   { viewBox:'0 0 13 7',  rects:[[1,2,9,2],[10,1,3,2],[0,2,1,1],[2,4,1,2],[6,4,1,2],[9,4,1,2]] },
+  hedgehog: { viewBox:'0 0 10 7',  rects:[[1,3,7,3],[8,3,2,2],[1,1,1,1],[3,0,1,2],[5,0,1,2],[7,1,1,2],[0,5,1,1],[2,6,1,1],[4,6,1,1],[6,6,1,1]] },
+  rodent:   { viewBox:'0 0 10 7',  rects:[[2,3,6,3],[8,2,2,2],[9,1,1,1],[0,3,2,1],[3,6,1,1],[5,6,1,1]] },
+  horse:    { viewBox:'0 0 15 11', rects:[[2,4,9,3],[10,2,2,3],[12,1,3,3],[10,1,1,2],[3,7,1,4],[6,7,1,4],[9,7,1,4],[11,7,1,4],[0,3,2,2],[0,5,1,2]] },
+  camel:    { viewBox:'0 0 15 11', rects:[[2,3,9,4],[4,1,3,3],[10,3,2,2],[12,1,3,3],[3,7,1,4],[6,7,1,4],[9,7,1,4],[11,7,1,4],[0,4,2,1]] },
+  goat:     { viewBox:'0 0 13 10', rects:[[2,4,8,3],[9,2,3,3],[9,0,1,2],[11,0,1,2],[3,7,1,3],[5,7,1,3],[8,7,1,3],[10,7,1,3],[0,4,2,1]] },
+  elk:      { viewBox:'0 0 15 12', rects:[[2,5,9,3],[10,3,2,3],[12,1,3,3],[9,0,1,2],[8,0,1,1],[13,0,1,2],[14,0,1,1],[3,8,1,4],[6,8,1,4],[9,8,1,4],[11,8,1,4],[0,5,2,1]] },
+  tortoise: { viewBox:'0 0 12 8',  rects:[[2,2,8,4],[3,1,6,1],[10,3,2,2],[1,5,1,1],[3,6,1,1],[7,6,1,1],[9,5,1,1]] },
+  frog:     { viewBox:'0 0 10 7',  rects:[[2,2,6,3],[1,1,2,2],[7,1,2,2],[0,5,2,2],[7,5,2,2],[3,0,1,1],[6,0,1,1]] },
+  lizard:   { viewBox:'0 0 14 6',  rects:[[1,2,10,2],[11,1,2,2],[0,2,1,1],[2,4,1,1],[5,4,1,1],[8,4,1,1],[10,4,1,1]] },
+  snake:    { viewBox:'0 0 8 8',   rects:[[0,1,2,1],[1,2,2,1],[2,3,2,1],[3,4,2,1],[4,5,2,1],[5,6,2,1],[6,0,2,2]] },
+  crab:     { viewBox:'0 0 12 8',  rects:[[3,2,6,4],[0,1,2,1],[10,1,2,1],[1,0,1,1],[10,0,1,1],[1,6,1,2],[3,7,1,1],[8,7,1,1],[10,6,1,2]] },
+  insect:   { viewBox:'0 0 10 6',  rects:[[2,1,5,3],[7,2,2,1],[0,0,1,1],[0,4,1,1],[3,5,1,1],[6,5,1,1],[2,0,1,1]] },
+  seahorse: { viewBox:'0 0 8 12',  rects:[[4,0,2,3],[2,3,3,2],[3,5,3,2],[2,7,3,2],[3,9,2,2],[1,10,2,2],[6,1,2,1]] },
+  bird:     { viewBox:'0 0 10 9',  rects:[[2,3,5,3],[7,2,2,2],[9,3,1,1],[1,1,2,1],[3,7,1,2],[5,7,1,2]] },
+  corvid:   { viewBox:'0 0 10 9',  rects:[[2,3,5,3],[7,2,2,2],[9,3,2,1],[1,1,3,1],[3,7,1,2],[5,7,1,2]] },
+  raptor:   { viewBox:'0 0 12 9',  rects:[[3,3,5,3],[8,2,2,2],[10,3,2,1],[0,2,3,1],[9,2,3,1],[4,7,1,2],[6,7,1,2]] },
+  owl:      { viewBox:'0 0 9 9',   rects:[[1,3,7,4],[2,1,5,3],[3,2,1,1],[5,2,1,1],[1,0,1,1],[7,0,1,1],[3,7,1,1],[5,7,1,1]] },
+  strider:  { viewBox:'0 0 8 12',  rects:[[2,2,4,3],[5,0,2,2],[7,1,1,1],[1,5,1,5],[5,5,1,5],[3,10,1,2],[3,1,1,1]] },
+  pegasus:  { viewBox:'0 0 16 11', rects:[[2,4,9,3],[10,2,2,3],[12,1,3,3],[10,1,1,2],[3,7,1,4],[6,7,1,4],[9,7,1,4],[11,7,1,4],[0,3,2,2],[0,5,1,2],[4,1,4,2],[3,0,2,1]] },
+  griffon:  { viewBox:'0 0 16 11', rects:[[2,4,8,3],[9,2,3,3],[9,1,2,1],[11,3,2,1],[3,7,1,3],[6,7,1,3],[8,7,1,3],[10,7,1,3],[0,2,3,2],[0,4,2,2]] },
+  dragon:   { viewBox:'0 0 14 9',  rects:[[2,3,7,3],[9,2,3,2],[11,3,2,1],[9,1,1,1],[11,1,1,1],[0,2,2,1],[0,4,1,2],[3,1,3,2],[3,7,1,1],[6,7,1,1]] },
+  firebird: { viewBox:'0 0 11 10', rects:[[2,3,5,3],[7,2,2,2],[9,3,1,1],[1,0,2,2],[0,4,1,3],[3,7,1,2],[5,7,1,2]] },
+  imp:      { viewBox:'0 0 9 10',  rects:[[2,3,5,4],[3,1,3,2],[2,0,1,1],[6,0,1,1],[0,3,2,2],[7,3,2,2],[3,8,1,2],[5,8,1,2],[1,8,2,1]] },
+  construct:{ viewBox:'0 0 8 10',  rects:[[2,3,4,4],[2,1,4,2],[1,3,1,2],[6,3,1,2],[3,7,1,3],[4,7,1,3],[3,0,2,1]] },
+  fey:      { viewBox:'0 0 9 10',  rects:[[3,3,3,4],[3,1,3,2],[0,2,2,2],[7,2,2,2],[3,7,1,3],[5,7,1,3]] },
+  serpent_wing: { viewBox:'0 0 10 6', rects:[[0,4,2,1],[1,3,2,1],[3,2,2,1],[5,1,2,1],[7,0,3,2],[4,0,3,2]] },
+  archon:   { viewBox:'0 0 8 8',   rects:[[2,2,4,4],[0,3,2,1],[6,3,2,1],[3,0,2,1],[3,7,2,1]] },
+  star:     { viewBox:'0 0 8 8',   rects:[[3,0,2,2],[0,3,2,2],[6,3,2,2],[3,6,2,2],[2,2,4,4]] },
+  paw:      { viewBox:'0 0 8 8',   rects:[[1,0,2,2],[5,0,2,2],[0,2,2,2],[6,2,2,2],[2,3,4,4]] },
+};
+ANIMAL_ICONS.otter = ANIMAL_ICONS.weasel;
+ANIMAL_ICONS.badger = ANIMAL_ICONS.weasel;
+ANIMAL_ICONS.hippogriff = ANIMAL_ICONS.griffon;
+ANIMAL_ICONS.mule = ANIMAL_ICONS.horse;
+// Guesses the animal "kind" from a companion's name so its icon actually resembles it
+// (a wolf pup gets a wolf shape, a pigeon gets a small-bird shape, and so on). Falls back
+// to a generic paw print for anything too exotic to bucket cleanly.
+function petAnimalCategory(item) {
+  const n = ((item && item.name) || '').toLowerCase();
+  if (/pegasus|celestial steed/.test(n)) return 'pegasus';
+  if (/hippogriff/.test(n)) return 'hippogriff';
+  if (/griffon/.test(n)) return 'griffon';
+  if (/couatl/.test(n)) return 'serpent_wing';
+  if (/phoenix/.test(n)) return 'firebird';
+  if (/wyrmling|faerie dragon|pseudodragon/.test(n)) return 'dragon';
+  if (/\bimp\b|quasit/.test(n)) return 'imp';
+  if (/homunculus/.test(n)) return 'construct';
+  if (/sprite|pixie/.test(n)) return 'fey';
+  if (/archon/.test(n)) return 'archon';
+  if (/fallen star|star fragment|starlight/.test(n)) return 'star';
+  if (/\bwolf\b/.test(n)) return 'wolf';
+  if (/mastiff|\bdog\b|puppy/.test(n)) return 'dog';
+  if (/\bcat\b|housecat/.test(n)) return 'cat';
+  if (/tortoise|turtle/.test(n)) return 'tortoise';
+  if (/\bfrog\b|\btoad\b/.test(n)) return 'frog';
+  if (/\bcrab\b/.test(n)) return 'crab';
+  if (/beetle|housefly|centipede|swarm/.test(n)) return 'insect';
+  if (/snake|constrictor/.test(n)) return 'snake';
+  if (/seahorse/.test(n)) return 'seahorse';
+  if (/lizard/.test(n)) return 'lizard';
+  if (/camel/.test(n)) return 'camel';
+  if (/\belk\b|\bdeer\b/.test(n)) return 'elk';
+  if (/\bgoat\b/.test(n)) return 'goat';
+  if (/\bmule\b|\bdonkey\b/.test(n)) return 'mule';
+  if (/pony|horse|steed|charger|warhorse|destrier|palfrey/.test(n)) return 'horse';
+  if (/\bowl\b/.test(n)) return 'owl';
+  if (/hawk|falcon|vulture/.test(n)) return 'raptor';
+  if (/raven|\bcrow\b/.test(n)) return 'corvid';
+  if (/pigeon|duckling|chicken|songbird/.test(n)) return 'bird';
+  if (/axe beak|strider/.test(n)) return 'strider';
+  if (/otter/.test(n)) return 'otter';
+  if (/badger/.test(n)) return 'badger';
+  if (/hedgehog/.test(n)) return 'hedgehog';
+  if (/\bfox\b/.test(n)) return 'fox';
+  if (/ferret|weasel/.test(n)) return 'weasel';
+  if (/\bmouse\b|\brat\b/.test(n)) return 'rodent';
+  if (/displacer beast/.test(n)) return 'cat';
+  return 'paw';
+}
+// ---------- Misc/charm trinkets ----------
+// Anything that isn't a recognizable equipment type (weapon, armor piece, ring, amulet,
+// potion, scroll...) falls into the misc/charm catch-all. Rather than showing every one of
+// those as the same generic gem, each item picks one of these small trinket silhouettes
+// by a hash of its own name, so charms actually look varied from one to the next.
+const CHARM_SHAPES = [
+  { viewBox:'0 0 8 8', rects:[[3,0,2,3],[2,3,4,2],[3,5,2,2],[3,7,2,1]] },           // shard
+  { viewBox:'0 0 8 8', rects:[[0,3,2,2],[2,3,4,2],[6,3,2,2],[1,2,1,1],[1,5,1,1],[5,2,1,1],[5,5,1,1]] }, // bone
+  { viewBox:'0 0 8 8', rects:[[4,0,1,1],[3,1,2,1],[3,2,2,1],[2,3,2,1],[2,4,2,1],[1,5,2,1],[1,6,2,1],[0,7,2,1]] }, // feather
+  { viewBox:'0 0 8 8', rects:[[2,0,4,1],[1,1,6,1],[0,2,8,4],[1,6,6,1],[2,7,4,1]] }, // coin
+  { viewBox:'0 0 8 8', rects:[[0,1,3,3],[1,2,1,1],[3,2,5,1],[5,3,1,1],[7,3,1,1]] }, // key
+  { viewBox:'0 0 8 8', rects:[[2,0,4,3],[1,3,6,2],[2,5,1,1],[5,5,1,1],[3,6,2,2]] }, // skull
+  { viewBox:'0 0 8 8', rects:[[5,0,2,2],[4,2,2,2],[3,4,2,2],[2,6,2,2]] },           // horn
+  { viewBox:'0 0 8 8', rects:[[3,0,2,1],[1,1,2,1],[5,1,2,1],[0,3,1,2],[7,3,1,2],[1,6,2,1],[5,6,2,1],[3,7,2,1]] }, // rune spiral
+  { viewBox:'0 0 8 8', rects:[[3,0,2,6],[1,2,6,2]] },                              // talisman cross
+  { viewBox:'0 0 8 8', rects:[[5,0,1,3],[4,2,1,3],[3,4,1,3],[2,6,2,2]] },          // claw
+  { viewBox:'0 0 8 8', rects:[[2,2,4,3],[3,1,2,1],[3,6,2,1]] },                    // eye charm
+  { viewBox:'0 0 8 8', rects:[[3,0,2,1],[3,7,2,1],[0,3,1,2],[7,3,1,2],[2,2,4,4]] }, // star charm
+  { viewBox:'0 0 8 8', rects:[[2,0,4,2],[1,2,6,4],[2,6,4,2]] },                    // pendant orb
+  { viewBox:'0 0 8 8', rects:[[3,0,2,4],[2,4,4,2],[3,6,2,2]] },                    // fang
+];
+// ---------- Legendary / celestial "signature" theming ----------
+// Hand-authored legendary/celestial items can't each get a fully bespoke sprite drawn by
+// hand — but every one of them can get a color and ornamental gleam pulled from its own
+// name/flavor text, on top of a two-tone gilded render, so no two read as "just another
+// recolor." Dragon-themed items glow ember-orange, frost items glow ice-blue, and so on.
+const LEGENDARY_FLOURISHES = [
+  { test:/dragon|wyrm/,                                    color:'#ff6b4a' },
+  { test:/phoenix|flame|\bfire\b|ember|blaze/,              color:'#ff8c3a' },
+  { test:/frost|\bice\b|winter|\bcold\b|snow/,              color:'#8fe3ff' },
+  { test:/storm|thunder|lightning|tempest/,                 color:'#ffe066' },
+  { test:/shadow|\bnight\b|\bdark\b|umbral/,                color:'#9b7bd6' },
+  { test:/holy|radiant|celestial|divine|\bstar\b|\blight\b|\bsun\b/, color:'#fff2b0' },
+  { test:/thorn|\bwood\b|\bleaf\b|nature|treant|plant|forest/, color:'#7ed67e' },
+  { test:/venom|poison|toxic/,                              color:'#9fe066' },
+  { test:/blood|death|curse|grim|\bbone\b/,                 color:'#c94f4f' },
+  { test:/arcane|\brune\b|\bspell\b|\bmagic\b|astral/,       color:'#c58cff' },
+  { test:/\btime\b|hourglass|chrono/,                       color:'#c9d6e3' },
+  { test:/\bgiant\b/,                                       color:'#b98a55' },
+  { test:/\bcoin\b|\bgold\b|gambler|\bdebt\b|treasure/,      color:'#ffd75e' },
+  { test:/\bmask\b|\bface\b|\bvoice\b|choir|whisper|silent/, color:'#e39bd6' },
+  { test:/\bking\b|\bcrown\b|throne|\bnoble\b|\bhouse\b/,    color:'#f0c419' },
+  { test:/\beye\b|\bsight\b|vision|oracle/,                  color:'#5fd0c0' },
+];
+function legendaryFlourishColor(item) {
+  const s = (((item && item.name) || '') + ' ' + ((item && item.desc) || '')).toLowerCase();
+  for (const f of LEGENDARY_FLOURISHES) if (f.test.test(s)) return f.color;
+  return null;
+}
+// Lightens (or darkens, with a negative delta) an `hsl(h, s%, l%)` string — used to give
+// legendary/celestial icons a two-tone "gilded" look instead of one flat fill color.
+function hslLighten(hslStr, deltaL) {
+  const m = /hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/.exec(hslStr);
+  if (!m) return hslStr;
+  const l = Math.max(8, Math.min(92, parseInt(m[3], 10) + deltaL));
+  return `hsl(${m[1]}, ${m[2]}%, ${l}%)`;
+}
 // storeIconCategory() only checks item.cat (set by the procedural Store/Generate Item
 // generators) for its armor/weapon fallback — lootData items use item.type instead, so
-// this catches those before they fall through to the generic gem icon.
+// this catches those before they fall through to the generic gem icon. Anything that still
+// falls through after all of that — i.e. isn't a recognizable weapon/armor/ring/amulet/
+// potion/scroll/etc. — is exactly the "misc or charm" catch-all, and gets one of the varied
+// CHARM_SHAPES instead of a single shared gem for every one of them.
 function itemIconCategory(item) {
   if (!item) return 'gem';
-  if (item.type === 'limb') return 'limb';
+  if (item.type === 'limb') {
+    const sub = item.subcategory;
+    return (sub && FLESH_LIMB_ICONS[sub]) ? ('limb:' + sub) : 'limb';
+  }
+  if (item.type === 'companion') return 'animal:' + petAnimalCategory(item);
   const cat = storeIconCategory(item);
   if (cat === 'gem') {
     if (item.type === 'armor') return 'armor';
     if (item.type === 'weapon') return 'sword';
+    return 'charm:' + (hashItemName(item.name) % CHARM_SHAPES.length);
   }
   return cat;
 }
+// Resolves a category key (possibly a prefixed 'limb:x' / 'animal:x' / 'charm:n' key) to an
+// actual {viewBox, rects} shape definition, pulling from whichever icon set it belongs to.
+function resolveIconShape(category) {
+  if (category.indexOf('limb:') === 0) return FLESH_LIMB_ICONS[category.slice(5)] || FLESH_LIMB_ICONS.finger;
+  if (category.indexOf('animal:') === 0) return ANIMAL_ICONS[category.slice(7)] || ANIMAL_ICONS.paw;
+  if (category.indexOf('charm:') === 0) return CHARM_SHAPES[Number(category.slice(6))] || CHARM_SHAPES[0];
+  return STORE_ICONS[category] || STORE_ICONS.gem;
+}
 function itemIconColor(item) {
   const h = hashItemName(item && item.name);
-  return `hsl(${h % 360}, 58%, 58%)`;
+  const isAnimal = item && item.type === 'companion';
+  return isAnimal ? `hsl(${h % 360}, 48%, 46%)` : `hsl(${h % 360}, 58%, 58%)`;
 }
-function itemPixelIcon(item, size) {
+// `rarity` drives two things: the colored frame drawn around every icon (so a glance at the
+// frame tells you an item's rarity even before reading text), and — for legendary/celestial
+// only — a name-themed flourish color, a two-tone gilded render, and corner "gleam" pixels,
+// so those items visibly stand out rather than just being a differently-colored common icon.
+function itemPixelIcon(item, size, rarity) {
   const category = itemIconCategory(item);
-  const shape = STORE_ICONS[category] || STORE_ICONS.gem;
+  const shape = resolveIconShape(category);
   const color = itemIconColor(item);
   const h = hashItemName(item && item.name);
   const dims = shape.viewBox.split(' ').map(Number);
@@ -7050,10 +7231,25 @@ function itemPixelIcon(item, size) {
   const ax = (h % 2) ? vw - 1 : 0;
   const ay = ((h >> 1) % 2) ? vh - 1 : 0;
   const accentColor = `hsl(${(h * 7) % 360}, 70%, 72%)`;
-  const rects = shape.rects.map(([x, y, w, rh]) => `<rect x="${x}" y="${y}" width="${w}" height="${rh}" fill="${color}"/>`).join('');
+  const isHighTier = rarity === 'legendary' || rarity === 'celestial';
+  const flourishColor = isHighTier ? (legendaryFlourishColor(item) || rarityColors[rarity]) : null;
+  const rects = shape.rects.map(([x, y, w, rh], i) => {
+    const fill = (isHighTier && i % 3 === 1) ? hslLighten(color, 16) : color;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${rh}" fill="${fill}"/>`;
+  }).join('');
   const accent = `<rect x="${ax}" y="${ay}" width="1" height="1" fill="${accentColor}"/>`;
+  let gleam = '';
+  if (isHighTier) {
+    const pts = rarity === 'celestial' ? [[0, 0], [vw - 1, 0], [0, vh - 1], [vw - 1, vh - 1]] : [[0, 0], [vw - 1, 0]];
+    gleam = pts.map(([gx, gy]) => `<rect x="${gx}" y="${gy}" width="1" height="1" fill="${flourishColor}"/>`).join('');
+  }
   const px = size || 28;
-  return `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}</svg>`;
+  const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}${gleam}</svg>`;
+  const frameColor = rarityColors[rarity] || rarityColors.common;
+  const pad = Math.max(2, Math.round(px * 0.14));
+  const frameSize = px + pad * 2;
+  const glow = isHighTier ? `box-shadow:0 0 ${rarity === 'celestial' ? 7 : 5}px ${frameColor};` : '';
+  return `<span class="item-icon-frame" style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${frameSize}px;height:${frameSize}px;background:${frameColor}26;border:1px solid ${frameColor};border-radius:4px;${glow}">${svg}</span>`;
 }
 
 // Every merchant always stocks the same handful of mundane staples (flat, non-magical
@@ -7202,7 +7398,7 @@ function rerollStoreDaily() {
 }
 
 function storeStapleCardHtml(staple, merchantKey, idx) {
-  const icon = storeIconSvg(staple.icon || 'gem', '#c9a84c');
+  const icon = itemPixelIcon(staple, 40, 'common');
   const subcategory = classifySubcategory(staple.name, staple.type || 'misc');
   const statBits = [];
   if (staple.dmg) statBits.push(`⚔ ${staple.dmg}`);
@@ -7222,8 +7418,7 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
   `;
 }
 function storeDailyCardHtml(item, idx) {
-  const color = rarityColors[item.rarity] || '#a0a8b0';
-  const icon = storeIconSvg(storeIconCategory(item), color);
+  const icon = itemPixelIcon(item, 40, item.rarity);
   // Procedurally generated wares carry a mods[] array; hand-authored ones (like the Animal
   // Tamer's daily pets, pulled straight from lootData) use a flat effect string instead —
   // fall back to that so their card isn't left with no effect text at all.
@@ -8682,7 +8877,7 @@ function tokenCardHtml(e) {
          onmouseenter="showTokenTooltip(event,'${e.key.replace(/'/g,"\\'")}')"
          onmousemove="moveTokenTooltip(event)"
          onmouseleave="hideTokenTooltip()">
-      <div class="token-card-head">${itemPixelIcon(item, 30)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
+      <div class="token-card-head">${itemPixelIcon(item, 30, e.rarity)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
       <div class="token-card-rarity">${rarityNames[e.rarity] || e.rarity}</div>
       <select class="token-slot-select" onclick="event.stopPropagation()" onchange="setTokenSlotOverride('${e.key.replace(/'/g,"\\'")}', this.value)">
         ${options}
@@ -8857,7 +9052,7 @@ function renderInventoryGrid() {
           const entry = TOKEN_INDEX[p.key];
           const name = entry ? entry.item.name : '(missing item)';
           const rarity = entry ? entry.rarity : 'common';
-          const icon = entry ? itemPixelIcon(entry.item, 22) : '';
+          const icon = entry ? itemPixelIcon(entry.item, 22, rarity) : '';
           const safeKey = p.key.replace(/'/g, "\\'");
           // Deliberately NOT a drop target — only genuinely empty cells (below) accept
           // drops, so there's never any ambiguity about two different items overlapping.
@@ -9102,7 +9297,7 @@ function buildTooltipHtml(entry) {
     modsHtml = `<div class="tt-mods">${item.mods.map(m => `<div class="tt-mod"><b>${escapeHtml(m.type)}:</b> ${colorizeModifierText(m.text, m.type)}</div>`).join('')}</div>`;
   }
   return `
-    <div class="tt-header ${rarity}" style="display:flex;align-items:center;gap:0.5rem;">${itemPixelIcon(item, 24)}<span>${escapeHtml(item.name)}</span></div>
+    <div class="tt-header ${rarity}" style="display:flex;align-items:center;gap:0.5rem;">${itemPixelIcon(item, 24, rarity)}<span>${escapeHtml(item.name)}</span></div>
     <div class="tt-rarity">${rarityNames[rarity] || rarity}${typeLabel ? ' · ' + escapeHtml(typeLabel) : ''} · ${SLOT_TYPES.find(s=>s.id===getTokenSlotType(entry))?.label || ''}</div>
     ${statsLine}
     ${item.desc ? `<div class="tt-desc">${escapeHtml(item.desc)}</div>` : ''}
