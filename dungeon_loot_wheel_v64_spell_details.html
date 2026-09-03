@@ -2466,9 +2466,9 @@
         registry — don't be surprised if one of them turns out to be a person. Every bounty's target, and any
         escort guards it has, are rolled as real creatures the moment the bounty is posted (hobgoblin soldiers
         really do roll as Hobgoblins; something more exotic falls back to a similar low-tier creature of the
-        target's own kind) and registered under their own names — search for them by name from the Combat tab's
-        creature search to add them to a fight, no separate button needed here. Claim a bounty for its reward
-        whenever you're done with it.
+        target's own kind). Hit Save on whichever bounties you actually want to use — that registers them under
+        their own names, searchable from the Combat tab's creature search to add to a fight, so the registry only
+        fills up with the ones you chose to keep. Claim a bounty for its reward whenever you're done with it.
       </p>
       <button class="generate-btn" onclick="rollBountyBoard()">📌 Post New Bounties</button>
       <div class="bounty-board" id="bountyBoard"></div>
@@ -11118,9 +11118,11 @@ function generateBounty(rarity) {
     rarity, monster, entry, name, flavorMods, escortEntries,
     poster: generateBountyPoster(name),
     guards, warnings: rollBountyWarnings(entry), reward: rollBountyReward(rarity),
-    claimed: false,
+    claimed: false, registered: false,
   };
-  registerBountyCreatures(bounty);
+  // Registration into monsterDatabase is opt-in now (see saveBountyCreatures(), triggered
+  // by the "Save" button on the card) rather than automatic for every bounty the moment
+  // it's posted — the player picks which of the 3 are actually worth keeping searchable.
   return bounty;
 }
 
@@ -11262,6 +11264,17 @@ function registerBountyCreatures(bounty) {
     monsterDatabase.push(buildBountyMonsterRecord(esc.monster, esc, escName, bounty.rarity));
   });
 }
+// The "Save" button on a bounty card — does exactly what used to happen automatically for
+// every bounty, just opt-in per bounty so the player can choose which of the 3 posted are
+// actually worth keeping searchable from the Combat tab instead of all of them every time.
+function saveBountyCreatures(bountyId) {
+  const bounty = activeBounties.find(b => b.id === bountyId);
+  if (!bounty || bounty.registered) return;
+  registerBountyCreatures(bounty);
+  bounty.registered = true;
+  flashBountyMessage(`${bounty.name}${bounty.escortEntries.length ? ' and its escorts are' : ' is'} now searchable from the Combat tab.`);
+  renderBountyPanel();
+}
 
 function bountyCardHtml(bounty) {
   const color = rarityColors[bounty.rarity] || rarityColors.common;
@@ -11289,9 +11302,12 @@ function bountyCardHtml(bounty) {
       ${modsHtml}
       ${warningsHtml}
       <div class="bounty-reward">💰 Reward: ${bounty.reward.gp} gp${chestHtml}</div>
-      <div class="bounty-searchnote">📖 Already searchable from the Combat tab's creature list as "${escapeHtml(bounty.name)}"${bounty.escortEntries.length ? ' — its escorts (above) are too' : ''}.</div>
+      <div class="bounty-searchnote">${bounty.registered
+        ? `📖 Searchable from the Combat tab's creature list as "${escapeHtml(bounty.name)}"${bounty.escortEntries.length ? ' — its escorts (above) are too' : ''}.`
+        : `📖 Not saved yet — click Save to make ${bounty.escortEntries.length ? 'it and its escorts' : 'it'} searchable from the Combat tab.`}</div>
       <div class="bounty-actions">
         <button class="ic-action-btn" onclick="claimBounty('${bounty.id}')" ${bounty.claimed ? 'disabled' : ''}>${bounty.claimed ? '✓ Claimed' : '🎯 Claim Bounty'}</button>
+        <button class="ic-action-btn" onclick="saveBountyCreatures('${bounty.id}')" ${bounty.registered ? 'disabled' : ''}>${bounty.registered ? '✓ Saved' : '💾 Save to Creature List'}</button>
       </div>
     </div>
   `;
