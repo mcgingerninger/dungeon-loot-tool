@@ -1371,6 +1371,22 @@
   }
   .trader-sell-zone.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
 
+  /* Monster Mangler (Store tab) — two drop slots feeding a preview/combine step, same
+     drag-and-drop visual language as the trader sell zone / inventory grid. */
+  .mangler-slots-row { display:flex; align-items:center; gap:1rem; margin:1rem 0; flex-wrap:wrap; }
+  .mangler-drop-slot {
+    flex:1 1 220px; min-height:80px; border:2px dashed var(--border); background:var(--surface);
+    padding:0.8rem; text-align:center; transition:border-color 0.15s, background 0.15s;
+  }
+  .mangler-drop-slot:hover { border-color:var(--gold); }
+  .mangler-drop-slot.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
+  .mangler-drop-label { color:var(--gold); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.5rem; }
+  .mangler-drop-content { display:flex; align-items:center; justify-content:center; gap:0.5rem; color:var(--text-dim); font-style:italic; font-size:0.88rem; min-height:32px; }
+  .mangler-arrow { font-size:1.4rem; color:var(--text-dim); }
+  .mangler-preview { margin:0.6rem 0; font-size:0.9rem; color:var(--text); }
+  .mangler-preview-line { margin-bottom:0.3rem; }
+  .mangler-preview-cost { color:var(--gold-bright); }
+
   /* ===================== PLAYER TAB ===================== */
   /* Doll, grafted limbs, AND active effects sit side by side in one top row so everything
      you'd want visible while dragging a token is on screen together, instead of limbs/effects
@@ -2521,6 +2537,44 @@
       <button class="generate-btn" onclick="rollBountyBoard()">📌 Post New Bounties</button>
       <div class="bounty-board" id="bountyBoard"></div>
       <div class="store-buy-msg" id="storeBountyMsg"></div>
+    </div>
+
+    <!-- Same toggle pattern as the Fleshmancer/Bounty Hunter panels above. -->
+    <div class="store-panel" id="storeManglerPanel" style="display:none;">
+      <div class="store-merchant-head">
+        <div>
+          <div class="store-merchant-title">🔧 The Monster Mangler</div>
+          <span class="store-merchant-portrait large" id="manglerPortraitSlot"></span>
+          <p class="store-merchant-flavor">A workbench cluttered with vices, tongs, and the smell of scorched hide. He'll work anything into anything — for a price.</p>
+        </div>
+      </div>
+      <p class="flesh-intro">
+        Drag a monster part into the first slot and a weapon or piece of armor into the second — he'll work the part's
+        latent essence into the item for a fee based on both their rarities. Parts with no latent essence (check its
+        description) still get worked in for flavor, just without a mechanical effect. The part is used up; the item
+        stays yours, permanently changed.
+      </p>
+      <div class="mangler-slots-row">
+        <div class="mangler-drop-slot" id="manglerPartSlot" ondragover="slotDragOver(event)" ondrop="manglerPartDrop(event)">
+          <div class="mangler-drop-label">🩸 Monster Part</div>
+          <div class="mangler-drop-content" id="manglerPartContent">Drag a monster part here</div>
+        </div>
+        <div class="mangler-arrow">➜</div>
+        <div class="mangler-drop-slot" id="manglerItemSlot" ondragover="slotDragOver(event)" ondrop="manglerItemDrop(event)">
+          <div class="mangler-drop-label">⚔ Weapon / Armor</div>
+          <div class="mangler-drop-content" id="manglerItemContent">Drag a weapon or armor piece here</div>
+        </div>
+      </div>
+      <div class="mangler-preview" id="manglerPreview"></div>
+      <button class="generate-btn" id="manglerCombineBtn" onclick="combineMonsterPart()" disabled>🔧 Combine (select both first)</button>
+      <div class="store-buy-msg" id="storeManglerMsg"></div>
+
+      <h4 class="store-section-label">🎒 Your Items</h4>
+      <div class="token-toolbar">
+        <input type="text" id="manglerTokenSearch" class="token-search" placeholder="Search your items…" oninput="renderManglerTokenGrid()">
+        <span class="token-count" id="manglerTokenCount"></span>
+      </div>
+      <div class="token-grid" id="manglerTokenGrid"></div>
     </div>
   </div>
 </div>
@@ -7898,6 +7952,13 @@ const MERCHANTS = {
     flavor: "A corkboard thick with wanted posters, each one promising coin for blood — or capture, if you're feeling generous.",
     staples: [],
   },
+  // Same deal again — no staples/daily-wares grid, this one swaps in the part-combining
+  // workbench instead (see renderStoreTab/#storeManglerPanel).
+  monstermangler: {
+    name: 'Monster Mangler', icon: '🔧',
+    flavor: "A workbench cluttered with vices, tongs, and the smell of scorched hide. He'll work anything into anything — for a price.",
+    staples: [],
+  },
 };
 
 // Rolls one fully random magic item for sale — reuses the exact same base-name pools,
@@ -7960,12 +8021,15 @@ function rollAnimalTamerDaily() {
 function selectMerchant(key) {
   currentMerchant = key;
   // The Fleshmancer doesn't use the daily-wares mechanic — his "wares" are rolled fresh
-  // via rollFleshCandidates() instead (see renderStoreTab()). The Bounty Hunter doesn't
-  // either — his board is rolled via rollBountyBoard().
+  // via rollFleshCandidates() instead (see renderStoreTab()). Neither does the Bounty
+  // Hunter (his board is rolled via rollBountyBoard()) or the Monster Mangler (he has no
+  // wares at all — just a workbench that operates on items you already own).
   if (key === 'animaltamer') {
     storeDailyItems = rollAnimalTamerDaily();
   } else if (key === 'bountyhunter') {
     rollBountyBoard();
+  } else if (key === 'monstermangler') {
+    resetManglerSlots();
   } else if (key !== 'fleshmancer') {
     storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
   }
@@ -7973,7 +8037,7 @@ function selectMerchant(key) {
 }
 
 function rerollStoreDaily() {
-  if (!currentMerchant || currentMerchant === 'fleshmancer') return;
+  if (!currentMerchant || currentMerchant === 'fleshmancer' || currentMerchant === 'monstermangler') return;
   if (currentMerchant === 'bountyhunter') { rollBountyBoard(); return; }
   storeDailyItems = currentMerchant === 'animaltamer'
     ? rollAnimalTamerDaily()
@@ -8068,6 +8132,12 @@ const MERCHANT_PORTRAITS = {
     [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,5,3,1,'#a8886a'],
     [3,6,3,1,'#8a5a3a'],[0,7,9,4,'#3a2a20'],[0,7,9,1,'#5a4530'],
   ],
+  monstermangler: [
+    [2,0,5,1,'#8a1a1a'],[1,1,7,3,'#c9a878'],
+    [2,2,1,1,'#2a2a2a'],[6,2,1,1,'#2a2a2a'],[3,4,3,1,'#8a5a3a'],
+    [1,5,1,1,'#5a3a20'],[7,5,1,1,'#5a3a20'],
+    [0,6,9,4,'#4a4a4a'],[0,6,9,1,'#6a6a6a'],[2,7,2,1,'#8a1a1a'],[5,7,2,1,'#8a1a1a'],
+  ],
 };
 function merchantPortraitSvg(key) {
   const rects = (MERCHANT_PORTRAITS[key] || []).map(([x,y,w,h,fill]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`).join('');
@@ -8087,12 +8157,14 @@ function renderStoreTab() {
   const panelEl = document.getElementById('storePanel');
   const fleshPanelEl = document.getElementById('storeFleshPanel');
   const bountyPanelEl = document.getElementById('storeBountyPanel');
+  const manglerPanelEl = document.getElementById('storeManglerPanel');
   if (!panelEl || !fleshPanelEl) return;
 
   if (!currentMerchant) {
     panelEl.style.display = '';
     fleshPanelEl.style.display = 'none';
     if (bountyPanelEl) bountyPanelEl.style.display = 'none';
+    if (manglerPanelEl) manglerPanelEl.style.display = 'none';
     panelEl.innerHTML = '<div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>';
     return;
   }
@@ -8101,6 +8173,7 @@ function renderStoreTab() {
     panelEl.style.display = 'none';
     fleshPanelEl.style.display = 'block';
     if (bountyPanelEl) bountyPanelEl.style.display = 'none';
+    if (manglerPanelEl) manglerPanelEl.style.display = 'none';
     const portraitSlot = document.getElementById('fleshPortraitSlot');
     if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('fleshmancer');
     renderFleshCandidates();
@@ -8110,6 +8183,7 @@ function renderStoreTab() {
   if (currentMerchant === 'bountyhunter') {
     panelEl.style.display = 'none';
     fleshPanelEl.style.display = 'none';
+    if (manglerPanelEl) manglerPanelEl.style.display = 'none';
     if (bountyPanelEl) {
       bountyPanelEl.style.display = 'block';
       const portraitSlot = document.getElementById('bountyPortraitSlot');
@@ -8119,9 +8193,24 @@ function renderStoreTab() {
     return;
   }
 
+  if (currentMerchant === 'monstermangler') {
+    panelEl.style.display = 'none';
+    fleshPanelEl.style.display = 'none';
+    if (bountyPanelEl) bountyPanelEl.style.display = 'none';
+    if (manglerPanelEl) {
+      manglerPanelEl.style.display = 'block';
+      const portraitSlot = document.getElementById('manglerPortraitSlot');
+      if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('monstermangler');
+      renderManglerSlots();
+      renderManglerTokenGrid();
+    }
+    return;
+  }
+
   panelEl.style.display = '';
   fleshPanelEl.style.display = 'none';
   if (bountyPanelEl) bountyPanelEl.style.display = 'none';
+  if (manglerPanelEl) manglerPanelEl.style.display = 'none';
   const m = MERCHANTS[currentMerchant];
   const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
   const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
@@ -11755,6 +11844,166 @@ function renderBountyPanel() {
     return;
   }
   wrap.innerHTML = activeBounties.map(bountyCardHtml).join('');
+}
+
+// ===================== MONSTER MANGLER =====================
+// A workbench, not a shop: drag a monster part into one slot and a weapon or armor piece
+// into the other, and combining works the part's latent modifier (see generateMonsterPart())
+// into the item permanently. The part is consumed; the item is mutated in place, wherever it
+// currently lives (inventory, equipped, or just sitting in the Token Library).
+let manglerPartKey = null;
+let manglerItemKey = null;
+const MANGLER_COST_BY_RARITY = { common:50, uncommon:150, rare:400, superrare:1000, legendary:3000, celestial:8000 };
+// Cost scales off whichever of the two (part or item) is the higher rarity — mangling a
+// common dagger with a celestial dragon claw costs celestial rates, not dagger rates.
+function manglerCombineCost(partRarity, itemRarity) {
+  const idx = Math.max(BAL.rarityOrder.indexOf(partRarity), BAL.rarityOrder.indexOf(itemRarity), 0);
+  const tier = BAL.rarityOrder[idx] || 'common';
+  return MANGLER_COST_BY_RARITY[tier] || MANGLER_COST_BY_RARITY.common;
+}
+function flashManglerMessage(msg, isError) {
+  const el = document.getElementById('storeManglerMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._manglerMsgTimer);
+  window._manglerMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+function flashManglerSlotInvalid(slotId) {
+  const el = document.getElementById(slotId);
+  if (!el) return;
+  el.classList.add('slot-invalid');
+  setTimeout(() => el.classList.remove('slot-invalid'), 350);
+}
+function manglerPartDrop(evt) {
+  evt.preventDefault();
+  const key = dragPayloadKey(getDragPayload(evt));
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry || entry.item.subcategory !== 'monsterpart') {
+    flashManglerSlotInvalid('manglerPartSlot');
+    flashManglerMessage('That has to be a monster part.', true);
+    return;
+  }
+  manglerPartKey = key;
+  renderManglerSlots();
+}
+function manglerItemDrop(evt) {
+  evt.preventDefault();
+  const key = dragPayloadKey(getDragPayload(evt));
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry || (entry.item.type !== 'weapon' && entry.item.type !== 'armor')) {
+    flashManglerSlotInvalid('manglerItemSlot');
+    flashManglerMessage('Only weapons and armor can be modified.', true);
+    return;
+  }
+  manglerItemKey = key;
+  renderManglerSlots();
+}
+function renderManglerSlots() {
+  buildTokenIndex();
+  const partEntry = manglerPartKey ? TOKEN_INDEX[manglerPartKey] : null;
+  const itemEntry = manglerItemKey ? TOKEN_INDEX[manglerItemKey] : null;
+  // Either slot's token may have been removed elsewhere (sold, deleted) since it was picked.
+  if (manglerPartKey && !partEntry) manglerPartKey = null;
+  if (manglerItemKey && !itemEntry) manglerItemKey = null;
+  const partContent = document.getElementById('manglerPartContent');
+  const itemContent = document.getElementById('manglerItemContent');
+  const preview = document.getElementById('manglerPreview');
+  const btn = document.getElementById('manglerCombineBtn');
+  if (partContent) {
+    partContent.innerHTML = partEntry
+      ? `${itemPixelIcon(partEntry.item, 26, partEntry.rarity)}<span>${escapeHtml(partEntry.item.name)}</span>`
+      : 'Drag a monster part here';
+  }
+  if (itemContent) {
+    itemContent.innerHTML = itemEntry
+      ? `${itemPixelIcon(itemEntry.item, 26, itemEntry.rarity)}<span>${escapeHtml(itemEntry.item.name)}</span>`
+      : 'Drag a weapon or armor piece here';
+  }
+  if (partEntry && itemEntry) {
+    const cost = manglerCombineCost(partEntry.rarity, itemEntry.rarity);
+    const effectPreview = partEntry.item.modifier ? describeNamedModifier(partEntry.item.modifier) : 'no latent effect — purely cosmetic';
+    if (preview) preview.innerHTML = `<div class="mangler-preview-line">Result: <b>${escapeHtml(itemEntry.item.name)}</b> gains <b>${escapeHtml(effectPreview)}</b></div><div class="mangler-preview-cost">💰 Cost: ${cost} gp</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = `🔧 Combine (${cost} gp)`; }
+  } else {
+    if (preview) preview.innerHTML = '';
+    if (btn) { btn.disabled = true; btn.textContent = '🔧 Combine (select both first)'; }
+  }
+}
+function resetManglerSlots() {
+  manglerPartKey = null;
+  manglerItemKey = null;
+}
+// Bakes a monster part's latent modifier into a weapon/armor item — or just a flavor note
+// if the part had no modifier at all (see generateMonsterPart()'s MONSTER_PART_MOD_CHANCE) —
+// either way the part's origin gets folded into the item's own effect/description text so
+// it's clear where the change came from.
+function applyMonsterPartToItem(item, part) {
+  if (!item.mangledParts) item.mangledParts = [];
+  item.mangledParts.push(part.name);
+  if (part.modifier) {
+    if (!item.mods) item.mods = [];
+    const mod = part.modifier;
+    const text = [...(mod.buffs || []).map(s => '+' + s), ...(mod.debuffs || []).map(s => '-' + s)].join(', ');
+    item.mods.push({ type: mod.name, text: `${mod.name}: ${text} (worked in from ${part.name})` });
+    item.effect = (item.effect ? item.effect + ' ' : '') + `Imbued with ${part.name}'s latent essence: ${text}.`;
+  } else {
+    item.effect = (item.effect ? item.effect + ' ' : '') + `Reinforced with ${part.name}.`;
+  }
+  item.desc = (item.desc || '') + ` Bears a trace of ${part.sourceMonster || 'something monstrous'}.`;
+}
+// Fully removes a token from every place it could be referenced — used to consume the
+// monster part once it's worked into an item. Only ever called on generated items (parts
+// always come from savedGeneratedItems, never the static lootData catalog, so this is safe
+// to delete outright rather than just hiding it somewhere).
+function removeTokenEverywhere(key) {
+  Object.keys(inventoryPlacements).forEach(pid => { if (inventoryPlacements[pid].key === key) removeFromInventory(pid); });
+  Object.keys(playerSlots).forEach(slotId => { if (playerSlots[slotId] === key) playerSlots[slotId] = null; });
+  if (key.indexOf('gen:') === 0) {
+    const id = key.slice('gen:'.length);
+    savedGeneratedItems = savedGeneratedItems.filter(it => String(it.id) !== id);
+  }
+  delete TOKEN_INDEX[key];
+}
+function combineMonsterPart() {
+  buildTokenIndex();
+  const partEntry = manglerPartKey ? TOKEN_INDEX[manglerPartKey] : null;
+  const itemEntry = manglerItemKey ? TOKEN_INDEX[manglerItemKey] : null;
+  if (!partEntry || !itemEntry) { flashManglerMessage('Select a monster part and a weapon or armor piece first.', true); return; }
+  const part = partEntry.item;
+  const item = itemEntry.item;
+  const cost = manglerCombineCost(partEntry.rarity, itemEntry.rarity);
+  applyMonsterPartToItem(item, part);
+  removeTokenEverywhere(manglerPartKey);
+  flashManglerMessage(`${part.name} worked into ${item.name} for ${cost} gp.`);
+  manglerPartKey = null;
+  manglerItemKey = null;
+  renderManglerSlots();
+  renderManglerTokenGrid();
+  renderInventoryGrid();
+  renderPlayerSlots();
+  renderActiveEffects();
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+}
+function renderManglerTokenGrid() {
+  buildTokenIndex();
+  const searchEl = document.getElementById('manglerTokenSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search));
+  const grid = document.getElementById('manglerTokenGrid');
+  const countEl = document.getElementById('manglerTokenCount');
+  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
+  if (!grid) return;
+  if (!entries.length) {
+    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(tokenCardHtml).join('');
 }
 
 </script>
