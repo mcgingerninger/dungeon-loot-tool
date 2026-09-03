@@ -1636,6 +1636,30 @@
   .combat-chaos-badge.legendary{border-color:var(--legendary);color:var(--legendary)}
   .combat-chaos-badge.celestial{border-color:var(--celestial);color:var(--celestial)}
   .combat-chaos-line{font-size:.78rem;line-height:1.5;color:var(--superrare);font-style:italic}
+  /* Bounty-saved creatures — flags a saved bounty target so it's never confused with a
+     same-named stock bestiary entry (e.g. a bounty that happened to roll the "Ancient"
+     variant on a Brass Dragon looks, by name, identical to the real Ancient Brass Dragon
+     stat block already in the registry). */
+  .combat-bounty-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle}
+  .combat-bounty-badge.common{color:var(--common)}
+  .combat-bounty-badge.uncommon{color:var(--uncommon)}
+  .combat-bounty-badge.rare{color:var(--rare)}
+  .combat-bounty-badge.superrare{color:var(--superrare)}
+  .combat-bounty-badge.legendary{color:var(--legendary)}
+  .combat-bounty-badge.celestial{color:var(--celestial)}
+  .combat-card.bounty-tagged.common{border-color:var(--common)}
+  .combat-card.bounty-tagged.uncommon{border-color:var(--uncommon)}
+  .combat-card.bounty-tagged.rare{border-color:var(--rare)}
+  .combat-card.bounty-tagged.superrare{border-color:var(--superrare)}
+  .combat-card.bounty-tagged.legendary{border-color:var(--legendary)}
+  .combat-card.bounty-tagged.celestial{border-color:var(--celestial)}
+  .combat-picker-row.bounty-saved{border-left:3px solid var(--common);background:rgba(255,255,255,0.03)}
+  .combat-picker-row.bounty-saved.common{border-left-color:var(--common)}
+  .combat-picker-row.bounty-saved.uncommon{border-left-color:var(--uncommon)}
+  .combat-picker-row.bounty-saved.rare{border-left-color:var(--rare)}
+  .combat-picker-row.bounty-saved.superrare{border-left-color:var(--superrare)}
+  .combat-picker-row.bounty-saved.legendary{border-left-color:var(--legendary)}
+  .combat-picker-row.bounty-saved.celestial{border-left-color:var(--celestial)}
   .combat-roll-btn{background:var(--gold);color:var(--bg);border:none;padding:.5rem .8rem;font-family:'Crimson Text',serif;font-weight:600;cursor:pointer;letter-spacing:.03em}
   .combat-roll-btn:hover{background:var(--gold-bright)}
   .combat-result{border-left:3px solid var(--border);padding:.5rem .7rem;background:rgba(0,0,0,.2);font-size:.85rem;line-height:1.5}
@@ -10412,11 +10436,18 @@ function renderCombatPicker() {
     .sort((a, b) => crSortValue(a.cr) - crSortValue(b.cr) || a.name.localeCompare(b.name))
     .slice(0, 40);
   if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match that search.</div>'; return; }
-  wrap.innerHTML = rows.map(m => `<div class="combat-picker-row">
-    <span class="combat-picker-name">${escapeHtml(m.name)}</span>
+  // Bounty-saved creatures are flagged with .bountyRarity — highlight those rows so a saved
+  // "Ancient Brass Dragon" (say, a bounty that happened to roll the Ancient variant) is never
+  // confused with the genuine Ancient Brass Dragon stat block the search also turns up.
+  wrap.innerHTML = rows.map(m => {
+    const bountyClass = m.bountyRarity ? ` bounty-saved ${m.bountyRarity}` : '';
+    const bountyBadge = m.bountyRarity ? `<span class="combat-bounty-badge ${m.bountyRarity}">🎯 Bounty</span>` : '';
+    return `<div class="combat-picker-row${bountyClass}">
+    <span class="combat-picker-name">${escapeHtml(m.name)}${bountyBadge}</span>
     <span class="combat-picker-cr">CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.type)}</span>
     <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)})">+ Add</button>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 // ===================== MONSTER VARIANTS =====================
@@ -10686,10 +10717,24 @@ function buildBattleEntry(monster) {
   };
 }
 
+// A bounty-saved creature (see saveBountyAsCreature) already has its variant, traits, HP,
+// and AC locked in from the moment the bounty was rolled — reuses that exact snapshot
+// instead of calling buildBattleEntry(), which would independently re-roll a brand new
+// variant/traits/HP on top of it (doubling up on bonuses and losing the bounty's actual
+// rolled identity every time it's added to a fight).
+function buildFrozenBattleEntry(monster) {
+  const f = monster.frozenEntry;
+  return {
+    uid: ++battleUidCounter, monster, displayName: f.displayName, variant: f.variant,
+    traits: f.traits, leaning: f.leaning, chaosGearList: f.chaosGearList || [],
+    hp: f.hp, hpRoll: f.hpRoll, ac: f.ac, atkMod: f.atkMod, dmgMult: f.dmgMult,
+    statLines: f.statLines || [], lastResult: null,
+  };
+}
 function addMonsterToBattle(idx) {
   const monster = monsterDatabase[idx];
   if (!monster) return;
-  battleRoster.push(buildBattleEntry(monster));
+  battleRoster.push(monster.frozenEntry ? buildFrozenBattleEntry(monster) : buildBattleEntry(monster));
   renderCombatRoster();
 }
 
@@ -10855,10 +10900,15 @@ function renderCombatRoster() {
     const chaosGearList = entry.chaosGearList || [];
     const chaosBadges = chaosGearList.map(g => `<span class="combat-chaos-badge ${g.rarity}">${g.kind === 'weapon' ? '⚔' : g.kind === 'armor' ? '🛡' : '📖'} chaos</span>`).join('');
     const chaosLines = chaosGearList.map(g => `<div class="combat-chaos-line">${g.label}</div>`).join('');
-    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}">
+    // Bounty-saved creatures get their own tag/border here too — the roster is exactly
+    // where you'd end up with both a real "Ancient Brass Dragon" and a bounty-derived one
+    // side by side, so the same rarity highlight from the search results carries over.
+    const bountyTag = m.bountyRarity ? ` bounty-tagged ${m.bountyRarity}` : '';
+    const bountyBadge = m.bountyRarity ? `<span class="combat-bounty-badge ${m.bountyRarity}">🎯 Bounty</span>` : '';
+    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}">
       <div class="combat-card-head">
         <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}</div>
+          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}</div>
           <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
@@ -11124,6 +11174,18 @@ function saveBountyAsCreature(bountyId) {
     hp: buildHpStringFromEntry(entry),
     source: 'Bounty', sourceLabel: 'Bounty Board',
     traits: (monster.traits || []).concat(extraTraits),
+    // bountyRarity flags this entry for the highlight in renderCombatPicker/renderCombatRoster
+    // (so it's never confused with a same-named stock bestiary creature). frozenEntry is the
+    // exact rolled combat entry (variant, traits, HP, AC, atkMod, dmgMult, statLines) from the
+    // moment this bounty was generated — addMonsterToBattle() reuses it as-is instead of
+    // independently re-rolling a brand new variant/traits/HP on top of it, so every bonus this
+    // creature had as a bounty carries over intact whenever it's added to a fight.
+    bountyRarity: bounty.rarity,
+    frozenEntry: {
+      displayName: bounty.name, variant: entry.variant, traits: entry.traits, leaning: entry.leaning,
+      chaosGearList: entry.chaosGearList, hp: entry.hp, hpRoll: entry.hpRoll, ac: entry.ac,
+      atkMod: entry.atkMod, dmgMult: entry.dmgMult, statLines: entry.statLines,
+    },
   };
   monsterDatabase.push(custom);
   bounty.savedAsCreature = true;
