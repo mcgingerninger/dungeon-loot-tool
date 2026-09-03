@@ -1529,6 +1529,11 @@
   .tt-effect { color:var(--text); margin-bottom:0.3rem; }
   .tt-mods { margin-top:0.4rem; }
   .tt-mod { font-size:0.82rem; color:var(--text-dim); margin-bottom:0.2rem; }
+  .tt-classification { font-size:0.72rem; color:var(--text-dim); margin-bottom:0.4rem; }
+  .tt-crumb-sep { color:var(--border); }
+  .tt-properties, .tt-tags { display:flex; flex-wrap:wrap; gap:0.3rem; margin-bottom:0.4rem; }
+  .tt-prop-chip { background:rgba(201,168,76,0.12); border:1px solid var(--gold); color:var(--gold-bright); font-size:0.68rem; padding:0.05rem 0.35rem; text-transform:uppercase; letter-spacing:0.03em; }
+  .tt-tag-chip { background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.68rem; padding:0.05rem 0.35rem; }
   .tt-unlocks { margin-top:0.5rem; border-top:1px solid var(--border); padding-top:0.4rem; }
   .tt-unlocks-title { font-size:0.75rem; color:var(--gold); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem; }
   .tt-unlock-tier { font-size:0.8rem; color:var(--text-dim); margin-bottom:0.2rem; }
@@ -3885,7 +3890,254 @@ function closePowerPicker() {
   _powerPickerOptions = [];
 }
 
-function inferItemMetadata(item){
+// ===================== ITEM CLASSIFICATION SYSTEM =====================
+// Three independent axes, layered on top of the existing type/subcategory fields rather
+// than replacing them (everything built earlier this project — equip slots, icons, weight,
+// weapons/armor detection — keeps working unchanged):
+//   • classification — an array of path segments from root to the most specific leaf that
+//     applies (e.g. ['Weapon','Melee','One-Handed','Sword']): "what physically/functionally
+//     is this thing." Derived automatically from the item's existing type/subcategory/name/
+//     description — every item in the project gets one, not just new ones.
+//   • properties — a flat array of descriptive traits from a fixed vocabulary (Magical,
+//     Cursed, Rare, Unique, Heavy, Soulbound, elemental flavors, etc.): "what characteristics
+//     does it have."
+//   • tags — a flat array of lowercase hashtag-style strings (the '#' is only added back for
+//     display) that other systems can gate on: "what systems can interact with this." The
+//     Monster Mangler's weapon/armor check (see manglerItemDrop) now reads these tags
+//     instead of a hardcoded type check, as a working example of that gating.
+// Coverage note: several branches from the full classification chart (Document, Treasure,
+// Key/Quest Object, and most of Miscellaneous) don't have any real mechanical item type in
+// this project yet — nothing currently *is* a readable book or a quest key. The classifier
+// below still recognizes the handful of existing items that read that way by name (maps,
+// keys, ledgers, coin pouches, etc.) and routes them into the right branch, but populating
+// every empty leaf with brand-new hand-authored items is a separate, much larger follow-up
+// (a hundred-plus new items across entirely new item types) that hasn't been done here.
+
+// Body-slot label used for the Armor tree's material branches (2.1–2.3), independent of the
+// "which doll slot does this equip to" mapping SUBCATEGORY_TO_SLOT_CATEGORY already handles.
+const ARMOR_BODY_SLOT_LABEL = { head:'Head', chest:'Chest', handwear:'Hands', leggings:'Legs', boots:'Feet', facewear:'Head' };
+function classifyItemHierarchy(item) {
+  const n = (item.name || '').toLowerCase();
+  const text = n + ' ' + ((item.desc || '') + ' ' + (item.effect || '')).toLowerCase();
+  const type = item.type;
+  const sub = item.subcategory;
+
+  // ---- 1. WEAPON ----
+  if (type === 'weapon') {
+    const twoHanded = sub === 'twohanded';
+    if (/\bwhip\b/.test(n)) return ['Weapon','Melee','Flexible','Whip'];
+    if (/\bchain\b(?!\s*mail)/.test(n)) return ['Weapon','Melee','Flexible','Chain'];
+    if (/morningstar/.test(n)) return ['Weapon','Melee','Flexible','Morningstar'];
+    if (/\bsling\b/.test(n)) return ['Weapon','Ranged','Exotic','Sling'];
+    if (/blowgun/.test(n)) return ['Weapon','Ranged','Exotic','Blowgun'];
+    if (/hand crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Hand Crossbow'];
+    if (/heavy crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Heavy Crossbow'];
+    if (/crossbow/.test(n)) return ['Weapon','Ranged','Crossbow','Light Crossbow'];
+    if (/throwing knife|throwing dagger/.test(n)) return ['Weapon','Ranged','Thrown','Throwing Knife'];
+    if (/throwing axe/.test(n)) return ['Weapon','Ranged','Thrown','Throwing Axe'];
+    if (/javelin/.test(n)) return ['Weapon','Ranged','Thrown','Javelin'];
+    if (/greatbow/.test(n)) return ['Weapon','Ranged','Bow','Greatbow'];
+    if (/longbow/.test(n)) return ['Weapon','Ranged','Bow','Longbow'];
+    if (/shortbow|\bbow\b/.test(n)) return ['Weapon','Ranged','Bow','Shortbow'];
+    if (/great.?sword|zweihander/.test(n)) return ['Weapon','Melee','Two-Handed','Greatsword'];
+    if (/great.?axe/.test(n)) return ['Weapon','Melee','Two-Handed','Greataxe'];
+    if (/great.?club|great.?hammer|\bmaul\b/.test(n)) return ['Weapon','Melee','Two-Handed','Great Hammer'];
+    if (/halberd|glaive|\bpike\b|\blance\b|polearm/.test(n)) return ['Weapon','Melee','Two-Handed','Polearm'];
+    if (twoHanded && /spear|trident/.test(n)) return ['Weapon','Melee','Two-Handed','Two-Handed Spear'];
+    if (/\bstaff\b/.test(n)) return ['Weapon','Melee','Two-Handed','Staff'];
+    if (/dagger|\bknife\b|dirk|stiletto/.test(n)) return ['Weapon','Melee','One-Handed','Dagger'];
+    if (/\baxe\b|hatchet/.test(n)) return ['Weapon','Melee','One-Handed','Axe'];
+    if (/\bmace\b/.test(n)) return ['Weapon','Melee','One-Handed','Mace'];
+    if (/hammer/.test(n)) return ['Weapon','Melee','One-Handed','Hammer'];
+    if (/\bflail\b/.test(n)) return ['Weapon','Melee','One-Handed','Flail'];
+    if (/\bclub\b/.test(n)) return ['Weapon','Melee','One-Handed','Club'];
+    if (/spear|trident|\bpike\b/.test(n)) return ['Weapon','Melee','One-Handed','Spear'];
+    if (/sword|\bblade\b|rapier|saber|scimitar|falchion/.test(n)) return ['Weapon','Melee','One-Handed','Sword'];
+    return twoHanded ? ['Weapon','Melee','Two-Handed','Miscellaneous'] : ['Weapon','Melee','One-Handed','Miscellaneous'];
+  }
+
+  // ---- Grafted limbs — not a clean fit for any existing branch (a worn magical body part
+  // isn't a weapon, and it's not consumed like a material), so they get a documented
+  // extension leaf under Accessory rather than being forced somewhere misleading.
+  if (type === 'limb') return ['Accessory','Other','Magical Augmentation'];
+
+  // ---- 2. ARMOR ---- (cloak/belt/facewear/ring/amulet-flavored "armor" items are really
+  // accessories that happen to grant AC — routed to the Accessory branch instead of the
+  // material/weight-class tree, which is for actual body armor.)
+  if (type === 'armor') {
+    if (sub === 'cloak') return ['Accessory','Back','Cloak'];
+    if (sub === 'belt') return ['Accessory','Waist','Belt'];
+    if (sub === 'facewear' && /mask/.test(n)) return ['Accessory','Other','Mask'];
+    if (sub === 'offhand') {
+      if (/tower/.test(n)) return ['Armor','Shield','Tower Shield'];
+      if (/kite/.test(n)) return ['Armor','Shield','Kite Shield'];
+      if (/buckler/.test(n)) return ['Armor','Shield','Buckler'];
+      return ['Armor','Shield','Round Shield'];
+    }
+    const slotLabel = ARMOR_BODY_SLOT_LABEL[sub] || 'Full Set';
+    if (/full plate/.test(n)) return ['Armor','Heavy Armor','Full Plate', slotLabel];
+    if (/half.?plate/.test(n)) return ['Armor','Heavy Armor','Half Plate', slotLabel];
+    if (/\bplate\b|cuirass|breastplate/.test(n)) return ['Armor','Heavy Armor','Plate', slotLabel];
+    if (/chain\s*mail|\bchain\b/.test(n)) return ['Armor','Medium Armor','Chain', slotLabel];
+    if (/\bscale\b/.test(n)) return ['Armor','Medium Armor','Scale', slotLabel];
+    if (/studded/.test(n)) return ['Armor','Medium Armor','Studded', slotLabel];
+    if (/\bhide\b/.test(n)) return ['Armor','Light Armor','Hide', slotLabel];
+    if (/leather/.test(n)) return ['Armor','Light Armor','Leather', slotLabel];
+    if (/\brobe\b|vestment|\bcloth\b/.test(n)) return ['Armor','Light Armor','Cloth', slotLabel];
+    if (/dragon|elemental|obsidian|celestial/.test(text)) return ['Armor','Specialized Armor','Elemental Armor'];
+    return ['Armor','Specialized Armor','Magical Armor'];
+  }
+
+  // ---- 3. ACCESSORY ----
+  if (sub === 'ring') return ['Accessory','Ring', /signet/.test(n) ? 'Signet Ring' : 'Magical Ring'];
+  if (sub === 'amulet') {
+    if (/talisman/.test(n)) return ['Accessory','Neck','Talisman'];
+    if (/pendant/.test(n)) return ['Accessory','Neck','Pendant'];
+    if (/necklace/.test(n)) return ['Accessory','Neck','Necklace'];
+    return ['Accessory','Neck','Amulet'];
+  }
+
+  // ---- Companions — a creature, not really an "item" in this taxonomy at all; kept
+  // shallow rather than forced into a misleading leaf.
+  if (type === 'companion') return ['Miscellaneous'];
+
+  // ---- Monster parts always land in Material > Monster Material, by part type.
+  if (type === 'craftable' && sub === 'monsterpart') {
+    const organParts = ['eye','heart','tongue'];
+    const leafByPart = {
+      eye:'Organ', heart:'Organ', tongue:'Organ', venomsac:'Venom', shell:'Carapace',
+      hide:'Hide', pelt:'Fur', fang:'Fang', claw:'Claw', talon:'Talon', horn:'Horn',
+      tail:'Tail', wing:'Wing', bone:'Bone',
+    };
+    return ['Material','Monster Material', leafByPart[item.partType] || 'Other'];
+  }
+
+  // ---- 4. CONSUMABLE ----
+  if (type === 'consumable') {
+    if (sub === 'scroll') return ['Consumable','Scroll', /ritual/.test(text) ? 'Ritual Scroll' : 'Spell Scroll'];
+    if (sub === 'potion') {
+      if (item.hp) return ['Consumable','Potion','Healing'];
+      if (/poison|venom|toxic/.test(text)) return ['Consumable','Potion','Poison'];
+      if (/resist/.test(text)) return ['Consumable','Potion','Resistance'];
+      if (/transform|shape/.test(text)) return ['Consumable','Potion','Transformation'];
+      if (item.mods && item.mods.length) return ['Consumable','Potion','Buff'];
+      return ['Consumable','Potion','Utility'];
+    }
+    if (sub === 'food') {
+      if (/magical|enchant/.test(text)) return ['Consumable','Food','Magical Food'];
+      if (/meat|beetle|monster/.test(text)) return ['Consumable','Food','Monster Meat'];
+      if (/ration/.test(n)) return ['Consumable','Food','Ration'];
+      return ['Consumable','Food','Prepared Food'];
+    }
+    if (sub === 'throwable') {
+      if (/dust|powder/.test(n)) return ['Consumable','Powder / Dust', /explosive|blast/.test(text) ? 'Explosive Powder' : 'Alchemical Powder'];
+      if (/bomb|grenade/.test(n)) return ['Consumable','Other','Bomb'];
+      return ['Consumable','Other','Other'];
+    }
+    return ['Consumable','Other','Other'];
+  }
+
+  // ---- 5. TOOL ---- (wands/rods/foci that aren't classified as full weapons, plus
+  // adventuring gear that's clearly a tool rather than a trinket)
+  if (/\bwand\b|\brod\b/.test(n)) return ['Tool','Magical','Wand'];
+  if (/spellbook|grimoire|component pouch|focus\b/.test(text)) return ['Tool','Magical','Magical Focus'];
+  if (/lockpick|thieves.? tools/.test(text)) return ['Tool',"Thieves' Tools",'Lockpicks'];
+  if (/grappling hook/.test(n)) return ['Tool','Adventuring','Grappling Hook'];
+  if (/\brope\b/.test(n)) return ['Tool','Adventuring','Rope'];
+  if (/\btorch\b/.test(n)) return ['Tool','Adventuring','Torch'];
+  if (/lantern/.test(n)) return ['Tool','Adventuring','Lantern'];
+  if (/crowbar/.test(n)) return ['Tool','Adventuring','Crowbar'];
+  if (/smithing|leatherworking|woodworking|alchemist'?s? (kit|supplies)|tailoring|jewel/.test(text)) return ['Tool','Crafting','Alchemy Tools'];
+
+  // ---- 6. MATERIAL ---- (reagents, alchemical ingredients, raw crafting stock that isn't
+  // a monster part)
+  if (/dust|powder|reagent|solvent|catalyst/.test(n) && type === 'misc') return ['Material','Alchemical','Reagent'];
+  if (/ore\b|\bingot\b/.test(n)) return ['Material','Mineral','Ore'];
+  if (/\bgem\b|\bcrystal\b/.test(n) && !item.gp) return ['Material','Mineral','Gem'];
+
+  // ---- 7. KEY / QUEST OBJECT ----
+  if (/\bkey\b/.test(n)) return ['Key / Quest Object','Key', /magical|enchant/.test(text) ? 'Magical Key' : 'Physical Key'];
+  if (/\bseal\b|\bsigil\b/.test(n)) return ['Key / Quest Object','Access Token', /seal/.test(n) ? 'Seal' : 'Sigil'];
+  if (/relic|artifact/.test(n) && (item.rarity === 'legendary' || item.rarity === 'celestial')) return ['Key / Quest Object','Quest Object','Relic'];
+
+  // ---- 8. DOCUMENT ----
+  if (/\bmap\b/.test(n)) return ['Document','Map', /treasure/.test(text) ? 'Treasure Map' : 'Dungeon'];
+  if (/ledger|journal|diary/.test(n)) return ['Document','Journal','Personal'];
+  if (/\bletter\b/.test(n)) return ['Document','Letter','Personal'];
+  if (/tome|grimoire|spellbook|\bbook\b/.test(n)) return ['Document','Book','Magic'];
+  if (/recipe|blueprint|formula/.test(n)) return ['Document','Other', /recipe/.test(n) ? 'Recipe' : (/blueprint/.test(n) ? 'Blueprint' : 'Spell Formula')];
+
+  // ---- 9. TREASURE ---- (flat currency/valuables with no other mechanical purpose)
+  if (/pouch of .*(coins|gold|silver|copper)|\bgold\b|\bcoins?\b/.test(n) && !item.effect) return ['Treasure','Currency','Coin'];
+  if (/\bgem\b|\bjewel\b/.test(n) && item.gp && !item.effect) return ['Treasure','Gem','Precious Gem'];
+  if (/painting|statue|sculpture/.test(n)) return ['Treasure','Art', /statue|sculpture/.test(n) ? 'Statue' : 'Painting'];
+
+  // ---- 10. MISCELLANEOUS fallback ----
+  if (/idol|icon|holy symbol|shrine/.test(text)) return ['Miscellaneous','Religious','Idol'];
+  if (/toy|game piece|instrument/.test(text)) return ['Miscellaneous','Entertainment', /instrument/.test(text) ? 'Instrument' : 'Toy'];
+  return ['Miscellaneous','Unknown','Unidentified Object'];
+}
+
+// Fixed vocabulary of descriptive traits — a small, curated set rather than open-ended free
+// text, so other systems can reliably check "does this item have property X."
+function deriveItemProperties(item, rarity) {
+  const props = [];
+  const text = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.effect || '')).toLowerCase();
+  const r = rarity || item.rarity || 'common';
+  if (r === 'rare' || r === 'superrare') props.push('Rare');
+  if (r === 'legendary' || r === 'celestial') { props.push('Rare'); props.push('Unique'); }
+  if (item.type !== 'misc' || item.effect) props.push('Magical');
+  if (/curse|cursed/.test(text)) props.push('Cursed');
+  if (/attunement/.test(text)) props.push('Soulbound');
+  if ((item.weight || 0) >= 15) props.push('Heavy');
+  if (item.charges === undefined && item.type === 'weapon') props.push('Durable');
+  if (/quest|bounty/.test(text)) props.push('Quest Item');
+  if (/\bfire\b|flame|burn|ember/.test(text)) props.push('Fire');
+  if (/\bcold\b|frost|ice\b/.test(text)) props.push('Cold');
+  if (/lightning|thunder|shock/.test(text)) props.push('Lightning');
+  if (/poison|venom|toxic/.test(text)) props.push('Poison');
+  if (/necrotic|undead|death\b/.test(text)) props.push('Necrotic');
+  if (/radiant|holy|divine/.test(text)) props.push('Radiant');
+  return [...new Set(props)];
+}
+
+// Hashtag-style, lowercase, no '#' stored (added back only when displayed) — the classifier
+// leaf plus a handful of thematic keyword tags, so a future system (like the "alchemy items
+// only usable in alchemy" example) has something concrete to gate on. The Monster Mangler's
+// weapon/armor compatibility check already reads these (see manglerItemDrop).
+function deriveItemTags(item, classification, properties) {
+  const tags = new Set();
+  const leaf = classification[classification.length - 1];
+  if (leaf) tags.add(leaf.toLowerCase().replace(/[^a-z0-9]+/g, ''));
+  classification.forEach(seg => tags.add(seg.toLowerCase().replace(/[^a-z0-9]+/g, '')));
+  if (item.type === 'weapon' || classification[0] === 'Weapon') tags.add('weapon');
+  if (item.type === 'armor' || classification[0] === 'Armor') tags.add('armor');
+  if (classification[0] === 'Material') tags.add('crafting');
+  if (item.subcategory === 'potion' || item.subcategory === 'throwable') tags.add('alchemy');
+  if (item.type === 'craftable') tags.add('crafting');
+  properties.forEach(p => { if (['Fire','Cold','Lightning','Poison','Necrotic','Radiant'].includes(p)) tags.add(p.toLowerCase()); });
+  const text = ((item.name || '') + ' ' + (item.desc || '')).toLowerCase();
+  if (/undead|zombie|skeleton|lich|ghoul|wraith/.test(text)) tags.add('undead');
+  if (/king|queen|royal|noble|crown|throne/.test(text)) tags.add('royal');
+  if (/ancient|primordial|elder/.test(text)) tags.add('ancient');
+  if (/dragon|wyrm/.test(text)) tags.add('dragon');
+  if (item.sourceMonster) tags.add(item.sourceMonster.toLowerCase().replace(/[^a-z0-9]+/g, ''));
+  return [...tags].filter(Boolean);
+}
+
+// Runs all three axes and stores them on the item — idempotent (skips items that already
+// have a classification, same "don't clobber existing data" rule every other auto-derived
+// field in this project follows) so it's safe to call repeatedly across every code path that
+// constructs an item (lootData at load, generated items when saved, monster parts, etc).
+function classifyItemFull(item, rarity) {
+  if (item.classification) return item;
+  item.classification = classifyItemHierarchy(item);
+  item.properties = deriveItemProperties(item, rarity);
+  item.tags = deriveItemTags(item, item.classification, item.properties);
+  return item;
+}
+
+function inferItemMetadata(item, rarity){
   const n=item.name.toLowerCase();
   if(!item.type){
     if(/\barmor\b|\bshield\b|\bhelm\b|\bhelmet\b|\bbracers?\b|\bgauntlets?\b|\bgloves?\b|\bboots\b|\bcloak\b|\brobe\b|\bbelt\b|\bring\b|\bamulet\b|\bnecklace\b|\bcirclet\b|\bheadband\b/.test(n)) item.type='armor';
@@ -3898,9 +4150,10 @@ function inferItemMetadata(item){
   if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
   if(item.weight===undefined || item.weight===null) item.weight=computeItemWeight(item);
   ensureChargeFormat(item);
+  classifyItemFull(item, rarity);
   return item;
 }
-Object.values(lootData).forEach(arr=>arr.forEach(inferItemMetadata));
+Object.entries(lootData).forEach(([r, arr]) => arr.forEach(item => inferItemMetadata(item, r)));
 
 const rarityNames  = { common:'Common', uncommon:'Uncommon', rare:'Rare', superrare:'Super Rare',legendary:'Legendary',celestial:'Celestial' };
 
@@ -5293,6 +5546,18 @@ function metaTagsFor(item, rarity){
   if(item.requirement) tags += `<span class="meta-tag">Req: ${item.requirement}</span>`;
   return tags;
 }
+// Classification breadcrumb + properties/tags chips for the Item Compendium row — same
+// data classifyItemFull() computes for the tooltip, just in the list-row layout.
+function classificationTagsRowHtml(item) {
+  if (!item.classification) classifyItemFull(item, item.rarity);
+  const crumb = (item.classification && item.classification.length)
+    ? `<div class="tt-classification">${item.classification.map(escapeHtml).join(' <span class="tt-crumb-sep">›</span> ')}</div>` : '';
+  const props = (item.properties && item.properties.length)
+    ? `<div class="tt-properties">${item.properties.map(p => `<span class="tt-prop-chip">${escapeHtml(p)}</span>`).join('')}</div>` : '';
+  const tagsHtml = (item.tags && item.tags.length)
+    ? `<div class="tt-tags">${item.tags.map(t => `<span class="tt-tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : '';
+  return crumb + props + tagsHtml;
+}
 // Items with a `mods` array (e.g. Fleshmancer limbs) render one colorized line per
 // modifier instead of the flattened `effect` string, so the Edit Items tab shows the
 // same green/red buff-debuff coloring as everywhere else. Hand-authored lootData items
@@ -5346,6 +5611,7 @@ function renderItemsList() {
         <div class="item-name">${item.name}</div>
         <div class="item-desc">${item.desc}</div>
         <div class="item-meta">${metaTagsFor(item, rarity)}</div>
+        ${classificationTagsRowHtml(item)}
         ${itemEffectBlockHtml(item)}
         ${item.unlocks && item.unlocks.length ? renderUnlocks(item, rarity) : ''}
       </div>
@@ -10354,13 +10620,30 @@ function buildTooltipHtml(entry) {
   if (item.mods && item.mods.length) {
     modsHtml = `<div class="tt-mods">${item.mods.map(m => `<div class="tt-mod"><b>${escapeHtml(m.type)}:</b> ${colorizeModifierText(m.text, m.type)}</div>`).join('')}</div>`;
   }
+  // Classification breadcrumb + properties/tags chips — see classifyItemFull(). Falls back
+  // to computing on the spot for anything shown before it's been saved/loaded through the
+  // usual pipeline (e.g. a live Generate Item preview), so the block never silently
+  // disappears just because an item hasn't been through inferItemMetadata yet.
+  if (!item.classification) classifyItemFull(item, rarity);
+  const classHtml = (item.classification && item.classification.length)
+    ? `<div class="tt-classification">${item.classification.map(escapeHtml).join(' <span class="tt-crumb-sep">›</span> ')}</div>`
+    : '';
+  const propsHtml = (item.properties && item.properties.length)
+    ? `<div class="tt-properties">${item.properties.map(p => `<span class="tt-prop-chip">${escapeHtml(p)}</span>`).join('')}</div>`
+    : '';
+  const tagsHtml = (item.tags && item.tags.length)
+    ? `<div class="tt-tags">${item.tags.map(t => `<span class="tt-tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>`
+    : '';
   return `
     <div class="tt-header ${rarity}" style="display:flex;align-items:center;gap:0.5rem;">${itemPixelIcon(item, 24, rarity)}<span>${escapeHtml(item.name)}</span></div>
     <div class="tt-rarity">${rarityNames[rarity] || rarity}${typeLabel ? ' · ' + escapeHtml(typeLabel) : ''} · ${SLOT_TYPES.find(s=>s.id===getTokenSlotType(entry))?.label || ''}</div>
+    ${classHtml}
     ${statsLine}
+    ${propsHtml}
     ${item.desc ? `<div class="tt-desc">${escapeHtml(item.desc)}</div>` : ''}
     <div class="tt-effect">${escapeHtml(effect)}</div>
     ${modsHtml}
+    ${tagsHtml}
     ${unlocksHtml}
   `;
 }
@@ -11141,12 +11424,17 @@ function buildMonsterPartItem(monster, tier, partType) {
   const effect = mod
     ? `Latent essence: ${describeNamedModifier(mod)}. Can be worked into a compatible weapon or piece of armor to imbue this effect.`
     : `Raw crafting material — no effect on its own, but can be worked into a compatible weapon or piece of armor.`;
-  return {
+  const part = {
     id: 'part' + (++monsterPartCounter), name, type: 'craftable', subcategory: 'monsterpart',
     partType: partType.key, rarity: tier, weight, gp, slotSize: 1,
     desc: `A ${partType.label.toLowerCase()} harvested from a defeated ${monster.name.toLowerCase()}, still faintly redolent of the creature it came from.`,
     effect, sourceMonster: monster.name, modifier: mod,
   };
+  // Premade parts (generatePremadeMonsterParts) are pushed straight into lootData without
+  // ever passing through inferItemMetadata, so classification has to happen here at
+  // construction time rather than relying on that later pass.
+  classifyItemFull(part, tier);
+  return part;
 }
 function generateMonsterPart(monster, tier) {
   return buildMonsterPartItem(monster, tier, ri(MONSTER_PART_TYPES));
@@ -11965,15 +12253,23 @@ function manglerPartDrop(evt) {
   manglerPartKey = key;
   renderManglerSlots();
 }
+// Compatibility is gated on the item's own #weapon/#armor tags (see deriveItemTags()) rather
+// than a hardcoded type check — a real, if modest, example of the "certain items can only
+// interface with certain tagged mechanics" system: any future item that legitimately earns
+// a #weapon or #armor tag through classification works here automatically, without this
+// function needing to know about it.
 function manglerItemDrop(evt) {
   evt.preventDefault();
   const key = dragPayloadKey(getDragPayload(evt));
   if (!key) return;
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
-  if (!entry || (entry.item.type !== 'weapon' && entry.item.type !== 'armor')) {
+  if (!entry) return;
+  if (!entry.item.tags) classifyItemFull(entry.item, entry.rarity);
+  const tags = entry.item.tags || [];
+  if (!tags.includes('weapon') && !tags.includes('armor')) {
     flashManglerSlotInvalid('manglerItemSlot');
-    flashManglerMessage('Only weapons and armor can be modified.', true);
+    flashManglerMessage('Only items tagged #weapon or #armor can be modified.', true);
     return;
   }
   manglerItemKey = key;
