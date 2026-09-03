@@ -1001,9 +1001,12 @@
   .bounty-target-line { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
   .bounty-poster { font-style: italic; color: var(--text); font-size: 0.9rem; line-height: 1.55; margin: 0; }
   .bounty-guards { font-size: 0.82rem; color: var(--text-dim); }
+  .bounty-escort-list { margin: 0.1rem 0 0.2rem 1.1rem; padding: 0; font-size: 0.78rem; color: var(--text-dim); }
+  .bounty-escort-list li { margin-bottom: 0.1rem; }
   .bounty-mods { font-size: 0.82rem; color: var(--gold); }
   .bounty-warnings { font-size: 0.8rem; color: var(--danger); line-height: 1.5; }
   .bounty-reward { font-size: 0.9rem; color: var(--gold-bright); margin-top: 0.2rem; }
+  .bounty-searchnote { font-size: 0.78rem; color: var(--text-dim); font-style: italic; }
   .bounty-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
 
   /* MODIFIER WEIGHTS TAB */
@@ -2460,11 +2463,12 @@
       </div>
       <p class="flesh-intro">
         Three bounties are posted at a time, each a different rarity, each pulled fresh from the full creature
-        registry — don't be surprised if one of them turns out to be a person. Claim a bounty for its reward, save
-        the target as a creature you can pit against your party later, or add it straight to the Combat tab's
-        battle roster — its exact rolled stats carry over, and any escort guards come with it as real matching
-        creatures (hobgoblin soldiers really do add Hobgoblins; something more exotic falls back to a similar
-        low-tier creature of the target's own kind).
+        registry — don't be surprised if one of them turns out to be a person. Every bounty's target, and any
+        escort guards it has, are rolled as real creatures the moment the bounty is posted (hobgoblin soldiers
+        really do roll as Hobgoblins; something more exotic falls back to a similar low-tier creature of the
+        target's own kind) and registered under their own names — search for them by name from the Combat tab's
+        creature search to add them to a fight, no separate button needed here. Claim a bounty for its reward
+        whenever you're done with it.
       </p>
       <button class="generate-btn" onclick="rollBountyBoard()">📌 Post New Bounties</button>
       <div class="bounty-board" id="bountyBoard"></div>
@@ -10720,8 +10724,9 @@ function buildBattleEntry(monster) {
   };
 }
 
-// A bounty-saved creature (see saveBountyAsCreature) already has its variant, traits, HP,
-// and AC locked in from the moment the bounty was rolled — reuses that exact snapshot
+// A bounty-registered creature (see registerBountyCreatures — every bounty target and
+// escort is registered automatically the moment the bounty is generated) already has its
+// variant, traits, HP, and AC locked in from that exact roll — reuses that exact snapshot
 // instead of calling buildBattleEntry(), which would independently re-roll a brand new
 // variant/traits/HP on top of it (doubling up on bonuses and losing the bounty's actual
 // rolled identity every time it's added to a fight).
@@ -10933,25 +10938,31 @@ function renderCombatLog() {
 }
 
 // ===================== BOUNTY HUNTER =====================
-// Bounty targets are pulled straight from the real creature registry (monsterDatabase) and
-// rolled through the exact same variant/trait/HP machinery the Combat tab uses
-// (buildBattleEntry) — a bounty's listed AC/HP/traits are the same numbers you'd get adding
-// that monster to a battle roster, not a separate parallel system.
+// Bounty targets — and now their escorts too — are pulled straight from the real creature
+// registry (monsterDatabase) and rolled through the exact same variant/chaos-gear machinery
+// the Combat tab uses (buildBattleEntry), independently per creature, the moment the bounty
+// is generated. Every creature a bounty involves is registered into monsterDatabase right
+// then, so it's immediately searchable and addable from the Combat tab's own creature search
+// — the same "+ Add" flow as any built-in monster — instead of a dedicated button living on
+// the bounty card itself.
 let activeBounties = [];
 let bountyCounter = 0;
 
 // A bounty of a given rarity draws its target from creatures roughly matching that rarity's
 // CR band. Bands overlap on purpose — real bestiaries get sparse at high CR, so a legendary-
 // rarity bounty still has a reasonable pool instead of constantly falling back to "any
-// random creature."
+// random creature." Excludes creatures already registered by an earlier bounty this same
+// board (flagged via .bountyRarity) so one bounty's target/escort can never end up cast as
+// the base for a different bounty rolled moments later.
 const BOUNTY_CR_BAND = {
   common: [0, 2], uncommon: [1, 5], rare: [4, 9], superrare: [8, 14], legendary: [13, 20], celestial: [18, 30],
 };
 function pickBountyTargetMonster(rarity) {
   if (!monsterDatabase.length) return null;
+  const base = monsterDatabase.filter(m => !m.bountyRarity);
   const [lo, hi] = BOUNTY_CR_BAND[rarity] || BOUNTY_CR_BAND.common;
-  const pool = monsterDatabase.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
-  return ri(pool.length ? pool : monsterDatabase);
+  const pool = base.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
+  return ri(pool.length ? pool : (base.length ? base : monsterDatabase));
 }
 
 const BOUNTY_ALIASES = ['Redfang', 'the Butcher', 'Ashclaw', 'the Wraith', 'Ironjaw', 'the Silent', 'Bloodmoon', 'the Reaper', 'Nightshade', 'the Cur', 'Deadeye', 'the Wretch', 'Longshadow', 'the Gravedigger'];
@@ -10979,9 +10990,9 @@ function generateBountyPoster(name) {
     .replace('{location}', ri(BOUNTY_LOCATIONS));
 }
 
-// Each guard flavor carries a `keyword` used to look up a real matching creature when the
-// bounty is added to battle (see resolveEscortMonster) — most of these deliberately line up
-// with actual bestiary NPC stat blocks (Bandit, Thug, Cult Fanatic, Veteran, Guard, Scout).
+// Each guard flavor carries a `keyword` used to look up a real matching creature at bounty
+// creation (see resolveEscortMonster) — most of these deliberately line up with actual
+// bestiary NPC stat blocks (Bandit, Thug, Cult Fanatic, Veteran, Guard, Scout).
 const BOUNTY_GUARD_TYPES = [
   { label: 'bandits', keyword: 'bandit' },
   { label: 'hired mercenaries', keyword: 'veteran' },
@@ -11002,23 +11013,35 @@ function rollBountyGuards(rarity) {
   const type = ri(BOUNTY_GUARD_TYPES);
   return { count, desc: `${count} ${type.label}`, keyword: type.keyword };
 }
-// Resolves a bounty's escort description into a real creature to add alongside it in
-// battle. Tries a direct name match on the guard type's keyword first (covers cases like
-// "hobgoblin soldiers", which really are just Hobgoblins) — if nothing matches, falls back
-// to a random low-CR creature sharing the bounty target's own broad creature type, so e.g. a
-// devil's "scouts" become some other minor fiend rather than nothing at all, since there's
-// no literal "Scout" fiend entry in the registry.
+// Resolves a bounty's escort description into a real base creature. Tries a direct name
+// match on the guard type's keyword first (covers cases like "hobgoblin soldiers", which
+// really are just Hobgoblins) — if nothing matches, falls back to a random low-CR creature
+// sharing the bounty target's own broad creature type, so e.g. a devil's "scouts" become
+// some other minor fiend rather than nothing at all, since there's no literal "Scout" fiend
+// entry in the registry. Also excludes creatures already registered by an earlier bounty
+// this board, same reasoning as pickBountyTargetMonster above.
 function resolveEscortMonster(guardKeyword, targetType) {
   if (!monsterDatabase.length) return null;
+  const base = monsterDatabase.filter(m => !m.bountyRarity);
+  const pool = base.length ? base : monsterDatabase;
   if (guardKeyword) {
-    const byName = monsterDatabase.filter(m => m.name.toLowerCase().includes(guardKeyword));
+    const byName = pool.filter(m => m.name.toLowerCase().includes(guardKeyword));
     if (byName.length) return ri(byName);
   }
   const type = (targetType || '').toLowerCase();
-  const sameType = monsterDatabase.filter(m => (m.type || '').toLowerCase() === type && crSortValue(m.cr) <= 3);
+  const sameType = pool.filter(m => (m.type || '').toLowerCase() === type && crSortValue(m.cr) <= 3);
   if (sameType.length) return ri(sameType);
-  const anyLow = monsterDatabase.filter(m => crSortValue(m.cr) <= 2);
-  return ri(anyLow.length ? anyLow : monsterDatabase);
+  const anyLow = pool.filter(m => crSortValue(m.cr) <= 2);
+  return ri(anyLow.length ? anyLow : pool);
+}
+// Rolls one escort creature instance from the real registry, through the exact same
+// variant/chaos-gear pipeline as any other monster (buildBattleEntry) — rolled
+// independently per escort, right now at bounty creation, rather than resolved lazily
+// later. Two guards of the same base creature can still end up meaningfully different from
+// one another (one might roll a Veteran variant, the other might not).
+function rollBountyEscort(guardKeyword, targetType) {
+  const base = resolveEscortMonster(guardKeyword, targetType);
+  return base ? buildBattleEntry(base) : null;
 }
 
 const BOUNTY_EXTRA_WARNINGS = ['Has evaded capture multiple times before.', 'Known to travel under a false name.', 'Last seen fleeing into difficult terrain.', 'Considered armed and highly dangerous.', 'May have allies among the local population.'];
@@ -11080,15 +11103,25 @@ function generateBounty(rarity) {
     const mod = pickWeightedTrait(rarity, flavorMods, rollMonsterLeaning());
     if (mod) flavorMods.push(mod.name);
   }
-  return {
+  const guards = rollBountyGuards(rarity);
+  // Escorts are rolled individually right now, at bounty creation — each through its own
+  // independent buildBattleEntry() call (its own variant/chaos-gear roll) — rather than
+  // resolved lazily later, so every stat shown on the poster (and registered into the
+  // creature list below) is real and final from the moment the bounty is posted.
+  const escortEntries = [];
+  for (let i = 0; i < guards.count; i++) {
+    const esc = rollBountyEscort(guards.keyword, monster.type);
+    if (esc) escortEntries.push(esc);
+  }
+  const bounty = {
     id: 'bounty' + (++bountyCounter),
-    rarity, monster, entry, name, flavorMods,
+    rarity, monster, entry, name, flavorMods, escortEntries,
     poster: generateBountyPoster(name),
-    guards: rollBountyGuards(rarity),
-    warnings: rollBountyWarnings(entry),
-    reward: rollBountyReward(rarity),
-    claimed: false, savedAsCreature: false,
+    guards, warnings: rollBountyWarnings(entry), reward: rollBountyReward(rarity),
+    claimed: false,
   };
+  registerBountyCreatures(bounty);
+  return bounty;
 }
 
 // Posts a fresh board of 3 bounties, one per distinct rarity. If the monster registry
@@ -11171,42 +11204,6 @@ function flashBountyMessage(msg) {
   window._bountyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
 }
 
-// Builds a battle-roster entry straight from a bounty's own rolled data (bounty.entry) —
-// works even if the bounty was never separately "saved" as a creature. Clones the target's
-// base monster object (rather than mutating the shared monsterDatabase entry) just to tag
-// it with bountyRarity, so the roster card picks up the same highlight saveBountyAsCreature
-// gets, without side effects on every other creature that shares that base stat block.
-function buildFrozenBattleEntryFromBounty(bounty) {
-  const e = bounty.entry;
-  const taggedMonster = { ...bounty.monster, bountyRarity: bounty.rarity };
-  return {
-    uid: ++battleUidCounter, monster: taggedMonster, displayName: bounty.name, variant: e.variant,
-    traits: e.traits, leaning: e.leaning, chaosGearList: e.chaosGearList || [],
-    hp: e.hp, hpRoll: e.hpRoll, ac: e.ac, atkMod: e.atkMod, dmgMult: e.dmgMult,
-    statLines: e.statLines || [], lastResult: null,
-  };
-}
-// Adds the bounty target (with its exact rolled stats — no re-rolling) to the battle
-// roster, plus one copy of a resolved escort creature per guard the bounty has, so "2
-// hobgoblin soldiers" really does mean 2 Hobgoblins show up alongside it.
-function addBountyToBattle(bountyId) {
-  const bounty = activeBounties.find(b => b.id === bountyId);
-  if (!bounty) return;
-  if (!monsterDatabase.length) { flashBountyMessage('Creature registry still loading — try again in a moment.'); return; }
-  battleRoster.push(buildFrozenBattleEntryFromBounty(bounty));
-  const guardCount = bounty.guards.count || 0;
-  let addedEscorts = 0;
-  if (guardCount) {
-    const escortMonster = resolveEscortMonster(bounty.guards.keyword, bounty.monster.type);
-    if (escortMonster) {
-      for (let i = 0; i < guardCount; i++) battleRoster.push(buildBattleEntry(escortMonster));
-      addedEscorts = guardCount;
-    }
-  }
-  renderCombatRoster();
-  flashBountyMessage(`${bounty.name} added to the battle roster${addedEscorts ? ` with ${addedEscorts} escort${addedEscorts > 1 ? 's' : ''}` : ''} — see the Combat tab.`);
-}
-
 function claimBounty(bountyId) {
   const bounty = activeBounties.find(b => b.id === bountyId);
   if (!bounty || bounty.claimed) return;
@@ -11220,49 +11217,50 @@ function claimBounty(bountyId) {
   renderBountyPanel();
 }
 
-// Turns a bounty's rolled target into a real, reusable monsterDatabase entry, in exactly the
-// shape monsterNormalize() produces — normal creature search from the Combat tab will find
-// it by name from then on, same as any built-in monster.
+// Turns a rolled battle entry (the target's own entry, or one of its escorts') into a real,
+// reusable monsterDatabase entry, in exactly the shape monsterNormalize() produces — normal
+// creature search from the Combat tab finds it by name, same as any built-in monster.
+// bountyRarity flags it for the highlight in renderCombatPicker/renderCombatRoster (so it's
+// never confused with a same-named stock bestiary creature). frozenEntry is the exact rolled
+// data (variant, traits, HP, AC, atkMod, dmgMult, statLines) from the moment the bounty was
+// made — addMonsterToBattle() reuses it as-is instead of independently re-rolling a brand
+// new variant/traits/HP on top of it, so every bonus this creature had carries over intact
+// into whatever fight it joins.
 function buildHpStringFromEntry(entry) {
   const dice = entry.hpRoll && entry.hpRoll.dice ? entry.hpRoll.dice : String(entry.hp);
   return `${entry.hp} (${dice})`;
 }
-function saveBountyAsCreature(bountyId) {
-  const bounty = activeBounties.find(b => b.id === bountyId);
-  if (!bounty || bounty.savedAsCreature) return;
-  const { monster, entry } = bounty;
-  // The base statblock comes straight from the source creature; any extra traits it rolled
-  // (variant or named) get folded in as additional trait entries so they're visible if this
-  // creature is looked up again later, same as the "extra traits or effects can also change
-  // this" ask — the base is the creature type, traits layer on top of it.
-  const extraTraits = (entry.traits || []).map(t => ({
+function buildBountyMonsterRecord(baseMonster, rolledEntry, displayName, rarity) {
+  const extraTraits = (rolledEntry.traits || []).map(t => ({
     name: t.name,
     text: (t.lines || []).map(l => l.text).join(', ') || 'A notable trait.',
   }));
-  const custom = {
-    ...monster,
-    name: bounty.name,
-    ac: entry.ac != null ? entry.ac : monster.ac,
-    hp: buildHpStringFromEntry(entry),
+  return {
+    ...baseMonster,
+    name: displayName,
+    ac: rolledEntry.ac != null ? rolledEntry.ac : baseMonster.ac,
+    hp: buildHpStringFromEntry(rolledEntry),
     source: 'Bounty', sourceLabel: 'Bounty Board',
-    traits: (monster.traits || []).concat(extraTraits),
-    // bountyRarity flags this entry for the highlight in renderCombatPicker/renderCombatRoster
-    // (so it's never confused with a same-named stock bestiary creature). frozenEntry is the
-    // exact rolled combat entry (variant, traits, HP, AC, atkMod, dmgMult, statLines) from the
-    // moment this bounty was generated — addMonsterToBattle() reuses it as-is instead of
-    // independently re-rolling a brand new variant/traits/HP on top of it, so every bonus this
-    // creature had as a bounty carries over intact whenever it's added to a fight.
-    bountyRarity: bounty.rarity,
+    traits: (baseMonster.traits || []).concat(extraTraits),
+    bountyRarity: rarity,
     frozenEntry: {
-      displayName: bounty.name, variant: entry.variant, traits: entry.traits, leaning: entry.leaning,
-      chaosGearList: entry.chaosGearList, hp: entry.hp, hpRoll: entry.hpRoll, ac: entry.ac,
-      atkMod: entry.atkMod, dmgMult: entry.dmgMult, statLines: entry.statLines,
+      displayName, variant: rolledEntry.variant, traits: rolledEntry.traits, leaning: rolledEntry.leaning,
+      chaosGearList: rolledEntry.chaosGearList, hp: rolledEntry.hp, hpRoll: rolledEntry.hpRoll,
+      ac: rolledEntry.ac, atkMod: rolledEntry.atkMod, dmgMult: rolledEntry.dmgMult, statLines: rolledEntry.statLines,
     },
   };
-  monsterDatabase.push(custom);
-  bounty.savedAsCreature = true;
-  flashBountyMessage(`${custom.name} saved to the creature registry — search for it from the Combat tab.`);
-  renderBountyPanel();
+}
+// Registers a bounty's target and every escort as searchable monsterDatabase entries the
+// moment the bounty is created — this is the "added from the creature search tab, not a
+// button on the bounty" flow: once posted, every creature the bounty involves just shows up
+// in the Combat tab's normal creature search under its own name, ready to add.
+function registerBountyCreatures(bounty) {
+  const targetRecord = buildBountyMonsterRecord(bounty.monster, bounty.entry, bounty.name, bounty.rarity);
+  monsterDatabase.push(targetRecord);
+  bounty.escortEntries.forEach(esc => {
+    const escName = `${esc.displayName} (${bounty.name}'s Escort)`;
+    monsterDatabase.push(buildBountyMonsterRecord(esc.monster, esc, escName, bounty.rarity));
+  });
 }
 
 function bountyCardHtml(bounty) {
@@ -11271,6 +11269,13 @@ function bountyCardHtml(bounty) {
   const modsHtml = bounty.flavorMods.length ? `<div class="bounty-mods">Known traits: ${bounty.flavorMods.map(escapeHtml).join(', ')}</div>` : '';
   const warningsHtml = bounty.warnings.length ? `<div class="bounty-warnings">${bounty.warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}</div>` : '';
   const chestHtml = bounty.reward.chestReward ? ` + a <span style="color:${rarityColors[bounty.reward.chestReward]}">${rarityNames[bounty.reward.chestReward]}</span> prize chest` : '';
+  // Every escort is a fully rolled creature by this point (see rollBountyEscort), so its
+  // real stats can be shown right here rather than just the flavor guard-type label.
+  const escortListHtml = bounty.escortEntries.length
+    ? `<ul class="bounty-escort-list">${bounty.escortEntries.map(esc =>
+        `<li>${escapeHtml(esc.displayName)} — CR ${escapeHtml(String(esc.monster.cr))} · HP ${escapeHtml(String(esc.hp))} · AC ${esc.ac != null ? escapeHtml(String(esc.ac)) : '—'}</li>`
+      ).join('')}</ul>`
+    : '';
   return `
     <div class="bounty-card ${bounty.rarity}${bounty.claimed ? ' bounty-claimed' : ''}">
       <div class="bounty-card-head">
@@ -11280,13 +11285,13 @@ function bountyCardHtml(bounty) {
       <div class="bounty-target-line">${escapeHtml(m.type || 'creature')} · CR ${escapeHtml(String(m.cr ?? '?'))} · ${escapeHtml(m.size || '')} · ❤ ${escapeHtml(String(e.hp))} HP · 🛡 AC ${e.ac != null ? escapeHtml(String(e.ac)) : '—'}</div>
       <p class="bounty-poster">${escapeHtml(bounty.poster)}</p>
       <div class="bounty-guards">🗡 Escort: ${escapeHtml(bounty.guards.desc)}</div>
+      ${escortListHtml}
       ${modsHtml}
       ${warningsHtml}
       <div class="bounty-reward">💰 Reward: ${bounty.reward.gp} gp${chestHtml}</div>
+      <div class="bounty-searchnote">📖 Already searchable from the Combat tab's creature list as "${escapeHtml(bounty.name)}"${bounty.escortEntries.length ? ' — its escorts (above) are too' : ''}.</div>
       <div class="bounty-actions">
         <button class="ic-action-btn" onclick="claimBounty('${bounty.id}')" ${bounty.claimed ? 'disabled' : ''}>${bounty.claimed ? '✓ Claimed' : '🎯 Claim Bounty'}</button>
-        <button class="ic-action-btn" onclick="saveBountyAsCreature('${bounty.id}')" ${bounty.savedAsCreature ? 'disabled' : ''}>${bounty.savedAsCreature ? '✓ Saved' : '📖 Save as Creature'}</button>
-        <button class="ic-action-btn" onclick="addBountyToBattle('${bounty.id}')" title="${bounty.guards.count ? 'Adds the target plus its escort to the Combat tab roster' : 'Adds the target to the Combat tab roster'}">⚔ Add to Battle</button>
       </div>
     </div>
   `;
