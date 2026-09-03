@@ -985,6 +985,27 @@
   .store-buy-msg.show { opacity: 1; }
   @media (max-width: 700px) { .store-grid { grid-template-columns: 1fr; } }
 
+  /* BOUNTY HUNTER */
+  .bounty-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .bounty-card { background: var(--surface2); border: 2px solid var(--border); padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .bounty-card.common    { border-color: var(--common); }
+  .bounty-card.uncommon  { border-color: var(--uncommon); }
+  .bounty-card.rare      { border-color: var(--rare); }
+  .bounty-card.superrare { border-color: var(--superrare); }
+  .bounty-card.legendary { border-color: var(--legendary); }
+  .bounty-card.celestial { border-color: var(--celestial); }
+  .bounty-card.bounty-claimed { opacity: 0.55; }
+  .bounty-card-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .bounty-rarity-badge { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.15rem 0.4rem; border: 1px solid; }
+  .bounty-name { font-weight: 600; font-size: 1.02rem; }
+  .bounty-target-line { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+  .bounty-poster { font-style: italic; color: var(--text); font-size: 0.9rem; line-height: 1.55; margin: 0; }
+  .bounty-guards { font-size: 0.82rem; color: var(--text-dim); }
+  .bounty-mods { font-size: 0.82rem; color: var(--gold); }
+  .bounty-warnings { font-size: 0.8rem; color: var(--danger); line-height: 1.5; }
+  .bounty-reward { font-size: 0.9rem; color: var(--gold-bright); margin-top: 0.2rem; }
+  .bounty-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+
   /* MODIFIER WEIGHTS TAB */
   .modweights-intro { color:var(--text-dim); font-style:italic; font-size:0.95rem; margin-bottom:1.2rem; line-height:1.6; }
   .modweights-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:1.5rem; }
@@ -1430,6 +1451,18 @@
   .ae-mods { margin:0.35rem 0 0 1.1rem; padding:0; }
   .ae-mods li { font-size:0.85rem; color:var(--text-dim); margin-bottom:0.15rem; }
   .ae-unlocks { margin-top:0.4rem; font-size:0.8rem; color:var(--gold); font-style:italic; }
+  .ae-section-title { color:var(--gold); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; margin:0.9rem 0 0.5rem; font-family:'Share Tech Mono',monospace; }
+  .ae-section-title:first-child { margin-top:0; }
+  .ae-timed-row { border-left-style:dashed; }
+  .ae-timer { font-family:'Share Tech Mono',monospace; font-size:0.72rem; color:var(--gold-bright); background:rgba(0,0,0,0.25); padding:0.1rem 0.4rem; }
+  .ae-dismiss-btn { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:0.85rem; padding:0 0.2rem; margin-left:0.2rem; }
+  .ae-dismiss-btn:hover { color:var(--danger); }
+  .power-picker-option {
+    display:block; width:100%; text-align:left; background:var(--bg); border:1px solid var(--border);
+    color:var(--text); font-family:'Crimson Text',serif; font-size:0.95rem; padding:0.55rem 0.7rem;
+    margin-bottom:0.5rem; cursor:pointer; transition:border-color 0.15s, background 0.15s;
+  }
+  .power-picker-option:hover { border-color:var(--gold); background:var(--surface2); }
 
   .loadouts-panel { background:var(--surface); border:1px solid var(--border); padding:1.2rem; }
   .loadouts-panel h3 { color:var(--gold); font-size:1.05rem; letter-spacing:0.06em; margin-bottom:0.9rem; }
@@ -2308,6 +2341,8 @@
       plus <strong style="color:var(--text)">5 daily wares</strong> — freshly rolled, any-rarity magic items generated the moment you select them.
       Rerolling or switching merchants replaces the daily wares. The Fleshmancer works differently: pick a fresh limb, pay to have it
       grafted on, and see whether the flesh takes. Buying (or successfully grafting) anything adds it straight to your item list.
+      The Bounty Hunter works differently still — no goods for sale, just three wanted posters at a time, each pulled from the
+      creature registry with its own reward and warnings.
     </p>
     <div class="store-merchant-list" id="storeMerchantList"></div>
     <div class="store-panel" id="storePanel">
@@ -2389,6 +2424,25 @@
         </div>
       </details>
     </div>
+
+    <!-- The Bounty Hunter's board, same toggle pattern as the Fleshmancer above. -->
+    <div class="store-panel" id="storeBountyPanel" style="display:none;">
+      <div class="store-merchant-head">
+        <div>
+          <div class="store-merchant-title">🎯 Bounty Hunter</div>
+          <span class="store-merchant-portrait large" id="bountyPortraitSlot"></span>
+          <p class="store-merchant-flavor">A corkboard thick with wanted posters, each one promising coin for blood — or capture, if you're feeling generous.</p>
+        </div>
+      </div>
+      <p class="flesh-intro">
+        Three bounties are posted at a time, each a different rarity, each pulled fresh from the full creature
+        registry — don't be surprised if one of them turns out to be a person. Claim a bounty for its reward, or
+        save the target as a creature you can pit against your party later from the Combat tab.
+      </p>
+      <button class="generate-btn" onclick="rollBountyBoard()">📌 Post New Bounties</button>
+      <div class="bounty-board" id="bountyBoard"></div>
+      <div class="store-buy-msg" id="storeBountyMsg"></div>
+    </div>
   </div>
 </div>
 
@@ -2416,6 +2470,16 @@
         <div class="unlock-section-note">Legendary and Celestial items only. Each tier has a type, label, unlock condition, and reward.</div>
       </div>
     </div><div class="edit-modal-actions"><button class="edit-cancel-btn" onclick="closeEditItemModal()">Cancel</button><button class="edit-save-btn" onclick="saveEditedItem()">Save Changes</button></div>
+  </div>
+</div>
+
+<!-- POWER PICKER MODAL — shown on right-click for items with more than one independently
+     charged power (e.g. "Sunbeam 1/day; Call the Dawn 1/day"), so activating one doesn't
+     have to guess which the player meant. -->
+<div id="powerPickerModal" class="edit-modal-overlay" onclick="if(event.target===this) closePowerPicker()">
+  <div class="edit-modal" style="width:min(480px,100%);">
+    <div class="edit-modal-header"><h3 id="powerPickerTitle">✦ Choose a Power</h3><button class="edit-modal-close" onclick="closePowerPicker()">×</button></div>
+    <div class="edit-modal-body" id="powerPickerBody"></div>
   </div>
 </div>
 
@@ -3557,6 +3621,124 @@ function refillItemCharges(item) {
   item.charges = rolled !== null ? rolled : template;
   return true;
 }
+
+// ---------- Timed effect activation (right-click "use") ----------
+// A right-click can now do more than spend a charge: if an item's effect text reads as a
+// timed buff ("for 1 minute", "8 hours", etc.), activating it starts a live countdown shown
+// in the Active Effects panel. When the countdown hits zero the effect quietly drops off the
+// list — the item itself stays equipped/stored, it just isn't actively buffing anything —
+// until it's right-clicked again. This applies to anything with duration language in its
+// effect text, not just chargeable items, so grafted limbs participate too; today's
+// Fleshmancer-rolled limb buffs happen to all be continuous (no "for N minutes" wording), so
+// none currently start a timer, but the moment one does, this picks it up automatically.
+let activeTimedEffects = [];
+let activeEffectCounter = 0;
+const DURATION_UNIT_SECONDS = { round:6, rounds:6, minute:60, minutes:60, min:60, hour:3600, hours:3600, day:86400, days:86400 };
+function parseDurationMs(text) {
+  if (!text) return null;
+  const m = /(\d+)\s*(round|rounds|minute|minutes|min|hour|hours|day|days)\b/i.exec(text);
+  if (!m) return null;
+  const seconds = DURATION_UNIT_SECONDS[m[2].toLowerCase()];
+  if (!seconds) return null;
+  return parseInt(m[1], 10) * seconds * 1000;
+}
+// A handful of hand-authored legendary/celestial items pack more than one independently-
+// charged power into their charges field instead of one shared pool, e.g. "Sunbeam 1/day;
+// Call the Dawn 1/day" or "Finger of Death 1/day; Clairvoyance 3/day; Telekinesis 2/day".
+// Detects those so right-click can offer a choice instead of guessing which power to spend.
+function parseUsablePowers(item) {
+  if (!item || !item.charges) return null;
+  const segments = item.charges.split(/;\s*/).map(s => s.trim()).filter(Boolean);
+  if (segments.length < 2) return null;
+  const powers = segments.filter(seg => /\d/.test(seg));
+  return powers.length >= 2 ? powers : null;
+}
+// Starts (or refreshes, if the exact same power on the exact same item is already running)
+// a countdown entry in the Active Effects panel.
+function startTimedEffect(item, key, rarity, text, durationMs) {
+  const existing = activeTimedEffects.find(e => e.key === key && e.text === text);
+  const expiresAt = Date.now() + durationMs;
+  if (existing) {
+    existing.startedAt = Date.now();
+    existing.durationMs = durationMs;
+    existing.expiresAt = expiresAt;
+  } else {
+    activeTimedEffects.push({ id: 'aeff' + (++activeEffectCounter), key, name: item.name, rarity, text, startedAt: Date.now(), durationMs, expiresAt });
+  }
+}
+function dismissTimedEffect(id) {
+  activeTimedEffects = activeTimedEffects.filter(e => e.id !== id);
+  renderActiveEffects();
+}
+// Decrements just one power's own number within a shared multi-power charges string,
+// leaving every other power's count untouched (e.g. picking "Sunbeam" out of "Sunbeam
+// 1/day; Call the Dawn 1/day" only ever changes the Sunbeam half).
+function expendSpecificPower(item, powerText) {
+  const idx = item.charges.indexOf(powerText);
+  if (idx === -1) return;
+  const m = FLAT_CHARGE_RE.exec(powerText);
+  if (!m) return;
+  const newVal = Math.max(0, parseInt(m[0], 10) - 1);
+  const newSeg = powerText.slice(0, m.index) + newVal + powerText.slice(m.index + m[0].length);
+  item.charges = item.charges.slice(0, idx) + newSeg + item.charges.slice(idx + powerText.length);
+}
+// Central "right-click to use" logic shared by inventory items and equipped slots. Returns
+// true if anything happened (a charge was spent, a timer started, or a picker popup opened)
+// so the caller knows whether to preventDefault the browser's context menu and re-render.
+function handleItemActivation(entry, evt) {
+  const item = entry.item;
+  const powers = parseUsablePowers(item);
+  if (powers) {
+    if (evt) evt.preventDefault();
+    openPowerPicker(entry, powers);
+    return true;
+  }
+  const text = getItemEffectText(item);
+  const dur = parseDurationMs(text);
+  const hasCharge = !!item.charges;
+  if (!dur && !hasCharge) return false;
+  if (hasCharge && !expendItemCharge(item)) return false;
+  if (evt) evt.preventDefault();
+  if (dur) startTimedEffect(item, entry.key, entry.rarity, text, dur);
+  return true;
+}
+// ---------- Power picker popup ----------
+let _powerPickerEntry = null;
+let _powerPickerOptions = [];
+function openPowerPicker(entry, powers) {
+  _powerPickerEntry = entry;
+  _powerPickerOptions = powers;
+  const modal = document.getElementById('powerPickerModal');
+  const title = document.getElementById('powerPickerTitle');
+  const body = document.getElementById('powerPickerBody');
+  if (!modal || !body) return;
+  if (title) title.textContent = `✦ ${entry.item.name} — Choose a Power`;
+  body.innerHTML = powers.map((p, i) =>
+    `<button class="power-picker-option" onclick="selectPower(${i})">${escapeHtml(p)}</button>`
+  ).join('') + `<p style="color:var(--text-dim);font-size:0.82rem;font-style:italic;margin-top:0.4rem;">Using a power spends one use of it and starts its timer if it has a duration — the item's other powers are untouched.</p>`;
+  modal.classList.add('open');
+}
+function selectPower(i) {
+  const powerText = _powerPickerOptions[i];
+  const entry = _powerPickerEntry;
+  closePowerPicker();
+  if (!entry || powerText == null) return;
+  const item = entry.item;
+  ensureChargeFormat(item);
+  expendSpecificPower(item, powerText);
+  const dur = parseDurationMs(powerText);
+  if (dur) startTimedEffect(item, entry.key, entry.rarity, powerText, dur);
+  renderInventoryGrid();
+  renderPlayerSlots();
+  renderActiveEffects();
+}
+function closePowerPicker() {
+  const modal = document.getElementById('powerPickerModal');
+  if (modal) modal.classList.remove('open');
+  _powerPickerEntry = null;
+  _powerPickerOptions = [];
+}
+
 function inferItemMetadata(item){
   const n=item.name.toLowerCase();
   if(!item.type){
@@ -7473,6 +7655,13 @@ const MERCHANTS = {
     flavor: 'A cellar that smells of formaldehyde and copper. Jars line every shelf, and something in them is always still twitching.',
     staples: [],
   },
+  // Same deal as the Fleshmancer — no staples/daily-wares grid, this one swaps in a wanted-
+  // poster board instead (see renderStoreTab/#storeBountyPanel).
+  bountyhunter: {
+    name: 'Bounty Hunter', icon: '🎯',
+    flavor: "A corkboard thick with wanted posters, each one promising coin for blood — or capture, if you're feeling generous.",
+    staples: [],
+  },
 };
 
 // Rolls one fully random magic item for sale — reuses the exact same base-name pools,
@@ -7535,9 +7724,12 @@ function rollAnimalTamerDaily() {
 function selectMerchant(key) {
   currentMerchant = key;
   // The Fleshmancer doesn't use the daily-wares mechanic — his "wares" are rolled fresh
-  // via rollFleshCandidates() instead (see renderStoreTab()).
+  // via rollFleshCandidates() instead (see renderStoreTab()). The Bounty Hunter doesn't
+  // either — his board is rolled via rollBountyBoard().
   if (key === 'animaltamer') {
     storeDailyItems = rollAnimalTamerDaily();
+  } else if (key === 'bountyhunter') {
+    rollBountyBoard();
   } else if (key !== 'fleshmancer') {
     storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
   }
@@ -7546,6 +7738,7 @@ function selectMerchant(key) {
 
 function rerollStoreDaily() {
   if (!currentMerchant || currentMerchant === 'fleshmancer') return;
+  if (currentMerchant === 'bountyhunter') { rollBountyBoard(); return; }
   storeDailyItems = currentMerchant === 'animaltamer'
     ? rollAnimalTamerDaily()
     : Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
@@ -7634,6 +7827,11 @@ const MERCHANT_PORTRAITS = {
     [3,6,3,1,'#6a2a2a'],[0,7,9,4,'#2a1010'],[0,7,9,1,'#5a2020'],
     [2,7,1,1,'#8a1a1a'],
   ],
+  bountyhunter: [
+    [1,0,7,2,'#3a2a1a'],[0,2,9,1,'#241a10'],[2,3,5,4,'#c9a878'],
+    [2,4,1,1,'#2a2a2a'],[6,4,1,1,'#2a2a2a'],[3,5,3,1,'#a8886a'],
+    [3,6,3,1,'#8a5a3a'],[0,7,9,4,'#3a2a20'],[0,7,9,1,'#5a4530'],
+  ],
 };
 function merchantPortraitSvg(key) {
   const rects = (MERCHANT_PORTRAITS[key] || []).map(([x,y,w,h,fill]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`).join('');
@@ -7652,11 +7850,13 @@ function renderStoreTab() {
   }
   const panelEl = document.getElementById('storePanel');
   const fleshPanelEl = document.getElementById('storeFleshPanel');
+  const bountyPanelEl = document.getElementById('storeBountyPanel');
   if (!panelEl || !fleshPanelEl) return;
 
   if (!currentMerchant) {
     panelEl.style.display = '';
     fleshPanelEl.style.display = 'none';
+    if (bountyPanelEl) bountyPanelEl.style.display = 'none';
     panelEl.innerHTML = '<div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>';
     return;
   }
@@ -7664,14 +7864,28 @@ function renderStoreTab() {
   if (currentMerchant === 'fleshmancer') {
     panelEl.style.display = 'none';
     fleshPanelEl.style.display = 'block';
+    if (bountyPanelEl) bountyPanelEl.style.display = 'none';
     const portraitSlot = document.getElementById('fleshPortraitSlot');
     if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('fleshmancer');
     renderFleshCandidates();
     return;
   }
 
+  if (currentMerchant === 'bountyhunter') {
+    panelEl.style.display = 'none';
+    fleshPanelEl.style.display = 'none';
+    if (bountyPanelEl) {
+      bountyPanelEl.style.display = 'block';
+      const portraitSlot = document.getElementById('bountyPortraitSlot');
+      if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('bountyhunter');
+      renderBountyPanel();
+    }
+    return;
+  }
+
   panelEl.style.display = '';
   fleshPanelEl.style.display = 'none';
+  if (bountyPanelEl) bountyPanelEl.style.display = 'none';
   const m = MERCHANTS[currentMerchant];
   const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
   const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
@@ -7909,6 +8123,18 @@ setTimeout(() => { if (typeof loadMonsterDatabase === 'function') loadMonsterDat
 // Spell Scroll — without this, scrolls beyond 1st level silently came back unnamed since
 // the database was previously only ever loaded lazily when the Spells sub-tab was opened.
 setTimeout(() => { if (typeof loadSpellDatabase === 'function') loadSpellDatabase(false); }, 450);
+
+// Ticks every second so any running timed-effect countdowns visibly count down instead of
+// only updating whenever something else happens to trigger a re-render, and prunes anything
+// that's expired — the whole reason "goes away when the timer runs out" is visible at all.
+// Only bothers re-rendering while at least one timer was running at the start of the tick
+// (covers both "still ticking" and "just expired, re-render once more to reflect it's gone").
+setInterval(() => {
+  if (typeof activeTimedEffects === 'undefined' || !activeTimedEffects.length) return;
+  const now = Date.now();
+  activeTimedEffects = activeTimedEffects.filter(e => e.expiresAt > now);
+  if (typeof renderActiveEffects === 'function') renderActiveEffects();
+}, 1000);
 
 // Double-click detection using native dblclick event.
 // Single click: start animation. Double-click: instant resolve.
@@ -9183,8 +9409,7 @@ function slotContextMenu(evt, slotId) {
   if (!key) return;
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
-  if (!entry || !expendItemCharge(entry.item)) return;
-  evt.preventDefault();
+  if (!entry || !handleItemActivation(entry, evt)) return;
   renderPlayerSlots();
   renderActiveEffects();
   showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
@@ -9402,9 +9627,9 @@ function inventoryItemContextMenu(evt, placementId) {
   if (!p) return;
   if (!TOKEN_INDEX[p.key]) buildTokenIndex();
   const entry = TOKEN_INDEX[p.key];
-  if (!entry || !expendItemCharge(entry.item)) return;
-  evt.preventDefault();
+  if (!entry || !handleItemActivation(entry, evt)) return;
   renderInventoryGrid();
+  renderActiveEffects();
   showTokenTooltip(evt, p.key); // refresh the tooltip in place so the new count is visible immediately
 }
 
@@ -9659,15 +9884,44 @@ function renderPlayerSlots() {
   });
 }
 
+// Formats milliseconds remaining as a short "2h 14m" / "3m 05s" / "12s" style string for
+// the timed-effect countdown display.
+function formatRemainingTime(ms) {
+  if (ms <= 0) return '0s';
+  const totalSec = Math.ceil(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 function renderActiveEffects() {
   const container = document.getElementById('activeEffectsList');
   if (!container) return;
   const filled = Object.entries(playerSlots).filter(([slotId, key]) => key && TOKEN_INDEX[key]);
+
+  let timedHtml = '';
+  if (activeTimedEffects.length) {
+    const rows = activeTimedEffects.map(e => `
+      <div class="ae-row ${e.rarity} ae-timed-row">
+        <div class="ae-row-header">
+          <span class="ae-dot" style="background:var(--${e.rarity})"></span>
+          <span class="ae-name">${escapeHtml(e.name)}</span>
+          <span class="ae-timer">⏱ ${formatRemainingTime(e.expiresAt - Date.now())}</span>
+          <button class="ae-dismiss-btn" onclick="dismissTimedEffect('${e.id}')" title="End this effect early">✕</button>
+        </div>
+        <div class="ae-effect">${escapeHtml(e.text)}</div>
+      </div>
+    `).join('');
+    timedHtml = `<div class="ae-section-title">⏳ Active (Timed) — right-click the item again once this runs out</div>${rows}`;
+  }
+
   if (!filled.length) {
-    container.innerHTML = '<div class="empty-results">No items equipped yet — drag tokens onto the slots above.</div>';
+    container.innerHTML = timedHtml || '<div class="empty-results">No items equipped yet — drag tokens onto the slots above.</div>';
     return;
   }
-  container.innerHTML = filled.map(([slotId, key]) => {
+  const equippedHtml = filled.map(([slotId, key]) => {
     const entry = TOKEN_INDEX[key];
     const item = entry.item;
     const effect = getItemEffectText(item);
@@ -9692,6 +9946,7 @@ function renderActiveEffects() {
       </div>
     `;
   }).join('');
+  container.innerHTML = timedHtml + (timedHtml ? '<div class="ae-section-title">🎽 Equipped</div>' : '') + equippedHtml;
 }
 
 // ---------- Shared hover tooltip ----------
@@ -10622,6 +10877,298 @@ function renderCombatLog() {
   if (!battleLog.length) { wrap.innerHTML = '<div class="combat-log-empty">No attacks rolled yet.</div>'; return; }
   // Container is column-reverse, so entries in chronological array order render newest-on-top.
   wrap.innerHTML = battleLog.map(r => `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>`).join('');
+}
+
+// ===================== BOUNTY HUNTER =====================
+// Bounty targets are pulled straight from the real creature registry (monsterDatabase) and
+// rolled through the exact same variant/trait/HP machinery the Combat tab uses
+// (buildBattleEntry) — a bounty's listed AC/HP/traits are the same numbers you'd get adding
+// that monster to a battle roster, not a separate parallel system.
+let activeBounties = [];
+let bountyCounter = 0;
+
+// A bounty of a given rarity draws its target from creatures roughly matching that rarity's
+// CR band. Bands overlap on purpose — real bestiaries get sparse at high CR, so a legendary-
+// rarity bounty still has a reasonable pool instead of constantly falling back to "any
+// random creature."
+const BOUNTY_CR_BAND = {
+  common: [0, 2], uncommon: [1, 5], rare: [4, 9], superrare: [8, 14], legendary: [13, 20], celestial: [18, 30],
+};
+function pickBountyTargetMonster(rarity) {
+  if (!monsterDatabase.length) return null;
+  const [lo, hi] = BOUNTY_CR_BAND[rarity] || BOUNTY_CR_BAND.common;
+  const pool = monsterDatabase.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
+  return ri(pool.length ? pool : monsterDatabase);
+}
+
+const BOUNTY_ALIASES = ['Redfang', 'the Butcher', 'Ashclaw', 'the Wraith', 'Ironjaw', 'the Silent', 'Bloodmoon', 'the Reaper', 'Nightshade', 'the Cur', 'Deadeye', 'the Wretch', 'Longshadow', 'the Gravedigger'];
+const BOUNTY_CRIMES = ['cattle theft', 'a string of unsolved disappearances', 'the burning of the north granary', 'smuggling contraband through the border checkpoint', 'an attack on a merchant caravan', 'the poisoning of the village well', 'grave robbing', 'extorting local farmers', 'the murder of a tax collector', 'a string of kidnappings', 'arson', 'desecrating a shrine', 'impersonating a noble', 'counterfeiting coin', 'inciting a riot', 'raiding trade caravans'];
+const BOUNTY_LOCATIONS = ['the Blackmire Woods', 'the ruins south of town', 'the old mill', 'a cave along the ridge road', 'the abandoned watchtower', 'the ferry crossing', 'the salt flats', "the tanner's district", 'the crossroads inn', 'the sunken quarry', 'the hills beyond the wall', "a smuggler's den", 'the burned-out farmstead', 'the old toll bridge'];
+// A dozen distinct phrasings so no two boards ever read quite the same way.
+const BOUNTY_TEMPLATES = [
+  "Wanted for {crime}. Last seen near {location}. {name} is to be brought in, dead or alive.",
+  "The town council has posted a bounty on {name}, believed responsible for {crime}. Sightings place them near {location}.",
+  "REWARD OFFERED. {name} stands accused of {crime}. Trackers report activity around {location}.",
+  "By order of the local magistrate: {name} is wanted in connection with {crime}. Approach near {location} with caution.",
+  "A merchant's guild has pooled coin for the capture of {name}, tied to {crime} near {location}.",
+  "A string of {crime} has been linked to {name}, last tracked to {location}.",
+  "{name} has evaded justice long enough. Wanted for {crime}. Known to frequent {location}.",
+  "Posted by a grieving family: coin for anyone who brings {name} to justice for {crime}.",
+  "Local guards have failed to apprehend {name}, responsible for {crime} out near {location}.",
+  "An anonymous patron seeks an end to {name}'s {crime}. Last confirmed near {location}.",
+  "Temple elders have placed a bounty on {name} following {crime} that defiled ground near {location}.",
+  "The road to {location} has grown dangerous — {name} is blamed for {crime} and must be stopped.",
+];
+function generateBountyPoster(name) {
+  return ri(BOUNTY_TEMPLATES)
+    .replace('{name}', name)
+    .replace('{crime}', ri(BOUNTY_CRIMES))
+    .replace('{location}', ri(BOUNTY_LOCATIONS));
+}
+
+const BOUNTY_GUARD_TYPES = ['bandits', 'hired mercenaries', 'cultists', 'armed thugs', 'trained hounds', 'hobgoblin soldiers', 'veteran guards', 'a pack of wolves', 'loyal cutthroats', 'scouts'];
+function rollBountyGuards(rarity) {
+  const tierIdx = BAL.rarityOrder.indexOf(rarity);
+  const maxGuards = [0, 1, 2, 3, 4, 5][tierIdx] ?? 2;
+  const count = rn(0, maxGuards);
+  if (!count) return { count: 0, desc: 'No known escort.' };
+  return { count, desc: `${count} ${ri(BOUNTY_GUARD_TYPES)}` };
+}
+
+const BOUNTY_EXTRA_WARNINGS = ['Has evaded capture multiple times before.', 'Known to travel under a false name.', 'Last seen fleeing into difficult terrain.', 'Considered armed and highly dangerous.', 'May have allies among the local population.'];
+// Scans the target's own traits/actions text (plus its variant, if any) for a handful of
+// dangerous-sounding keywords, so warnings feel tied to the actual creature rather than
+// being generic flavor — same "read the real data instead of faking it" approach used
+// elsewhere in this file (e.g. the icon system's legendary flourish keywords).
+function rollBountyWarnings(entry) {
+  const warnings = [];
+  const m = entry.monster;
+  const text = ((m.traits || []).map(t => t.text).join(' ') + ' ' + (m.actions || []).map(a => a.text).join(' ')).toLowerCase();
+  const speedText = String(m.speed || '').toLowerCase();
+  if (/resist/.test(text)) warnings.push('Known to resist certain damage types.');
+  if (/spell|cast/.test(text)) warnings.push('Capable of spellcasting — approach with caution.');
+  if (/\bfly\b/.test(speedText)) warnings.push('Capable of flight.');
+  if (/poison/.test(text)) warnings.push('Inflicts poison on contact.');
+  if (m.legendary && m.legendary.length) warnings.push('Capable of acting even outside its own turn.');
+  if (entry.variant && (entry.variant.key === 'legendary' || entry.variant.key === 'elite')) warnings.push('Exceptionally dangerous — bring a full party.');
+  if (Math.random() < 0.3) warnings.push(ri(BOUNTY_EXTRA_WARNINGS));
+  return warnings.map(w => '⚠ ' + w);
+}
+
+function rollBountyReward(rarity) {
+  const gpRanges = { common:[50,150], uncommon:[150,400], rare:[400,1000], superrare:[1000,3000], legendary:[3000,8000], celestial:[8000,20000] };
+  const [lo, hi] = gpRanges[rarity] || gpRanges.common;
+  const gp = rn(lo, hi);
+  const chestChance = { common:0.1, uncommon:0.2, rare:0.35, superrare:0.55, legendary:0.75, celestial:0.9 }[rarity] || 0.1;
+  let chestReward = null;
+  if (Math.random() < chestChance) {
+    const idx = BAL.rarityOrder.indexOf(rarity);
+    const chestIdx = Math.max(0, idx - ri([0, 0, 1])); // usually the same tier, sometimes one notch down
+    chestReward = BAL.rarityOrder[chestIdx];
+  }
+  return { gp, chestReward };
+}
+
+// Picks n distinct rarities for the board so three bounties never coincidentally show the
+// same tier three times in a row.
+function pickDistinctRarities(n) {
+  const pool = BAL.rarityOrder.slice();
+  const out = [];
+  while (out.length < n && pool.length) out.push(pool.splice(rn(0, pool.length - 1), 1)[0]);
+  return out;
+}
+
+function generateBounty(rarity) {
+  const monster = pickBountyTargetMonster(rarity);
+  if (!monster) return null;
+  const entry = buildBattleEntry(monster);
+  const name = Math.random() < 0.45 ? `${entry.displayName} "${ri(BOUNTY_ALIASES)}"` : entry.displayName;
+  // Flavor-only modifiers for the poster's "known traits" line — rolled independently of
+  // whatever buildBattleEntry itself happened to roll, so higher-rarity bounties reliably
+  // read as more distinctive even on a run where the shared Combat-tab variant/trait
+  // sliders roll low (these don't touch entry's actual combat numbers, poster flavor only).
+  const flavorMods = [];
+  const tierIdx = BAL.rarityOrder.indexOf(rarity);
+  const flavorCount = tierIdx >= 4 ? 2 : tierIdx >= 2 ? 1 : (Math.random() < 0.3 ? 1 : 0);
+  for (let i = 0; i < flavorCount; i++) {
+    const mod = pickWeightedTrait(rarity, flavorMods, rollMonsterLeaning());
+    if (mod) flavorMods.push(mod.name);
+  }
+  return {
+    id: 'bounty' + (++bountyCounter),
+    rarity, monster, entry, name, flavorMods,
+    poster: generateBountyPoster(name),
+    guards: rollBountyGuards(rarity),
+    warnings: rollBountyWarnings(entry),
+    reward: rollBountyReward(rarity),
+    claimed: false, savedAsCreature: false,
+  };
+}
+
+// Posts a fresh board of 3 bounties, one per distinct rarity. If the monster registry
+// hasn't finished loading yet, shows the board empty (renderBountyPanel's own loading
+// message covers this) and retries once it resolves.
+function rollBountyBoard() {
+  if (!monsterDatabase.length) {
+    activeBounties = [];
+    if (currentMerchant === 'bountyhunter') renderStoreTab();
+    if (typeof loadMonsterDatabase === 'function') {
+      loadMonsterDatabase(false).then(() => { if (currentMerchant === 'bountyhunter') rollBountyBoard(); });
+    }
+    return;
+  }
+  activeBounties = pickDistinctRarities(3).map(generateBounty).filter(Boolean);
+  if (currentMerchant === 'bountyhunter') renderStoreTab();
+}
+
+// Awards a standalone treasure chest of a given rarity — mirrors resolveChest()'s cascade
+// logic but takes rarity/count as parameters instead of reading the Treasure Chest tab's own
+// global chestRarity/DOM inputs, so a bounty reward can't disturb whatever the player
+// currently has configured over there. Pushes into the same chestResults array the Chest tab
+// itself uses, so the awarded chest actually shows up there, openable for real.
+function awardChestOfRarity(rarity, count) {
+  count = count || rn(4, 7);
+  const weights = CHEST_CASCADE_WEIGHTS[rarity] || CHEST_CASCADE_WEIGHTS.common;
+  const pickRarity = () => {
+    const entries = Object.entries(weights);
+    const total = entries.reduce((a, [, w]) => a + w, 0);
+    let r = Math.random() * total;
+    for (const [tier, w] of entries) { r -= w; if (r <= 0) return tier; }
+    return entries[0][0];
+  };
+  const g = CHEST_GOLD[rarity] || CHEST_GOLD.common;
+  const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
+  let gold;
+  if (rarity === 'common') { const sp = Math.floor(amount * 0.3), cp = Math.floor(amount * 2); gold = `${sp} sp, ${cp} cp`; }
+  else if (amount >= 10000) gold = (amount / 1000).toFixed(0) + ',000 gp';
+  else if (amount >= 1000) gold = (amount / 1000).toFixed(1).replace('.0', '') + ',000 gp';
+  else gold = amount + ' gp';
+
+  const items = [];
+  const usedNames = new Set();
+  const shuffledGroups = [...CHEST_ITEM_GROUPS].sort(() => Math.random() - 0.5);
+  for (const group of shuffledGroups) {
+    if (items.length >= count) break;
+    const r = pickRarity();
+    const pool = (lootData[r] || []).filter(it => group.types.includes(it.type) && !usedNames.has(it.name));
+    if (pool.length) { const raw = ri(pool); const item = resolveScrollSpell(raw); usedNames.add(raw.name); items.push({ rarity: r, ...item }); }
+  }
+  let tries = 0;
+  while (items.length < count && tries < 50) {
+    tries++;
+    const r = pickRarity();
+    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
+    if (!pool.length) continue;
+    const raw = ri(pool); const item = resolveScrollSpell(raw); usedNames.add(raw.name); items.push({ rarity: r, ...item });
+  }
+  if (items.length && !items.some(it => it.rarity === rarity)) {
+    const guaranteedPool = (lootData[rarity] || []).filter(it => !usedNames.has(it.name));
+    if (guaranteedPool.length) {
+      const raw = ri(guaranteedPool); const item = resolveScrollSpell(raw);
+      const swapIdx = rn(0, items.length - 1);
+      usedNames.delete(items[swapIdx].name); usedNames.add(raw.name);
+      items[swapIdx] = { rarity, ...item };
+    }
+  }
+  const chest = { id: chestResults.length + 1, rarity, gold, items };
+  chestResults.push(chest);
+  if (typeof renderChestResults === 'function') renderChestResults();
+  return chest;
+}
+
+function flashBountyMessage(msg) {
+  const el = document.getElementById('storeBountyMsg');
+  if (!el) return;
+  el.textContent = '✓ ' + msg;
+  el.classList.add('show');
+  clearTimeout(window._bountyMsgTimer);
+  window._bountyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+
+function claimBounty(bountyId) {
+  const bounty = activeBounties.find(b => b.id === bountyId);
+  if (!bounty || bounty.claimed) return;
+  bounty.claimed = true;
+  let msg = `Bounty claimed: ${bounty.reward.gp} gp`;
+  if (bounty.reward.chestReward) {
+    awardChestOfRarity(bounty.reward.chestReward);
+    msg += ` plus a ${rarityNames[bounty.reward.chestReward]} prize chest — see the Treasure Chest tab`;
+  }
+  flashBountyMessage(msg + '.');
+  renderBountyPanel();
+}
+
+// Turns a bounty's rolled target into a real, reusable monsterDatabase entry, in exactly the
+// shape monsterNormalize() produces — normal creature search from the Combat tab will find
+// it by name from then on, same as any built-in monster.
+function buildHpStringFromEntry(entry) {
+  const dice = entry.hpRoll && entry.hpRoll.dice ? entry.hpRoll.dice : String(entry.hp);
+  return `${entry.hp} (${dice})`;
+}
+function saveBountyAsCreature(bountyId) {
+  const bounty = activeBounties.find(b => b.id === bountyId);
+  if (!bounty || bounty.savedAsCreature) return;
+  const { monster, entry } = bounty;
+  // The base statblock comes straight from the source creature; any extra traits it rolled
+  // (variant or named) get folded in as additional trait entries so they're visible if this
+  // creature is looked up again later, same as the "extra traits or effects can also change
+  // this" ask — the base is the creature type, traits layer on top of it.
+  const extraTraits = (entry.traits || []).map(t => ({
+    name: t.name,
+    text: (t.lines || []).map(l => l.text).join(', ') || 'A notable trait.',
+  }));
+  const custom = {
+    ...monster,
+    name: bounty.name,
+    ac: entry.ac != null ? entry.ac : monster.ac,
+    hp: buildHpStringFromEntry(entry),
+    source: 'Bounty', sourceLabel: 'Bounty Board',
+    traits: (monster.traits || []).concat(extraTraits),
+  };
+  monsterDatabase.push(custom);
+  bounty.savedAsCreature = true;
+  flashBountyMessage(`${custom.name} saved to the creature registry — search for it from the Combat tab.`);
+  renderBountyPanel();
+}
+
+function bountyCardHtml(bounty) {
+  const color = rarityColors[bounty.rarity] || rarityColors.common;
+  const m = bounty.monster, e = bounty.entry;
+  const modsHtml = bounty.flavorMods.length ? `<div class="bounty-mods">Known traits: ${bounty.flavorMods.map(escapeHtml).join(', ')}</div>` : '';
+  const warningsHtml = bounty.warnings.length ? `<div class="bounty-warnings">${bounty.warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}</div>` : '';
+  const chestHtml = bounty.reward.chestReward ? ` + a <span style="color:${rarityColors[bounty.reward.chestReward]}">${rarityNames[bounty.reward.chestReward]}</span> prize chest` : '';
+  return `
+    <div class="bounty-card ${bounty.rarity}${bounty.claimed ? ' bounty-claimed' : ''}">
+      <div class="bounty-card-head">
+        <span class="bounty-rarity-badge" style="border-color:${color};color:${color};background:${color}22;">${rarityNames[bounty.rarity]}</span>
+        <span class="bounty-name">${escapeHtml(bounty.name)}</span>
+      </div>
+      <div class="bounty-target-line">${escapeHtml(m.type || 'creature')} · CR ${escapeHtml(String(m.cr ?? '?'))} · ${escapeHtml(m.size || '')} · ❤ ${escapeHtml(String(e.hp))} HP · 🛡 AC ${e.ac != null ? escapeHtml(String(e.ac)) : '—'}</div>
+      <p class="bounty-poster">${escapeHtml(bounty.poster)}</p>
+      <div class="bounty-guards">🗡 Escort: ${escapeHtml(bounty.guards.desc)}</div>
+      ${modsHtml}
+      ${warningsHtml}
+      <div class="bounty-reward">💰 Reward: ${bounty.reward.gp} gp${chestHtml}</div>
+      <div class="bounty-actions">
+        <button class="ic-action-btn" onclick="claimBounty('${bounty.id}')" ${bounty.claimed ? 'disabled' : ''}>${bounty.claimed ? '✓ Claimed' : '🎯 Claim Bounty'}</button>
+        <button class="ic-action-btn" onclick="saveBountyAsCreature('${bounty.id}')" ${bounty.savedAsCreature ? 'disabled' : ''}>${bounty.savedAsCreature ? '✓ Saved' : '📖 Save as Creature'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderBountyPanel() {
+  const wrap = document.getElementById('bountyBoard');
+  if (!wrap) return;
+  if (!monsterDatabase.length) {
+    wrap.innerHTML = '<div class="gen-empty">📜 Loading the creature registry the bounties are drawn from…</div>';
+    return;
+  }
+  if (!activeBounties.length) {
+    wrap.innerHTML = '<div class="gen-empty">📜 No bounties posted right now — try posting new ones.</div>';
+    return;
+  }
+  wrap.innerHTML = activeBounties.map(bountyCardHtml).join('');
 }
 
 </script>
