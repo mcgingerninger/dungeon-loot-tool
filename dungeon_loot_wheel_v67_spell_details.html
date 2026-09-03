@@ -1897,7 +1897,8 @@
     <div class="collapsible-body">
       <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
         Adjust the weight of each rarity with the slider or by typing an exact number. Weights do not need to sum to 100 — the percentage under each slider shows that rarity's actual chance of being rolled, based on its share of the total weight below.
-        These weights are also used to roll rarity for the Store's daily items.
+        These weights are also used to roll rarity for the Store's daily items. Every batch of Random loot also has a small chance of including a monster part sourced from a
+        real creature matching the best rarity rolled — same odds as everywhere else parts drop, adjustable from the Combat tab's "Monster Loot Settings" panel.
       </p>
       <div class="chances-grid">
         <div class="chance-card common">
@@ -4184,6 +4185,7 @@ function resolveCreatureRoll() {
       const descText = item.desc || '';
       items.push({ rarity: r, name: item.name, desc: descText, type: item.type, slotSize: item.slotSize, dmg: item.dmg, ac: item.ac, hp: item.hp, effect: item.effect, gp: item.gp, charges: item.charges, requirement: item.requirement });
     }
+    // Sourced from this exact creature when we already know which one it is.
     if (Math.random() * 100 < settings.partChance) items.push(generateMonsterPart(monster, tier));
     spinResults.push({ enemy: spinResults.length + 1, items, sourceCreature: monster.name, sourceTier: tier });
   });
@@ -4197,6 +4199,25 @@ function resolveCreatureRoll() {
   renderResults();
 }
 
+// ===================== MONSTER PARTS IN GENERAL LOOT TABLES =====================
+// Shared "does this batch of loot also include a monster part" roll — used by the random-
+// mode wheel spin below and by the Treasure Chest tab (resolveChest()/awardChestOfRarity()),
+// so parts show up in every general loot source, not just Combat tab defeats and the "From
+// Creatures" roll above. Chance keys off combatLootSettings[tier].partChance — the exact
+// same adjustable preset used everywhere else parts drop — falling back to a flat 15% if
+// that object somehow isn't ready yet. The source creature is picked to match the loot's own
+// tier via pickMonsterForRarity() (falls back to any loaded creature; skips entirely if the
+// registry hasn't loaded), so there's no hardcoded per-item creature list to maintain here
+// either — a common-tier drop only rarely yields dragon hide, but a legendary one might.
+function maybeAddMonsterPart(items, tier) {
+  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) return;
+  const settings = (typeof combatLootSettings !== 'undefined' && combatLootSettings[tier]) || null;
+  const chance = settings ? settings.partChance : 15;
+  if (Math.random() * 100 >= chance) return;
+  const sourceMonster = (typeof pickMonsterForRarity === 'function' && pickMonsterForRarity(tier, false)) || ri(monsterDatabase);
+  if (sourceMonster) items.push(generateMonsterPart(sourceMonster, tier));
+}
+
 function resolveRoll(numEnemies, minItems, maxItems) {
   if (spinLootMode === 'creatures' && spinSelectedMonsters.length) { resolveCreatureRoll(); return; }
   for(let e=0;e<numEnemies;e++){
@@ -4208,6 +4229,9 @@ function resolveRoll(numEnemies, minItems, maxItems) {
       const descText = item.desc || '';
       items.push({rarity,name:item.name,desc:descText,type:item.type,slotSize:item.slotSize,dmg:item.dmg,ac:item.ac,hp:item.hp,effect:item.effect,gp:item.gp,charges:item.charges,requirement:item.requirement});
     }
+    // Occasional bonus monster part, keyed to the best rarity this enemy actually rolled.
+    const topRarity = items.reduce((best, it) => BAL.rarityOrder.indexOf(it.rarity) > BAL.rarityOrder.indexOf(best) ? it.rarity : best, 'common');
+    maybeAddMonsterPart(items, topRarity);
     spinResults.push({enemy:spinResults.length+1,items});
   }
   // Pop some rarity indicators
@@ -5064,6 +5088,10 @@ function resolveChest() {
       items[swapIdx] = { rarity: chestRarity, ...item };
     }
   }
+
+  // Occasional bonus monster part, keyed to the chest's own overall rarity — see
+  // maybeAddMonsterPart()'s comment for how the source creature and chance are picked.
+  maybeAddMonsterPart(items, chestRarity);
 
   chestResults.push({ id: chestResults.length + 1, rarity: chestRarity, gold, items });
   renderChestResults();
@@ -11591,6 +11619,8 @@ function awardChestOfRarity(rarity, count) {
       items[swapIdx] = { rarity, ...item };
     }
   }
+  // Occasional bonus monster part, same as resolveChest() and the wheel spin.
+  if (typeof maybeAddMonsterPart === 'function') maybeAddMonsterPart(items, rarity);
   const chest = { id: chestResults.length + 1, rarity, gold, items };
   chestResults.push(chest);
   if (typeof renderChestResults === 'function') renderChestResults();
