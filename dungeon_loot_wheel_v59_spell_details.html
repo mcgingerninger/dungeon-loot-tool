@@ -1303,6 +1303,18 @@
   }
   .inv-remove-zone:hover { background:rgba(224,82,82,0.08); color:var(--danger); }
   .inv-remove-zone.slot-invalid { animation:slotShake 0.3s; }
+  .inv-refill-zone {
+    flex:0 0 150px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--surface); border:2px dashed var(--uncommon); color:var(--text-dim); font-size:0.85rem;
+    text-align:center; line-height:1.5; padding:1rem; transition:background 0.15s, color 0.15s;
+  }
+  .inv-refill-zone:hover { background:rgba(76,175,125,0.08); color:var(--uncommon); }
+  .inv-refill-zone.slot-invalid { animation:slotShake 0.3s; }
+  .inv-refill-zone.refill-flash { animation:refillPulse 0.4s; }
+  @keyframes refillPulse {
+    0%,100% { background:var(--surface); }
+    50% { background:rgba(76,175,125,0.25); }
+  }
   .inv-grid { display:flex; flex-direction:column; gap:3px; width:max-content; }
   .inv-row { display:flex; gap:3px; }
   .inv-cell { width:44px; height:44px; background:var(--bg); border:1px dashed var(--border); transition:border-color 0.15s, background 0.15s; flex-shrink:0; }
@@ -2514,6 +2526,7 @@
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
     Drag a token from the library below onto the grid to store it — you don't have to be pixel-precise, dropping it anywhere near open squares snaps it to the nearest spot that fits. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Items only move or leave the inventory while you're actively holding and dragging them; letting go mid-drag over empty space (or anywhere that isn't a valid target) just leaves it exactly where it was, and a plain click no longer removes it — drag it onto the remove zone for that.
     To equip something, drag it from the grid onto your character below — get it anywhere near an open slot of the right kind (doll, limbs, mount/pet) and it snaps into place even if you're not dead-on over that exact square. It leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it (same forgiving snap-to-nearest-square), onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
+    Right-click any item with charges — a staff, rations, a wand — to spend one charge, whether it's sitting in the grid or equipped; items with nothing to expend just get the normal right-click menu. Out of charges? Drag the item onto the refill zone to restore them — a flat count goes back to full, and anything whose charges are rolled on a die (like "1d4+1 applications") gets rerolled fresh.
   </p>
   <div class="player-top-row" ondragover="slotDragOver(event)" ondrop="smartEquipDrop(event)">
     <div class="player-board">
@@ -2588,6 +2601,9 @@
     </div>
     <div class="inv-remove-zone" id="invRemoveZone" ondragover="slotDragOver(event)" ondrop="inventoryRemoveDrop(event)">
       🗑<br>Drag an item<br>here to remove it
+    </div>
+    <div class="inv-refill-zone" id="invRefillZone" ondragover="slotDragOver(event)" ondrop="inventoryRefillDrop(event)">
+      🔄<br>Drag an item<br>here to refill charges
     </div>
   </div>
 
@@ -3478,6 +3494,69 @@ function computeItemWeight(item) {
   else w = Math.round(w * 20) / 20;
   return w;
 }
+// ---------- Item charges (right-click to expend, drag onto the refill zone to restore) ----------
+// `item.chargesFormat` is the pristine, never-mutated original charges text — the template
+// a refill goes back to. `item.charges` is the live, currently-displayed count, which
+// right-click chips away at in place. Some hand-authored items already express their
+// charges as dice notation instead of a flat number (e.g. "1d4+1 applications", "1d6+1
+// beads" — exactly the "roll 1dX for charge refill" case) — those get rolled once up front
+// so the live count is always a real number, and re-rolled fresh on every refill.
+const DICE_CHARGE_RE = /(\d+)\s*d\s*(\d+)\s*([+-]\s*\d+)?/i;
+const FLAT_CHARGE_RE = /\d+/;
+function rollDiceTotal(n, sides, mod) {
+  let total = mod || 0;
+  for (let i = 0; i < n; i++) total += rn(1, sides);
+  return total;
+}
+// Rolls whatever dice expression appears in `text` and returns the text with that
+// expression replaced by the rolled total (e.g. "1d4+1 applications" -> "3 applications").
+// Returns null if there's no dice expression in the text at all.
+function rollChargeDiceText(text) {
+  const m = DICE_CHARGE_RE.exec(text);
+  if (!m) return null;
+  const n = parseInt(m[1], 10), sides = parseInt(m[2], 10);
+  const mod = m[3] ? parseInt(m[3].replace(/\s+/g, ''), 10) : 0;
+  const total = Math.max(0, rollDiceTotal(n, sides, mod));
+  return text.slice(0, m.index) + total + text.slice(m.index + m[0].length);
+}
+// Sets up the immutable template the first time any item's charges are touched (by the
+// eager inferItemMetadata pass over lootData, or lazily for anything built elsewhere —
+// Fleshmancer limbs, Store wares, Generate Item results — the first time it's right-
+// clicked or refilled). Safe to call repeatedly; only does anything the first time.
+function ensureChargeFormat(item) {
+  if (!item || !item.charges || item.chargesFormat !== undefined) return;
+  item.chargesFormat = item.charges;
+  const rolled = rollChargeDiceText(item.charges);
+  if (rolled !== null) item.charges = rolled;
+}
+// Right-click: expend one charge from whatever number currently appears in item.charges
+// ("7" -> "6", "3/day" -> "2/day", "Chain Lightning 1/day" -> "Chain Lightning 0/day"),
+// floored at 0. Returns false — doing nothing at all — for anything with no charges field
+// or no parseable number in it (armor, misc trinkets, "Passive", "At will", "—", etc.),
+// so the caller knows to leave the browser's normal right-click menu alone instead.
+function expendItemCharge(item) {
+  if (!item || !item.charges) return false;
+  ensureChargeFormat(item);
+  const m = FLAT_CHARGE_RE.exec(item.charges);
+  if (!m) return false;
+  const newValue = Math.max(0, parseInt(m[0], 10) - 1);
+  item.charges = item.charges.slice(0, m.index) + newValue + item.charges.slice(m.index + m[0].length);
+  return true;
+}
+// Drag onto the refill zone: restores charges to full. For a flat count ("3/day", "7"),
+// that just means going back to the original chargesFormat text. For an item whose base
+// charges text is itself dice notation, it re-rolls that dice expression fresh instead of
+// reusing whatever the very first roll happened to land on. Returns false for anything with
+// no numeric charges at all — nothing to refill.
+function refillItemCharges(item) {
+  if (!item || !item.charges) return false;
+  ensureChargeFormat(item);
+  const template = item.chargesFormat;
+  if (!template || !FLAT_CHARGE_RE.test(template)) return false;
+  const rolled = rollChargeDiceText(template);
+  item.charges = rolled !== null ? rolled : template;
+  return true;
+}
 function inferItemMetadata(item){
   const n=item.name.toLowerCase();
   if(!item.type){
@@ -3490,6 +3569,7 @@ function inferItemMetadata(item){
   if(!item.slotSize) item.slotSize=SUBCATEGORY_SLOT_SIZE[item.subcategory]||1;
   if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
   if(item.weight===undefined || item.weight===null) item.weight=computeItemWeight(item);
+  ensureChargeFormat(item);
   return item;
 }
 Object.values(lootData).forEach(arr=>arr.forEach(inferItemMetadata));
@@ -8972,6 +9052,21 @@ function getDragPayload(evt) {
     || (_draggedSlotId ? 'slotitem:' + _draggedSlotId : null)
     || _draggedTokenKey;
 }
+// Resolves a raw drag payload (as returned by getDragPayload) straight down to the
+// underlying token key, regardless of whether it came from the library, the inventory
+// grid, or another equip slot — for drop targets that just need "which item is this"
+// rather than the full placement bookkeeping (e.g. the refill zone).
+function dragPayloadKey(raw) {
+  if (!raw) return null;
+  if (raw.indexOf('invplace:') === 0) {
+    const p = inventoryPlacements[raw.slice('invplace:'.length)];
+    return p ? p.key : null;
+  }
+  if (raw.indexOf('slotitem:') === 0) {
+    return playerSlots[raw.slice('slotitem:'.length)] || null;
+  }
+  return raw;
+}
 
 // ---------- Player tab ----------
 function slotDragOver(evt) {
@@ -9054,15 +9149,7 @@ function placeTokenInSlot(key, slotId) {
 function smartEquipDrop(evt) {
   const raw = getDragPayload(evt);
   if (!raw) { evt.preventDefault(); return; }
-  let key = null;
-  if (raw.indexOf('invplace:') === 0) {
-    const p = inventoryPlacements[raw.slice('invplace:'.length)];
-    key = p ? p.key : null;
-  } else if (raw.indexOf('slotitem:') === 0) {
-    key = playerSlots[raw.slice('slotitem:'.length)];
-  } else {
-    key = raw;
-  }
+  const key = dragPayloadKey(raw);
   if (!key) { evt.preventDefault(); return; }
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
@@ -9086,6 +9173,21 @@ function unequipSlot(slotId) {
   playerSlots[slotId] = null;
   renderPlayerSlots();
   renderActiveEffects();
+}
+
+// Right-click an equipped item to expend one charge (a staff, a wand of X charges, rations
+// that tick down, etc.). Items with nothing to expend are left completely alone — the
+// browser's own right-click menu opens as normal, since we never called preventDefault().
+function slotContextMenu(evt, slotId) {
+  const key = playerSlots[slotId];
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry || !expendItemCharge(entry.item)) return;
+  evt.preventDefault();
+  renderPlayerSlots();
+  renderActiveEffects();
+  showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
 }
 
 // "Unequip All" tries to send every equipped item back into the inventory grid first,
@@ -9293,6 +9395,42 @@ function inventoryRemoveDrop(evt) {
   if (raw.indexOf('slotitem:') === 0) { unequipSlot(raw.slice('slotitem:'.length)); return; }
 }
 
+// Right-click a stored item to expend one charge, same rule as the equipped-slot version:
+// items with nothing to expend are left alone and the browser's own menu opens as normal.
+function inventoryItemContextMenu(evt, placementId) {
+  const p = inventoryPlacements[placementId];
+  if (!p) return;
+  if (!TOKEN_INDEX[p.key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[p.key];
+  if (!entry || !expendItemCharge(entry.item)) return;
+  evt.preventDefault();
+  renderInventoryGrid();
+  showTokenTooltip(evt, p.key); // refresh the tooltip in place so the new count is visible immediately
+}
+
+// The refill zone: drag any item here — from the inventory grid, an equip slot, or straight
+// from the library — to restore its charges. Purely an action, not a move: the item stays
+// exactly where it was (in the grid, still equipped, whatever), only its charges change.
+// Nothing happens for items with no charges to refill at all.
+function inventoryRefillDrop(evt) {
+  evt.preventDefault();
+  const raw = getDragPayload(evt);
+  const key = dragPayloadKey(raw);
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry || !refillItemCharges(entry.item)) {
+    const zone = document.getElementById('invRefillZone');
+    if (zone) { zone.classList.add('slot-invalid'); setTimeout(() => zone.classList.remove('slot-invalid'), 350); }
+    return;
+  }
+  renderInventoryGrid();
+  renderPlayerSlots();
+  renderActiveEffects();
+  const zone = document.getElementById('invRefillZone');
+  if (zone) { zone.classList.add('refill-flash'); setTimeout(() => zone.classList.remove('refill-flash'), 400); }
+}
+
 function clearInventory() {
   inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
   inventoryPlacements = {};
@@ -9329,6 +9467,7 @@ function renderInventoryGrid() {
           // to be dropped starting on an empty cell, same as any other move.
           html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
             ondragstart="inventoryItemDragStart(event,'${placementId}')"
+            oncontextmenu="inventoryItemContextMenu(event,'${placementId}')"
             onmouseenter="showTokenTooltip(event,'${safeKey}')"
             onmousemove="moveTokenTooltip(event)"
             onmouseleave="hideTokenTooltip()">${body}</div>`;
@@ -9496,6 +9635,7 @@ function renderPlayerSlots() {
       el.draggable = false;
       el.ondragstart = null;
       el.onclick = null;
+      el.oncontextmenu = null;
       el.onmouseenter = null;
       el.onmousemove = null;
       el.onmouseleave = null;
@@ -9509,6 +9649,10 @@ function renderPlayerSlots() {
     el.draggable = true;
     el.ondragstart = (evt) => slotItemDragStart(evt, slotId);
     el.onclick = () => unequipSlot(slotId);
+    // Right-click expends one charge instead of opening the browser's menu — but only for
+    // items that actually have a parseable charge count; anything else falls through to the
+    // normal context menu untouched.
+    el.oncontextmenu = (evt) => slotContextMenu(evt, slotId);
     el.onmouseenter = (evt) => showTokenTooltip(evt, key);
     el.onmousemove = (evt) => moveTokenTooltip(evt);
     el.onmouseleave = () => hideTokenTooltip();
