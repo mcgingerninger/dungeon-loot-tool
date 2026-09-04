@@ -67,7 +67,7 @@ import {
   onAuthStateChanged, updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
+  initializeFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -81,7 +81,14 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
+// Plain getFirestore() defaults to a WebChannel transport that tries QUIC (HTTP/3) first —
+// on some networks (corporate firewalls, certain ISPs/VPNs/proxies that block outbound UDP)
+// QUIC connections fail outright, which shows up as net::ERR_QUIC_PROTOCOL_ERROR plus repeated
+// 400s on firestore.googleapis.com's Write stream, and every read/write (including account
+// creation and login) fails as a result. experimentalAutoDetectLongPolling makes the SDK probe
+// for that up front and transparently fall back to long-polling over plain HTTPS instead of
+// QUIC, with no behavior change for players on networks where QUIC works fine.
+const db = initializeFirestore(fbApp, { experimentalAutoDetectLongPolling: true });
 
 // ---------- Username <-> synthetic email ----------
 const USERNAME_EMAIL_DOMAIN = "dnd-loot-tool.local";
@@ -226,14 +233,23 @@ function updatePlayerNameDisplay() {
   }
 }
 
-function logOut() {
+// Tears down this tab's own session state — unsubscribing listeners, clearing mp, hiding the
+// role-restricted CSS and the player-name display — WITHOUT touching Firebase Auth itself.
+// Split out from logOut() so the onAuthStateChanged handler below can reuse it for a sign-out
+// that happened somewhere else (see the comment there): that path must never call signOut()
+// itself, since Firebase Auth already reports signed-out by the time it runs.
+function resetLocalSessionState() {
   if (mp.playerUnsub) mp.playerUnsub();
   if (mp.rosterUnsub) mp.rosterUnsub();
-  signOut(auth).catch(() => {});
   mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
   mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
   document.body.classList.remove("role-player");
   updatePlayerNameDisplay();
+}
+
+function logOut() {
+  resetLocalSessionState();
+  signOut(auth).catch(() => {});
   showGate();
 }
 
@@ -659,8 +675,27 @@ function init() {
   // this is what makes "log back in" mostly automatic on the SAME device, while a genuinely
   // different device still needs the username/password typed once.
   onAuthStateChanged(auth, (user) => {
-    if (user && !mp.connected && !mp.kicked) {
-      restoreSession(user).catch(() => { /* stale/broken session — fall back to the gate */ });
+    if (user) {
+      if (!mp.connected && !mp.kicked) {
+        restoreSession(user).catch(() => { /* stale/broken session — fall back to the gate */ });
+      }
+      return;
+    }
+    // user is null: Firebase Auth itself now reports signed-out. Firebase's local persistence
+    // is shared across every tab/window of the same browser, and signing out in ONE of them
+    // propagates this same callback to every other open tab — but only THIS tab's own mp
+    // state and gate/DOM would otherwise know about it. Without this branch, a second window
+    // just kept right on behaving as if it were still logged in (roster listeners still
+    // running, gate still hidden) since nothing here ever told it otherwise — which is exactly
+    // what made logging out with two windows open look like it silently didn't work. Only
+    // acts if THIS tab still thinks it's connected: the tab where Log Out was actually clicked
+    // already reset its own state synchronously (see logOut), so this would otherwise be a
+    // redundant showGate() call capable of wiping a just-shown message (e.g. "removed by the
+    // DM") the instant after it appears.
+    if (mp.connected) {
+      resetLocalSessionState();
+      showGate();
+      setGateStatus("You were logged out.", false);
     }
   });
 }
