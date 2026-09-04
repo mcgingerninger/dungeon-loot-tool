@@ -222,6 +222,39 @@ function refreshLocalStateCache() {
 let _latestLocalState = null;
 function collectCurrentAppState() { return _latestLocalState; }
 
+// Firestore rejects an array whose elements are themselves arrays ("nested arrays are not
+// supported") as a document field value. inventoryGrid is a literal 2D grid (an array of row
+// arrays) and trips this directly — that's the exact error hit during testing. Rather than
+// hardcode a fix for just that one field, this walks the ENTIRE state tree and JSON-stringifies
+// any array-of-arrays it finds in place (tagged so the reverse pass can find and undo exactly
+// those spots), so any other field with this same shape — now or added later — is covered too
+// without needing to be individually tracked down. Everything else in the tree is untouched.
+const NESTED_ARRAY_TAG = "__nestedArrayJSON__";
+function sanitizeNestedArrays(value) {
+  if (Array.isArray(value)) {
+    if (value.some((el) => Array.isArray(el))) return { [NESTED_ARRAY_TAG]: JSON.stringify(value) };
+    return value.map(sanitizeNestedArrays);
+  }
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const k of Object.keys(value)) out[k] = sanitizeNestedArrays(value[k]);
+    return out;
+  }
+  return value;
+}
+function unsanitizeNestedArrays(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (Object.prototype.hasOwnProperty.call(value, NESTED_ARRAY_TAG)) {
+      try { return JSON.parse(value[NESTED_ARRAY_TAG]); } catch (e) { return []; }
+    }
+    const out = {};
+    for (const k of Object.keys(value)) out[k] = unsanitizeNestedArrays(value[k]);
+    return out;
+  }
+  if (Array.isArray(value)) return value.map(unsanitizeNestedArrays);
+  return value;
+}
+
 window.onMultiplayerStateChange = function (data) {
   _latestLocalState = data;
   if (!mp.connected || mp.applyingRemote || mp.kicked) return;
@@ -239,7 +272,7 @@ async function pushOwnState(stateOverride) {
   if (!data) return false;
   try {
     await setDoc(playerDocRef(mp.roomCode, mp.uid), {
-      username: mp.username, role: mp.role, updatedAt: serverTimestamp(), state: data,
+      username: mp.username, role: mp.role, updatedAt: serverTimestamp(), state: sanitizeNestedArrays(data),
     }, { merge: true });
     return true;
   } catch (err) {
@@ -279,7 +312,7 @@ function startPlayerListener() {
     mp.applyingRemote = true;
     try {
       if (typeof window.applyRemoteMultiplayerState === "function") {
-        window.applyRemoteMultiplayerState(remote.state);
+        window.applyRemoteMultiplayerState(unsanitizeNestedArrays(remote.state));
       }
     } finally {
       mp.applyingRemote = false;
