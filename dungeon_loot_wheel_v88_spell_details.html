@@ -996,6 +996,9 @@
   .store-card-desc, .store-card-effect { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
   .store-card-effect strong { color: var(--gold-bright); }
   .store-card-gp { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--gold); margin-top: 0.2rem; }
+  .store-card-stock { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
+  .store-card-stock.out { color: var(--danger); font-weight: 600; letter-spacing: 0.05em; }
+  .store-card-soldout { opacity: 0.55; }
   .store-buy-msg { height: 1.4rem; margin-top: 0.6rem; color: var(--uncommon); font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; }
   .store-buy-msg.show { opacity: 1; }
   @media (max-width: 700px) { .store-grid { grid-template-columns: 1fr; } }
@@ -1424,6 +1427,12 @@
     margin-top:0.8rem;
   }
   .trader-sell-zone.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
+
+  /* Merchant's Till — the staged pending-sale pile between the drop zone and the "Sell All"
+     confirm, plus the Store tab's gold-on-hand readout up top. */
+  .merchant-till-panel { border:2px solid var(--gold); background:rgba(201,168,76,0.08); padding:0.8rem; margin-top:0.8rem; }
+  .merchant-till-head { display:flex; align-items:center; justify-content:space-between; gap:0.8rem; margin-bottom:0.6rem; font-family:'Share Tech Mono',monospace; font-size:0.85rem; color:var(--gold-bright); flex-wrap:wrap; }
+  .store-gold-display { font-family:'Share Tech Mono',monospace; font-size:0.9rem; color:var(--gold-bright); }
 
   /* Monster Mangler (Store tab) — two drop slots feeding a preview/combine step, same
      drag-and-drop visual language as the trader sell zone / inventory grid. */
@@ -2769,7 +2778,7 @@
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
     Drag a token from the library below onto the grid to store it — you don't have to be pixel-precise, dropping it anywhere near open squares snaps it to the nearest spot that fits. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Items only move or leave the inventory while you're actively holding and dragging them; letting go mid-drag over empty space (or anywhere that isn't a valid target) just leaves it exactly where it was, and a plain click no longer removes it — drag it onto the remove zone for that.
     To equip something, drag it from the grid onto your character below — get it anywhere near an open slot of the right kind (doll, limbs, mount/pet) and it snaps into place even if you're not dead-on over that exact square. It leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it (same forgiving snap-to-nearest-square), onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
-    Right-click any item with charges — a staff, rations, a wand — to spend one charge, whether it's sitting in the grid or equipped; items with nothing to expend just get the normal right-click menu. Out of charges? Drag the item onto the refill zone to restore them — a flat count goes back to full, and anything whose charges are rolled on a die (like "1d4+1 applications") gets rerolled fresh.
+    Right-click is the fast way to equip and unequip: right-click any item sitting in the grid or your Token Library to send it straight to the first open slot that fits it, no dragging required. Right-click an already-equipped item to spend a charge if it has one (a staff, rations, a wand); if it doesn't, that same right-click unequips it back to the grid instead. Out of charges? Drag the item onto the refill zone to restore them — a flat count goes back to full, and anything whose charges are rolled on a die (like "1d4+1 applications") gets rerolled fresh.
   </p>
   <div class="player-top-row" ondragover="slotDragOver(event)" ondrop="smartEquipDrop(event)">
     <div class="player-board">
@@ -2848,11 +2857,13 @@
   </details>
 
   <div class="inv-summary-bar">
+    <span>💰 Gold: <strong id="playerGoldDisplay">0 gp</strong></span>
     <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
     <span>🎒 Slots Used: <strong id="invSlotsUsed">0</strong> / <span id="invSlotsTotal">90</span></span>
     <span>⚖ Total Weight: <strong id="invTotalWeight">0 lbs</strong></span>
     <button class="action-btn" style="width:auto;max-width:none" onclick="clearInventory()">Clear Inventory</button>
   </div>
+  <div class="store-buy-msg" id="invActionMsg"></div>
   <div class="inv-layout-row">
     <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event)">
       <div id="inventoryGrid" class="inv-grid"></div>
@@ -2887,8 +2898,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v87).
-const APP_VERSION = 'v87';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v88).
+const APP_VERSION = 'v88';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 const lootData = {
@@ -8020,6 +8031,64 @@ function gpToNumber(gpStr) {
   return val * (unitMult[(m[3] || 'gp').toLowerCase()] ?? 1);
 }
 
+// ===================== PLAYER GOLD (COIN POUCH) =====================
+// Spendable gold isn't a hidden number — it's tracked on a real item, "Coin Pouch", that
+// sits in the inventory/token library like anything else. findPlayerCoinPouch() is the
+// single source of truth: it scans every token the player owns for the one flagged
+// isCoinPouch (a boolean marker, not a name match, so renaming it or finding a second one
+// wouldn't break anything) and reads its `coins` field. getOrCreatePlayerCoinPouch() mints
+// a fresh empty one the first time it's needed (e.g. the first purchase or sale of the
+// session) and places it in the inventory grid, same as any other acquired item.
+function findPlayerCoinPouch() {
+  buildTokenIndex();
+  const entry = Object.values(TOKEN_INDEX).find(e => e.item && e.item.isCoinPouch);
+  return entry ? entry.item : null;
+}
+function coinPouchGpText(coins) { return formatGpAmount(Math.round((coins || 0) * 100) / 100); }
+function getOrCreatePlayerCoinPouch() {
+  const existing = findPlayerCoinPouch();
+  if (existing) return existing;
+  const item = {
+    name: 'Coin Pouch', rarity: 'common', type: 'treasure', subcategory: 'currency',
+    slotSize: 1, weight: 1, isCoinPouch: true, coins: 0,
+    desc: "A worn leather pouch that jingles with whatever coin you've got on you.",
+    effect: 'Holds your spendable gold. Its value always matches the coin currently inside — buying and selling draw from and add to this pouch automatically.',
+    gp: coinPouchGpText(0), tags: [],
+  };
+  placeItemIntoInventory(item);
+  return findPlayerCoinPouch() || item;
+}
+function getPlayerGold() {
+  const pouch = findPlayerCoinPouch();
+  return pouch ? (pouch.coins || 0) : 0;
+}
+function addPlayerGold(amount) {
+  if (!amount) return;
+  const pouch = getOrCreatePlayerCoinPouch();
+  pouch.coins = Math.round(((pouch.coins || 0) + amount) * 100) / 100;
+  pouch.gp = coinPouchGpText(pouch.coins);
+  refreshGoldDisplays();
+  scheduleSave();
+}
+// Returns false (spending nothing) if the pouch doesn't have enough — callers must check
+// the return value before handing over an item, never assume it succeeded.
+function spendPlayerGold(amount) {
+  const pouch = getOrCreatePlayerCoinPouch();
+  if ((pouch.coins || 0) < amount - 0.001) return false;
+  pouch.coins = Math.round(((pouch.coins || 0) - amount) * 100) / 100;
+  pouch.gp = coinPouchGpText(pouch.coins);
+  refreshGoldDisplays();
+  scheduleSave();
+  return true;
+}
+function refreshGoldDisplays() {
+  const text = coinPouchGpText(getPlayerGold());
+  ['playerGoldDisplay', 'storePlayerGoldDisplay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  });
+}
+
 // ===================== COMMERCE PRICING =====================
 // Paying a specialist for a sure thing (a fleshmancer's graft, a merchant's stock) costs
 // far more than finding the same rarity of item as loot — this is a deliberately steep
@@ -8032,10 +8101,47 @@ const COMMERCE_SCALE = {
   legendary: { gpMin:60000,  gpMax:300000 },
   celestial: { gpMin:300000, gpMax:1500000 },
 };
-function commercePrice(rarity, modCount = 1) {
+// Where a specific roll landed within its OWN rarity/category's possible power range —
+// 0 = the weakest possible roll for that rarity (e.g. a common weapon that rolled the
+// minimum die count), 1 = the strongest. Ranges mirror rollItemStats() above exactly, so
+// this always reflects what the item actually rolled, not a guess. Used to scale commerce
+// price so two items of the same rarity don't cost the same gp when one is mechanically
+// much stronger than the other — previously price only looked at rarity + mod COUNT, never
+// mod/roll MAGNITUDE, so a maxed-out legendary sword and a bottom-of-the-barrel one were
+// priced identically.
+function rollPowerRatio(cat, rarity, dmg, ac, hp) {
+  const clamp01 = (n) => Math.max(0, Math.min(1, n));
+  if (cat === 'weapon' && dmg) {
+    const m = /^(\d+)d/.exec(dmg);
+    if (m) {
+      const range = { celestial:[4,8], legendary:[3,6], superrare:[2,4], rare:[2,3], uncommon:[1,2], common:[1,2] }[rarity] || [1,2];
+      if (range[1] === range[0]) return 0.5;
+      return clamp01((parseInt(m[1], 10) - range[0]) / (range[1] - range[0]));
+    }
+  }
+  if (cat === 'armor' && ac) {
+    const range = { celestial:[22,26], legendary:[18,22], superrare:[16,18], rare:[14,16], uncommon:[13,15], common:[11,13] }[rarity] || [11,13];
+    if (range[1] === range[0]) return 0.5;
+    return clamp01((parseInt(ac, 10) - range[0]) / (range[1] - range[0]));
+  }
+  if (cat === 'consumable' && hp) {
+    const m = /^(\d+)d/.exec(hp);
+    if (m) {
+      const range = { celestial:[15,30], legendary:[10,20], superrare:[6,12], rare:[4,8], uncommon:[2,4], common:[1,2] }[rarity] || [1,2];
+      if (range[1] === range[0]) return 0.5;
+      return clamp01((parseInt(m[1], 10) - range[0]) / (range[1] - range[0]));
+    }
+  }
+  return 0.5; // misc items, or nothing to scale off of — treat as an average roll
+}
+function commercePrice(rarity, modCount = 1, powerRatio = 0.5) {
   const scale = COMMERCE_SCALE[rarity] || COMMERCE_SCALE.common;
   const base = rn(scale.gpMin, scale.gpMax);
-  return Math.round(base * (1 + Math.max(0, modCount - 1) * 0.2));
+  const modMult = 1 + Math.max(0, modCount - 1) * 0.2;
+  // 0.75x for the weakest possible roll, 1x for an average one, 1.5x for the strongest —
+  // stacks with the existing mod-count markup above.
+  const powerMult = 0.75 + Math.max(0, Math.min(1, powerRatio)) * 0.75;
+  return Math.round(base * modMult * powerMult);
 }
 // A limb attachment is priced well below buying an equivalent item from a merchant — it's a
 // grim back-alley surgery, not a shop purchase, and the outcome is already a real risk (see
@@ -8766,56 +8872,64 @@ const MERCHANTS = {
   alchemist: {
     name: 'Alchemist', icon: '🧪',
     flavor: "Shelves of bubbling vials and dried herbs line every wall. If it can be brewed, boiled, or bottled, it's probably in here somewhere.",
+    // Potions are brewed in batches, not forged one at a time — an alchemist keeps a deep
+    // shelf of the common stuff.
     staples: [
-      { name:'Healing Potion', desc:'A ruby-red potion that mends flesh and bone.', gp:'50 gp', effect:'Restores hit points when consumed.', icon:'potion', type:'consumable', hp:'2d4+2', charges:'1 use' },
-      { name:'Stamina Potion', desc:'A sharp, bitter draught that chases away fatigue.', gp:'40 gp', effect:'Removes one level of exhaustion.', icon:'potion', type:'consumable', charges:'1 use' },
-      { name:'Antidote', desc:'A thin green tincture with a medicinal bite.', gp:'30 gp', effect:'Cures one poison affecting the drinker.', icon:'potion', type:'consumable', charges:'1 use' },
-      { name:'Potion of Water Breathing', desc:'Smells faintly of brine and low tide.', gp:'80 gp', effect:'Grants water breathing for 1 hour.', icon:'potion', type:'consumable', charges:'1 use' },
-      { name:'Smoke Bomb', desc:'A fist-sized clay sphere, fragile and full of choking powder.', gp:'25 gp', effect:'Creates a 10-ft. cloud of thick smoke on impact.', icon:'gem', type:'consumable', charges:'1 use' },
+      { name:'Healing Potion', desc:'A ruby-red potion that mends flesh and bone.', gp:'50 gp', effect:'Restores hit points when consumed.', icon:'potion', type:'consumable', hp:'2d4+2', charges:'1 use', stock:200 },
+      { name:'Stamina Potion', desc:'A sharp, bitter draught that chases away fatigue.', gp:'40 gp', effect:'Removes one level of exhaustion.', icon:'potion', type:'consumable', charges:'1 use', stock:150 },
+      { name:'Antidote', desc:'A thin green tincture with a medicinal bite.', gp:'30 gp', effect:'Cures one poison affecting the drinker.', icon:'potion', type:'consumable', charges:'1 use', stock:150 },
+      { name:'Potion of Water Breathing', desc:'Smells faintly of brine and low tide.', gp:'80 gp', effect:'Grants water breathing for 1 hour.', icon:'potion', type:'consumable', charges:'1 use', stock:40 },
+      { name:'Smoke Bomb', desc:'A fist-sized clay sphere, fragile and full of choking powder.', gp:'25 gp', effect:'Creates a 10-ft. cloud of thick smoke on impact.', icon:'gem', type:'consumable', charges:'1 use', stock:60 },
     ],
   },
   blacksmith: {
     name: 'Blacksmith', icon: '⚒',
     flavor: 'The air smells of coal smoke and hot iron. Racks of honest, well-made steel line every wall.',
+    // One smith, one forge — mundane weapons/armor take real time to make, so stock is
+    // small and armor (more material, more hours) is scarcer than a simple blade.
     staples: [
-      { name:'Iron Sword', desc:'A plain, well-balanced longsword.', gp:'15 gp', effect:'A dependable one-handed blade.', icon:'sword', type:'weapon', dmg:'1d8' },
-      { name:'Iron Knife', desc:'A simple utility dagger.', gp:'2 gp', effect:'Light and easy to conceal.', icon:'dagger', type:'weapon', dmg:'1d4' },
-      { name:'Iron Mace', desc:'A blunt, heavy head on an oak haft.', gp:'10 gp', effect:'Simple, sturdy, effective.', icon:'mace', type:'weapon', dmg:'1d6' },
-      { name:'Studded Leather Armor', desc:'Leather reinforced with rivets.', gp:'45 gp', effect:'Light armor, doesn\'t restrict movement.', icon:'armor', type:'armor', ac:'12' },
-      { name:'Chainmail', desc:'Interlocking iron rings, oiled against rust.', gp:'75 gp', effect:'Heavy armor, solid protection.', icon:'armor', type:'armor', ac:'16' },
+      { name:'Iron Sword', desc:'A plain, well-balanced longsword.', gp:'15 gp', effect:'A dependable one-handed blade.', icon:'sword', type:'weapon', dmg:'1d8', stock:8 },
+      { name:'Iron Knife', desc:'A simple utility dagger.', gp:'2 gp', effect:'Light and easy to conceal.', icon:'dagger', type:'weapon', dmg:'1d4', stock:15 },
+      { name:'Iron Mace', desc:'A blunt, heavy head on an oak haft.', gp:'10 gp', effect:'Simple, sturdy, effective.', icon:'mace', type:'weapon', dmg:'1d6', stock:8 },
+      { name:'Studded Leather Armor', desc:'Leather reinforced with rivets.', gp:'45 gp', effect:'Light armor, doesn\'t restrict movement.', icon:'armor', type:'armor', ac:'12', stock:5 },
+      { name:'Chainmail', desc:'Interlocking iron rings, oiled against rust.', gp:'75 gp', effect:'Heavy armor, solid protection.', icon:'armor', type:'armor', ac:'16', stock:3 },
     ],
   },
   mage: {
     name: 'Arcanist', icon: '📜',
     flavor: 'A cramped, cluttered shop that smells of ozone and old paper. Every surface holds something that hums faintly with magic.',
+    // Scrolls are copied by hand, one at a time — genuinely scarce. The staff and robe are
+    // physical goods, not consumed on use, so only a handful are ever kept in stock.
     staples: [
-      { name:'Scroll of Magic Missile', desc:'A one-use scroll, ink still faintly glowing.', gp:'60 gp', effect:'Casts Magic Missile once.', icon:'scroll', type:'consumable', charges:'1 use' },
-      { name:'Scroll of Shield', desc:'Smells of ash and static.', gp:'80 gp', effect:'Casts Shield once.', icon:'scroll', type:'consumable', charges:'1 use' },
-      { name:"Apprentice's Staff", desc:'A plain ashwood staff, worn smooth by practice.', gp:'100 gp', effect:'+1 to spell attack rolls while wielded.', icon:'staff', type:'weapon', dmg:'1d6' },
-      { name:"Traveler's Robe", desc:'Sturdy, unremarkable, faintly warm.', gp:'35 gp', effect:'Light, unassuming spellcasting garb.', icon:'robe', type:'armor', ac:'11' },
-      { name:'Component Pouch', desc:'A worn leather pouch, always stocked.', gp:'25 gp', effect:'Holds material components for spellcasting.', icon:'gem', type:'misc' },
+      { name:'Scroll of Magic Missile', desc:'A one-use scroll, ink still faintly glowing.', gp:'60 gp', effect:'Casts Magic Missile once.', icon:'scroll', type:'consumable', charges:'1 use', stock:12 },
+      { name:'Scroll of Shield', desc:'Smells of ash and static.', gp:'80 gp', effect:'Casts Shield once.', icon:'scroll', type:'consumable', charges:'1 use', stock:12 },
+      { name:"Apprentice's Staff", desc:'A plain ashwood staff, worn smooth by practice.', gp:'100 gp', effect:'+1 to spell attack rolls while wielded.', icon:'staff', type:'weapon', dmg:'1d6', stock:4 },
+      { name:"Traveler's Robe", desc:'Sturdy, unremarkable, faintly warm.', gp:'35 gp', effect:'Light, unassuming spellcasting garb.', icon:'robe', type:'armor', ac:'11', stock:6 },
+      { name:'Component Pouch', desc:'A worn leather pouch, always stocked.', gp:'25 gp', effect:'Holds material components for spellcasting.', icon:'gem', type:'misc', stock:10 },
     ],
   },
   trader: {
     name: 'General Trader', icon: '🎒',
     flavor: "A little bit of everything, piled from floor to rafters. If you can't find it here, try somewhere less honest.",
+    // Plain mundane adventuring gear, bought wholesale — a trader keeps a lot of it.
     staples: [
-      { name:'50 ft. Rope', desc:'Sturdy hempen rope.', gp:'2 gp', effect:'Standard adventuring rope.', icon:'gem', type:'misc' },
-      { name:'Torches (bundle of 5)', desc:'Pitch-soaked and ready to strike.', gp:'1 gp', effect:'Sheds bright light 20 ft., dim light 20 ft. further.', icon:'gem', type:'misc' },
-      { name:'Rations (1 week)', desc:'Dried meat, hard bread, and travel biscuit.', gp:'5 gp', effect:'Feeds one person for a week.', icon:'gem', type:'consumable', charges:'7 days' },
-      { name:'Bedroll', desc:"A thin but serviceable bedroll.", gp:'3 gp', effect:"A place to sleep that isn't the ground.", icon:'gem', type:'misc' },
-      { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc' },
+      { name:'50 ft. Rope', desc:'Sturdy hempen rope.', gp:'2 gp', effect:'Standard adventuring rope.', icon:'gem', type:'misc', stock:40 },
+      { name:'Torches (bundle of 5)', desc:'Pitch-soaked and ready to strike.', gp:'1 gp', effect:'Sheds bright light 20 ft., dim light 20 ft. further.', icon:'gem', type:'misc', stock:50 },
+      { name:'Rations (1 week)', desc:'Dried meat, hard bread, and travel biscuit.', gp:'5 gp', effect:'Feeds one person for a week.', icon:'gem', type:'consumable', charges:'7 days', stock:30 },
+      { name:'Bedroll', desc:"A thin but serviceable bedroll.", gp:'3 gp', effect:"A place to sleep that isn't the ground.", icon:'gem', type:'misc', stock:25 },
+      { name:'Grappling Hook', desc:'Three sturdy iron prongs on a swivel.', gp:'8 gp', effect:'Useful for climbing and hooking.', icon:'gem', type:'misc', stock:20 },
     ],
   },
   // Sells every common-tier companion (pet or mount) as standing stock — computed straight
   // from lootData.common so this list can never drift out of sync with the Item Compendium
   // — plus 5 freshly rolled uncommon-or-better pets each day (see rollAnimalTamerDaily()).
+  // Only ever one of each: she's not running a puppy mill, these are individual animals.
   animaltamer: {
     name: 'Animal Tamer', icon: '🐾',
     flavor: 'Cages, pens, and a low constant murmur of clucks, chirps, and growls. Everything here is alive, fed, and for sale.',
     staples: lootData.common
       .filter(it => it.type === 'companion')
-      .map(it => ({ name: it.name, desc: it.desc, gp: it.gp, effect: it.effect, icon: 'paw', type: 'companion' })),
+      .map(it => ({ name: it.name, desc: it.desc, gp: it.gp, effect: it.effect, icon: 'paw', type: 'companion', stock:1 })),
   },
   // The Fleshmancer isn't a normal shop — selecting him swaps in the whole limb-grafting
   // flow (see renderStoreTab/#storeFleshPanel) instead of a staples/daily-wares grid.
@@ -8915,14 +9029,23 @@ function generateStoreItem(merchantKey) {
   const itemName = buildItemName(baseName, rarity, { dmg, ac, hp }, mods);
   const descParagraphs = buildDescParagraphs(baseName, cat, rarity, tags, mods, { dmg, ac, hp });
   const flavor = descParagraphs.map(p => p.text).join('\n\n');
-  const gp = formatGpAmount(commercePrice(rarity, mods.length));
+  const gp = formatGpAmount(commercePrice(rarity, mods.length, rollPowerRatio(cat, rarity, dmg, ac, hp)));
   const weight = computeItemWeight({ type: cat, subcategory, name: itemName });
 
   return { name:itemName, rarity, cat, type:cat, subcategory, gp, dmg, ac, hp, requirement, charges, slotSize, weight, mods, flavor, descParagraphs, tags, merchant:merchantKey };
 }
 
 let currentMerchant = null;
-let storeDailyItems = [];
+// Per-merchant persistent stock state, keyed by merchant key. Lazily initialized the first
+// time a merchant is ever visited (ensureMerchantStock), and from then on only touched by an
+// explicit restock — NOT regenerated every time the player switches merchants and back —
+// so "out of stock" actually means something instead of resetting on every visit.
+//   merchantDailyItems[key]  -> the 5 rolled/drawn daily-ware items for this merchant
+//   merchantDailySold[key]   -> parallel bool array, true once that daily slot has been bought
+//   merchantStapleStock[key] -> remaining quantity per staple index (mirrors MERCHANTS[key].staples)
+let merchantDailyItems = {};
+let merchantDailySold = {};
+let merchantStapleStock = {};
 
 // The Animal Tamer doesn't roll fully-procedural wares like every other merchant — she
 // sells real companions from lootData, so her "daily wares" are 5 distinct pets drawn from
@@ -8938,6 +9061,28 @@ function rollAnimalTamerDaily() {
   const shuffled = pool.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(5, shuffled.length));
 }
+function rollMerchantDaily(key) {
+  return key === 'animaltamer' ? rollAnimalTamerDaily() : Array.from({ length:5 }, () => generateStoreItem(key));
+}
+// First-visit-only setup — does nothing if this merchant already has stock state, which is
+// exactly what makes "bought out" persist across switching merchants and coming back.
+function ensureMerchantStock(key) {
+  if (!merchantDailyItems[key]) {
+    merchantDailyItems[key] = rollMerchantDaily(key);
+    merchantDailySold[key] = merchantDailyItems[key].map(() => false);
+  }
+  if (!merchantStapleStock[key]) {
+    merchantStapleStock[key] = (MERCHANTS[key]?.staples || []).map(s => (s.stock != null ? s.stock : 99));
+  }
+}
+// The deliberate "time has passed, the shelves are full again" action — rerolls this
+// merchant's daily wares AND refills every staple back to its starting quantity. This is
+// the only thing that resets stock; buying alone never does.
+function restockMerchant(key) {
+  merchantDailyItems[key] = rollMerchantDaily(key);
+  merchantDailySold[key] = merchantDailyItems[key].map(() => false);
+  merchantStapleStock[key] = (MERCHANTS[key]?.staples || []).map(s => (s.stock != null ? s.stock : 99));
+}
 
 function selectMerchant(key) {
   currentMerchant = key;
@@ -8945,24 +9090,24 @@ function selectMerchant(key) {
   // via rollFleshCandidates() instead (see renderStoreTab()). Neither does the Bounty
   // Hunter (his board is rolled via rollBountyBoard()) or the Monster Mangler (he has no
   // wares at all — just a workbench that operates on items you already own).
-  if (key === 'animaltamer') {
-    storeDailyItems = rollAnimalTamerDaily();
-  } else if (key === 'bountyhunter') {
+  if (key === 'bountyhunter') {
     rollBountyBoard();
   } else if (key === 'monstermangler') {
     resetManglerSlots();
   } else if (key !== 'fleshmancer') {
-    storeDailyItems = Array.from({ length:5 }, () => generateStoreItem(key));
+    ensureMerchantStock(key);
   }
   renderStoreTab();
 }
 
+// The Store's "Restock" button — the one and only way stock (staples and daily wares alike)
+// resets. Renamed from the old "reroll" concept: rerolling was free and instant before, but
+// now that stock persists and purchases deplete it, this represents the shop restocking over
+// time rather than a free do-over.
 function rerollStoreDaily() {
   if (!currentMerchant || currentMerchant === 'fleshmancer' || currentMerchant === 'monstermangler') return;
   if (currentMerchant === 'bountyhunter') { rollBountyBoard(); return; }
-  storeDailyItems = currentMerchant === 'animaltamer'
-    ? rollAnimalTamerDaily()
-    : Array.from({ length:5 }, () => generateStoreItem(currentMerchant));
+  restockMerchant(currentMerchant);
   renderStoreTab();
 }
 
@@ -8973,8 +9118,13 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
   if (staple.dmg) statBits.push(`⚔ ${staple.dmg}`);
   if (staple.ac) statBits.push(`🛡 AC ${staple.ac}`);
   if (staple.charges) statBits.push(`✦ ${staple.charges}`);
+  const remaining = merchantStapleStock[merchantKey]?.[idx];
+  const outOfStock = remaining !== undefined && remaining <= 0;
+  const stockLabel = remaining !== undefined
+    ? (outOfStock ? `<div class="store-card-stock out">OUT OF STOCK</div>` : `<div class="store-card-stock">In stock: ${remaining}</div>`)
+    : '';
   return `
-    <div class="store-card">
+    <div class="store-card${outOfStock ? ' store-card-soldout' : ''}">
       <div class="flesh-icon-box">${icon}</div>
       <div class="store-card-name">${escapeHtml(staple.name)}</div>
       <div class="store-card-rarity">${SUBCATEGORY_LABELS[subcategory] || ''}</div>
@@ -8982,11 +9132,12 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
       <div class="store-card-effect">${escapeHtml(staple.effect)}</div>
       ${statBits.length ? `<div class="store-card-effect"><strong>${statBits.join(' · ')}</strong></div>` : ''}
       <div class="store-card-gp">💰 ${escapeHtml(staple.gp)}</div>
-      <button class="ic-action-btn" onclick="buyStapleItem('${merchantKey}', ${idx})">🛒 Buy</button>
+      ${stockLabel}
+      <button class="ic-action-btn" ${outOfStock ? 'disabled' : ''} onclick="buyStapleItem('${merchantKey}', ${idx})">${outOfStock ? '✗ Sold Out' : '🛒 Buy'}</button>
     </div>
   `;
 }
-function storeDailyCardHtml(item, idx) {
+function storeDailyCardHtml(item, idx, sold) {
   const icon = itemPixelIcon(item, 40, item.rarity);
   // Procedurally generated wares carry a mods[] array; hand-authored ones (like the Animal
   // Tamer's daily pets, pulled straight from lootData) use a flat effect string instead —
@@ -9000,14 +9151,15 @@ function storeDailyCardHtml(item, idx) {
   if (item.hp) statBits.push(`❤ ${item.hp}`);
   if (item.charges) statBits.push(`✦ ${item.charges}`);
   return `
-    <div class="store-card ${item.rarity}">
+    <div class="store-card ${item.rarity}${sold ? ' store-card-soldout' : ''}">
       <div class="flesh-icon-box">${icon}</div>
       <div class="store-card-name">${escapeHtml(item.name)}</div>
       <div class="store-card-rarity">${rarityNames[item.rarity] || item.rarity}${item.subcategory ? ' · ' + (SUBCATEGORY_LABELS[item.subcategory]||'') : ''}</div>
       ${statBits.length ? `<div class="store-card-effect"><strong>${statBits.join(' · ')}</strong></div>` : ''}
       <div class="store-card-effect">${effectText}</div>
       <div class="store-card-gp">💰 ${escapeHtml(item.gp)}</div>
-      <button class="ic-action-btn" onclick="buyStoreDailyItem(${idx})">🛒 Buy</button>
+      ${sold ? `<div class="store-card-stock out">OUT OF STOCK</div>` : ''}
+      <button class="ic-action-btn" ${sold ? 'disabled' : ''} onclick="buyStoreDailyItem(${idx})">${sold ? '✗ Sold Out' : '🛒 Buy'}</button>
     </div>
   `;
 }
@@ -9134,9 +9286,12 @@ function renderStoreTab() {
   fleshPanelEl.style.display = 'none';
   if (bountyPanelEl) bountyPanelEl.style.display = 'none';
   if (manglerPanelEl) manglerPanelEl.style.display = 'none';
+  ensureMerchantStock(currentMerchant);
   const m = MERCHANTS[currentMerchant];
   const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
-  const dailyHtml = storeDailyItems.map((it,i) => storeDailyCardHtml(it, i)).join('');
+  const dailyItems = merchantDailyItems[currentMerchant] || [];
+  const dailySold = merchantDailySold[currentMerchant] || [];
+  const dailyHtml = dailyItems.map((it,i) => storeDailyCardHtml(it, i, !!dailySold[i])).join('');
   panelEl.innerHTML = `
     <div class="store-merchant-head">
       <div>
@@ -9144,14 +9299,22 @@ function renderStoreTab() {
         <span class="store-merchant-portrait large">${merchantPortraitSvg(currentMerchant)}</span>
         <p class="store-merchant-flavor">${escapeHtml(m.flavor)}</p>
       </div>
+      <div class="store-gold-display">💰 Your Gold: <span id="storePlayerGoldDisplay">${coinPouchGpText(getPlayerGold())}</span></div>
     </div>
     <h4 class="store-section-label">Standing Stock</h4>
     <div class="store-grid">${staplesHtml}</div>
-    <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Reroll</button></h4>
+    <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Restock (resets stock)</button></h4>
     <div class="store-grid">${dailyHtml}</div>
     <h4 class="store-section-label">💰 Sell Your Goods</h4>
-    <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a token from your inventory below onto the sell zone to trade it in for its gp value — ${escapeHtml(m.name)} ${merchantTradeDescription(currentMerchant)}</p>
-    <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to sell it</div>
+    <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Right-click or drag an item from your inventory below to stage it in the till — ${escapeHtml(m.name)} ${merchantTradeDescription(currentMerchant)} Nothing is sold until you click "Sell All."</p>
+    <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to add it to the till</div>
+    <div class="merchant-till-panel">
+      <div class="merchant-till-head">
+        <span>🪙 Merchant's Till — total: <strong id="merchantTillTotal">0 gp</strong></span>
+        <button class="ic-action-btn" onclick="sellMerchantTill()">💰 Sell All</button>
+      </div>
+      <div class="token-grid" id="merchantTillGrid"></div>
+    </div>
     <div class="token-toolbar" style="margin-top:0.8rem;">
       <input type="text" id="traderSellSearch" class="token-search" placeholder="Search your items…" oninput="renderTraderSellTokenGrid()">
       <span class="token-count" id="traderSellCount"></span>
@@ -9160,6 +9323,7 @@ function renderStoreTab() {
     <div class="store-buy-msg" id="storeBuyMsg"></div>
   `;
   renderTraderSellTokenGrid();
+  renderMerchantTill();
 }
 // Human-readable summary of what a merchant deals in, for the sell-zone hint text.
 function merchantTradeDescription(merchantKey) {
@@ -9195,6 +9359,11 @@ function placeItemIntoInventory(item) {
 function buyStapleItem(merchantKey, idx) {
   const staple = MERCHANTS[merchantKey]?.staples?.[idx];
   if (!staple) return;
+  ensureMerchantStock(merchantKey);
+  const stock = merchantStapleStock[merchantKey];
+  if (stock && stock[idx] <= 0) { flashStoreBuyMessage(`${staple.name} is out of stock — restock to bring in more.`, true); return; }
+  const price = gpToNumber(staple.gp);
+  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${staple.name} (${staple.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true); return; }
   const type = staple.type || 'misc';
   // Same canonical fields as every other item in the project: subcategory (derived from
   // the name, same as everywhere else) drives slotSize instead of a hardcoded 1.
@@ -9208,15 +9377,23 @@ function buyStapleItem(merchantKey, idx) {
     desc: staple.desc, flavor: staple.desc + (staple.effect ? '\n\n' + staple.effect : ''),
     tags: [], effect: staple.effect,
   };
+  if (stock) stock[idx]--;
   const { placed } = placeItemIntoInventory(item);
+  renderStoreTab();
   flashStoreBuyMessage(placed
     ? `${staple.name} purchased for ${staple.gp} and added to your inventory.`
     : `${staple.name} purchased for ${staple.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
 }
 function buyStoreDailyItem(idx) {
-  const src = storeDailyItems[idx];
+  const src = merchantDailyItems[currentMerchant]?.[idx];
   if (!src) return;
+  const sold = merchantDailySold[currentMerchant];
+  if (sold && sold[idx]) { flashStoreBuyMessage(`${src.name} has already been sold — restock for fresh wares.`, true); return; }
+  const price = gpToNumber(src.gp);
+  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${src.name} (${src.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true); return; }
+  if (sold) sold[idx] = true;
   const { placed } = placeItemIntoInventory(src);
+  renderStoreTab();
   flashStoreBuyMessage(placed
     ? `${src.name} purchased for ${src.gp} and added to your inventory.`
     : `${src.name} purchased for ${src.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
@@ -9238,10 +9415,15 @@ function renderTraderSellTokenGrid() {
   buildTokenIndex();
   const searchEl = document.getElementById('traderSellSearch');
   const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const till = getMerchantTill(currentMerchant);
   // Only shows what this specific merchant will actually buy (see merchantWillBuy) — avoids
   // the confusing experience of browsing a list full of things you'd just get rejected for
-  // dropping. Quest items are excluded everywhere, same as the drop handler itself enforces.
+  // dropping. Quest items and the Coin Pouch itself are excluded everywhere, same as
+  // addTokenToMerchantTill enforces. Anything already staged in the till doesn't show here
+  // too — it's not "in your inventory" anymore once it's in the till.
   const entries = Object.values(TOKEN_INDEX).filter(e => {
+    if (till.includes(e.key)) return false;
+    if (e.item.isCoinPouch) return false;
     if (!(!search || e.item.name.toLowerCase().includes(search))) return false;
     if (!e.item.interactions) classifyItemFull(e.item, e.rarity);
     if (canInteract(e.item, 'quest_item')) return false;
@@ -9255,31 +9437,33 @@ function renderTraderSellTokenGrid() {
     grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">Nothing in your inventory this merchant is interested in.</div>';
     return;
   }
-  // Explicit arrow, not a bare `tokenCardHtml` reference — Array.map passes (item, index) to
-  // its callback, and index would otherwise land in tokenCardHtml's showSlotSelect parameter.
-  grid.innerHTML = entries.map(e => tokenCardHtml(e, true)).join('');
+  // 'sell' as the right-click action — right-clicking a card here stages it in the till
+  // instead of the Inventory tab's usual "right-click equips" behavior.
+  grid.innerHTML = entries.map(e => tokenCardHtml(e, true, 'sell')).join('');
 }
-// Accepts a drop from either the sell grid above (a plain token key) or the Inventory
-// tab's placed items (an "invplace:" id) — if it came from a placement, that placement is
-// also removed from the inventory grid, since the item has now actually been sold off.
-// Shared by every generic merchant now (Trader, Blacksmith, Alchemist, Arcanist, Animal
-// Tamer), not just the Trader — which merchant is buying comes from currentMerchant, so the
-// same drop target correctly enforces "the Blacksmith won't buy your potion" for all of them
-// without needing a separate handler per merchant.
-function traderSellDrop(evt) {
-  evt.preventDefault();
-  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
-  if (!raw) return;
-  let key = raw, placementId = null;
-  if (raw.indexOf('invplace:') === 0) {
-    placementId = raw.slice('invplace:'.length);
-    const p = inventoryPlacements[placementId];
-    if (!p) { flashTraderSellInvalid(); return; }
-    key = p.key;
-  }
+// Per-merchant staging pile — nothing is actually sold until sellMerchantTill() runs. Lazily
+// created the first time a merchant's till is touched.
+let merchantTills = {};
+function getMerchantTill(key) { return key ? (merchantTills[key] || (merchantTills[key] = [])) : []; }
+
+// Unplaces a token from wherever it currently lives (inventory grid or an equip slot)
+// WITHOUT deleting it — used when staging something for sale, since it can still be pulled
+// back out of the till before the sale is confirmed. A token that's neither placed nor
+// equipped (just sitting unplaced in the Token Library) has nothing to unplace.
+function unplaceTokenIfPlaced(key) {
+  const placementId = Object.keys(inventoryPlacements).find(pid => inventoryPlacements[pid].key === key);
+  if (placementId) { removeFromInventory(placementId); return; }
+  const slotId = Object.keys(playerSlots).find(id => playerSlots[id] === key);
+  if (slotId) unequipSlot(slotId);
+}
+// The single entry point for "stage this item for sale" — used by both the drag-to-till zone
+// and right-clicking a card in the sell grid, so drag and right-click behave identically.
+function addTokenToMerchantTill(key) {
+  if (!currentMerchant || !key) return;
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
   if (!entry) { flashTraderSellInvalid(); return; }
+  if (entry.item.isCoinPouch) { flashStoreBuyMessage(`You can't sell your own Coin Pouch.`, true); return; }
   if (!entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
   if (canInteract(entry.item, 'quest_item')) { flashTraderSellInvalid(); return; }
   if (!merchantWillBuy(currentMerchant, entry.item)) {
@@ -9287,15 +9471,107 @@ function traderSellDrop(evt) {
     flashStoreBuyMessage(`${MERCHANTS[currentMerchant]?.name || 'This merchant'} has no use for ${entry.item.name} — try someone whose trade it matches.`, true);
     return;
   }
-  const value = Math.round(gpToNumber(entry.item.gp) * 100) / 100;
-  if (placementId) removeFromInventory(placementId);
-  flashStoreBuyMessage(`Sold ${entry.item.name} for ${formatGpAmount(value)}.`);
+  const till = getMerchantTill(currentMerchant);
+  if (till.includes(key)) return; // already staged
+  unplaceTokenIfPlaced(key);
+  till.push(key);
+  renderInventoryGrid();
+  renderPlayerSlots();
+  renderActiveEffects();
+  renderTraderSellTokenGrid();
+  renderMerchantTill();
+  scheduleSave();
+}
+// Drag-and-drop entry point onto the till zone — normalizes whatever payload shape dropped
+// (a library token, an 'invplace:' grid item, or a 'slotitem:' equipped item, same as every
+// other drop target in the app) down to a token key via the shared dragPayloadKey helper.
+function traderSellDrop(evt) {
+  evt.preventDefault();
+  const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : (_draggedSlotId ? 'slotitem:' + _draggedSlotId : _draggedTokenKey));
+  const key = dragPayloadKey(raw);
+  if (!key) { flashTraderSellInvalid(); return; }
+  addTokenToMerchantTill(key);
 }
 function flashTraderSellInvalid() {
   const el = document.getElementById('traderSellZone');
   if (!el) return;
   el.classList.add('slot-invalid');
   setTimeout(() => el.classList.remove('slot-invalid'), 350);
+}
+// Renders the current merchant's pending-sale pile with a running total, and handles pulling
+// an item back out (right-click) before the sale is confirmed.
+function renderMerchantTill() {
+  const el = document.getElementById('merchantTillGrid');
+  const totalEl = document.getElementById('merchantTillTotal');
+  if (!el || !currentMerchant) return;
+  buildTokenIndex();
+  const till = getMerchantTill(currentMerchant);
+  let total = 0;
+  const cards = till.map(key => {
+    const entry = TOKEN_INDEX[key];
+    if (!entry) return '';
+    const value = gpToNumber(entry.item.gp);
+    total += value;
+    const safeKey = key.replace(/'/g, "\\'");
+    return `
+      <div class="token-card ${entry.rarity}"
+           oncontextmenu="handleTillCardRightClick(event,'${safeKey}')"
+           onmouseenter="showTokenTooltip(event,'${safeKey}')"
+           onmousemove="moveTokenTooltip(event)"
+           onmouseleave="hideTokenTooltip()">
+        <div class="token-card-head">${itemPixelIcon(entry.item, 30, entry.rarity)}<div class="token-card-name">${escapeHtml(entry.item.name)}</div></div>
+        <div class="token-card-rarity">${rarityNames[entry.rarity] || entry.rarity}</div>
+        <div class="token-card-effect">💰 ${formatGpAmount(value)} — right-click to take back</div>
+      </div>
+    `;
+  }).join('');
+  el.innerHTML = cards || `<div class="empty-results" style="grid-column:1/-1;">Nothing staged yet — right-click or drag an item from your inventory to add it here.</div>`;
+  if (totalEl) totalEl.textContent = formatGpAmount(Math.round(total * 100) / 100);
+}
+// Right-click an item sitting in the till to cancel the sale and take it back — best-effort
+// return to the inventory grid; if there's genuinely no room it stays an unplaced Token
+// Library entry instead of being lost.
+function handleTillCardRightClick(evt, key) {
+  evt.preventDefault();
+  if (!currentMerchant) return;
+  const till = getMerchantTill(currentMerchant);
+  const idx = till.indexOf(key);
+  if (idx === -1) return;
+  till.splice(idx, 1);
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (entry) {
+    const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+    const spot = findFirstOpenInventorySpot(w);
+    if (spot) placeNewInventoryItem(key, spot.row, spot.col);
+  }
+  renderInventoryGrid();
+  renderTraderSellTokenGrid();
+  renderMerchantTill();
+  scheduleSave();
+}
+// The one real sale action — everything currently staged is sold at once, permanently
+// removed from the game, and paid out in full to the Coin Pouch.
+function sellMerchantTill() {
+  if (!currentMerchant) return;
+  const till = getMerchantTill(currentMerchant);
+  if (!till.length) { flashStoreBuyMessage('Nothing staged to sell.', true); return; }
+  buildTokenIndex();
+  let total = 0, count = 0;
+  till.forEach(key => {
+    const entry = TOKEN_INDEX[key];
+    if (!entry) return;
+    total += gpToNumber(entry.item.gp);
+    count++;
+    removeTokenEverywhere(key);
+  });
+  merchantTills[currentMerchant] = [];
+  total = Math.round(total * 100) / 100;
+  if (total > 0) addPlayerGold(total);
+  renderInventoryGrid();
+  renderTraderSellTokenGrid();
+  renderMerchantTill();
+  flashStoreBuyMessage(`Sold ${count} item${count !== 1 ? 's' : ''} for ${formatGpAmount(total)}.`);
 }
 
 
@@ -10520,7 +10796,10 @@ function setTokenSlotOverride(key, value) {
 // Library passes false — that dropdown was really an equip-slot override, not an item-type
 // editor, and re-typing an item now happens from the Edit Items popup in the Item Compendium
 // instead (see editItem/#editItemType), so it doesn't need to be reachable from every card too.
-function tokenCardHtml(e, showSlotSelect = true) {
+// rightClickAction ('equip' | 'sell' | undefined) determines what right-clicking this card
+// does — see handleTokenCardRightClick. Left undefined (e.g. the Monster Mangler's token
+// grid) means no special right-click behavior, same as before this existed.
+function tokenCardHtml(e, showSlotSelect = true, rightClickAction) {
   const item = e.item;
   const slotType = getTokenSlotType(e);
   const effectPreview = getItemEffectText(item);
@@ -10532,10 +10811,12 @@ function tokenCardHtml(e, showSlotSelect = true) {
       <select class="token-slot-select" onclick="event.stopPropagation()" onchange="setTokenSlotOverride('${e.key.replace(/'/g,"\\'")}', this.value)">
         ${options}
       </select>` : '';
+  const safeKey = e.key.replace(/'/g,"\\'");
+  const contextMenuAttr = rightClickAction ? ` oncontextmenu="handleTokenCardRightClick(event,'${safeKey}','${rightClickAction}')"` : '';
   return `
     <div class="token-card ${e.rarity}" draggable="true"
-         ondragstart="tokenDragStart(event,'${e.key.replace(/'/g,"\\'")}')"
-         onmouseenter="showTokenTooltip(event,'${e.key.replace(/'/g,"\\'")}')"
+         ondragstart="tokenDragStart(event,'${safeKey}')"${contextMenuAttr}
+         onmouseenter="showTokenTooltip(event,'${safeKey}')"
          onmousemove="moveTokenTooltip(event)"
          onmouseleave="hideTokenTooltip()">
       <div class="token-card-head">${itemPixelIcon(item, 30, e.rarity)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
@@ -10687,18 +10968,78 @@ function unequipSlot(slotId) {
   renderActiveEffects();
 }
 
-// Right-click an equipped item to expend one charge (a staff, a wand of X charges, rations
-// that tick down, etc.). Items with nothing to expend are left completely alone — the
-// browser's own right-click menu opens as normal, since we never called preventDefault().
+// Generic Inventory-tab toast, same visual as the Store tab's storeBuyMsg (reuses its CSS
+// class) but targeting the Inventory tab's own message slot instead.
+function flashInvMessage(msg, isError) {
+  const el = document.getElementById('invActionMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._invActionMsgTimer);
+  window._invActionMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 2200);
+}
+
+// Finds the first open doll/limb/companion slot matching this token's category and equips
+// it there — the same "first open matching slot" logic smartEquipDrop uses for an imprecise
+// drag-drop, reused here for right-click equip so both paths agree on which slot an item
+// lands in. Returns true/false so callers know whether it actually happened.
+function equipTokenToFirstOpenSlot(key) {
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) return false;
+  const category = getTokenSlotType(entry);
+  const targetSlotId = Object.keys(SLOT_CATEGORY).find(id => SLOT_CATEGORY[id] === category && !playerSlots[id]);
+  if (!targetSlotId) return false;
+  return placeTokenInSlot(key, targetSlotId);
+}
+
+// Right-click a token-library card — behavior depends on which grid it's rendered into
+// (see tokenCardHtml's rightClickAction param): 'equip' tries to equip to the first open
+// matching slot, 'sell' stages it in the current merchant's Till instead.
+function handleTokenCardRightClick(evt, key, action) {
+  evt.preventDefault();
+  if (action === 'equip') {
+    if (!TOKEN_INDEX[key]) buildTokenIndex();
+    const entry = TOKEN_INDEX[key];
+    const name = entry ? entry.item.name : 'Item';
+    if (equipTokenToFirstOpenSlot(key)) {
+      renderInventoryTokenGrid();
+      flashInvMessage(`${name} equipped.`);
+    } else {
+      flashInvMessage(`No open slot for ${name}.`, true);
+    }
+  } else if (action === 'sell') {
+    addTokenToMerchantTill(key);
+  }
+}
+
+// Right-click an equipped item: expend a charge if it has one (a staff, a wand, rations
+// ticking down — same as before), otherwise unequip it straight back to the inventory grid.
+// Either way we own the right-click now, so the browser's native menu never opens here.
 function slotContextMenu(evt, slotId) {
   const key = playerSlots[slotId];
   if (!key) return;
+  evt.preventDefault();
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
-  if (!entry || !handleItemActivation(entry, evt)) return;
+  if (!entry) return;
+  if (handleItemActivation(entry, evt)) {
+    renderPlayerSlots();
+    renderActiveEffects();
+    showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
+    return;
+  }
+  // Nothing to use/expend — unequip instead, same "first open spot" placement clearAllSlots
+  // already uses, so it doesn't silently vanish if the grid happens to be full.
+  const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+  const spot = findFirstOpenInventorySpot(w);
+  if (!spot) { flashSlotInvalid(slotId); flashInvMessage(`No room in your inventory for ${entry.item.name}.`, true); return; }
+  placeNewInventoryItem(key, spot.row, spot.col);
+  playerSlots[slotId] = null;
+  renderInventoryGrid();
   renderPlayerSlots();
   renderActiveEffects();
-  showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
 }
 
 // "Unequip All" tries to send every equipped item back into the inventory grid first,
@@ -10909,17 +11250,22 @@ function inventoryRemoveDrop(evt) {
   if (raw.indexOf('slotitem:') === 0) { unequipSlot(raw.slice('slotitem:'.length)); return; }
 }
 
-// Right-click a stored item to expend one charge, same rule as the equipped-slot version:
-// items with nothing to expend are left alone and the browser's own menu opens as normal.
+// Right-click a stored item to equip it straight to the first open slot that fits it —
+// charges are spent from the equipped slot instead now (see slotContextMenu), so grid
+// right-click is exclusively an equip action.
 function inventoryItemContextMenu(evt, placementId) {
+  evt.preventDefault();
   const p = inventoryPlacements[placementId];
   if (!p) return;
   if (!TOKEN_INDEX[p.key]) buildTokenIndex();
   const entry = TOKEN_INDEX[p.key];
-  if (!entry || !handleItemActivation(entry, evt)) return;
-  renderInventoryGrid();
-  renderActiveEffects();
-  showTokenTooltip(evt, p.key); // refresh the tooltip in place so the new count is visible immediately
+  if (!entry) return;
+  if (equipTokenToFirstOpenSlot(p.key)) {
+    removeFromInventory(placementId);
+    flashInvMessage(`${entry.item.name} equipped.`);
+  } else {
+    flashInvMessage(`No open slot for ${entry.item.name}.`, true);
+  }
 }
 
 // The refill zone: drag any item here — from the inventory grid, an equip slot, or straight
@@ -11028,8 +11374,9 @@ function renderInventoryTokenGrid() {
     return;
   }
   // false — no equip-slot-category dropdown here; re-typing an item happens from the Edit
-  // Items popup in the Item Compendium instead (see editItem/#editItemType).
-  grid.innerHTML = entries.map(e => tokenCardHtml(e, false)).join('');
+  // Items popup in the Item Compendium instead (see editItem/#editItemType). 'equip' — right-
+  // clicking a card here equips it to the first open matching slot.
+  grid.innerHTML = entries.map(e => tokenCardHtml(e, false, 'equip')).join('');
 }
 
 // Totals up everything currently placed in the inventory grid and mirrors the result both
@@ -13704,7 +14051,7 @@ function saveAppState() {
       savedGeneratedItems, playerSlots, tokenSlotOverrides,
       recentlyLooted, savedLoadouts,
       activeTimedEffects, activeEffectCounter,
-      currentMerchant, storeDailyItems,
+      currentMerchant, merchantDailyItems, merchantDailySold, merchantStapleStock, merchantTills,
       battleRoster, battleLog, battleUidCounter,
       _battleActionTextMap, _battleActionCounter,
       activeBounties, bountyCounter,
@@ -13729,7 +14076,10 @@ function loadAppState() {
   if (data.activeTimedEffects) activeTimedEffects = data.activeTimedEffects;
   if (typeof data.activeEffectCounter === 'number') activeEffectCounter = data.activeEffectCounter;
   if (data.currentMerchant !== undefined) currentMerchant = data.currentMerchant;
-  if (data.storeDailyItems) storeDailyItems = data.storeDailyItems;
+  if (data.merchantDailyItems) merchantDailyItems = data.merchantDailyItems;
+  if (data.merchantDailySold) merchantDailySold = data.merchantDailySold;
+  if (data.merchantStapleStock) merchantStapleStock = data.merchantStapleStock;
+  if (data.merchantTills) merchantTills = data.merchantTills;
   if (data.battleRoster) battleRoster = data.battleRoster;
   if (data.battleLog) battleLog = data.battleLog;
   if (typeof data.battleUidCounter === 'number') battleUidCounter = data.battleUidCounter;
@@ -13752,6 +14102,7 @@ renderRecentlyLootedGrid();
 renderPlayerSlots();
 renderActiveEffects();
 renderSavedLoadouts();
+refreshGoldDisplays();
 if (typeof renderSavedItems === 'function') renderSavedItems();
 // Belt-and-braces autosave: a periodic tick catches anything a crashed/killed tab would
 // otherwise lose, beforeunload catches refreshes/closes/navigations, and visibilitychange
