@@ -64,7 +64,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, updateProfile,
+  onAuthStateChanged, updateProfile, deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
   initializeFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
@@ -149,11 +149,20 @@ async function signUpDM(username, password) {
 async function signUpPlayer(username, password, campaignCode) {
   campaignCode = (campaignCode || "").trim().toUpperCase();
   if (!campaignCode) throw new Error("Enter the DM's campaign code.");
-  const roomSnap = await getDoc(roomDocRef(campaignCode));
-  if (!roomSnap.exists()) throw new Error(`No campaign found for code "${campaignCode}".`);
   const email = usernameToEmail(username);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
+  // The campaign-code check has to happen AFTER signup, not before: the security rules up top
+  // require request.auth != null just to READ a room doc at all, so checking this before the
+  // account exists throws Firestore's "Missing or insufficient permissions" instead of the
+  // intended "no campaign found" message -- this is what was actually breaking player signup,
+  // not a rules/config problem. If the code turns out to be bad, roll back the account that
+  // was just created rather than leaving an orphaned login nobody can do anything useful with.
+  const roomSnap = await getDoc(roomDocRef(campaignCode));
+  if (!roomSnap.exists()) {
+    await deleteUser(user).catch(() => {});
+    throw new Error(`No campaign found for code "${campaignCode}".`);
+  }
   await updateProfile(user, { displayName: sanitizeUsername(username) });
   await setDoc(userDocRef(user.uid), {
     role: "player", username: sanitizeUsername(username), campaignCode, createdAt: serverTimestamp(),
@@ -506,11 +515,21 @@ function injectStyles() {
     }
     #mpAccountModal h3 { margin: 0 0 0.5rem; color: var(--gold, #c9a84c); font-size: 1.1rem; letter-spacing: 0.03em; }
     #mpAccountModal .mp-close { float: right; cursor: pointer; font-size: 1.3rem; line-height: 1; color: var(--text-dim, #a89f8a); }
+    #mpAccountModal .mp-room-code-row { display: flex; gap: 0.5rem; align-items: stretch; margin: 0.5rem 0; }
     #mpAccountModal .mp-room-code {
-      font-family: 'Share Tech Mono', monospace; font-size: 1.3rem; letter-spacing: 0.15em;
+      flex: 1; font-family: 'Share Tech Mono', monospace; font-size: 1.3rem; letter-spacing: 0.15em;
       color: var(--gold-bright, #e6c766); background: var(--surface, #1a1a1a);
-      border: 1px solid var(--border, #3d3020); padding: 0.5rem 0.8rem; text-align: center; margin: 0.5rem 0;
+      border: 1px solid var(--border, #3d3020); padding: 0.5rem 0.8rem; text-align: center;
+      cursor: pointer; user-select: all;
     }
+    #mpAccountModal .mp-room-code:hover { border-color: var(--gold, #c9a84c); }
+    #mpAccountModal .mp-copy-btn {
+      background: var(--surface, #1a1a1a); border: 1px solid var(--border, #3d3020);
+      color: var(--text, #e8dfc8); font-family: 'Crimson Text', serif; font-size: 0.85rem;
+      padding: 0.5rem 0.7rem; cursor: pointer; white-space: nowrap;
+    }
+    #mpAccountModal .mp-copy-btn:hover { border-color: var(--gold, #c9a84c); color: var(--gold, #c9a84c); }
+    #mpAccountModal .mp-copy-msg { min-height: 1.1rem; font-size: 0.8rem; color: var(--uncommon, #4caf7d); text-align: center; margin: -0.2rem 0 0.3rem; }
     #mpAccountModal .mp-roster { margin-top: 0.7rem; border-top: 1px solid var(--border, #3d3020); padding-top: 0.6rem; }
     #mpAccountModal .mp-roster-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 0.3rem 0; gap: 0.5rem; }
     #mpAccountModal .mp-remove-btn { background: transparent; border: 1px solid var(--danger, #e05252); color: var(--danger, #e05252); font-size: 0.7rem; padding: 0.2rem 0.5rem; cursor: pointer; }
@@ -648,11 +667,19 @@ function renderAccountPanel() {
     <span class="mp-close" onclick="document.getElementById('mpAccountOverlay').classList.remove('show')">×</span>
     <h3>${mp.role === "dm" ? "👑 Dungeon Master" : "🧙 Player"}: ${escapeHtmlLocal(mp.username)}</h3>
     <label>Campaign code</label>
-    <div class="mp-room-code">${mp.roomCode}</div>
+    <div class="mp-room-code-row">
+      <div class="mp-room-code" id="mpRoomCodeVal" title="Click to copy">${escapeHtmlLocal(mp.roomCode)}</div>
+      <button class="mp-copy-btn" id="mpCopyRoomCodeBtn" title="Copy campaign code">📋 Copy</button>
+    </div>
+    <div class="mp-copy-msg" id="mpRoomCodeCopyMsg"></div>
     <button class="mp-btn mp-danger" id="mpLogoutBtn">Log Out</button>
     ${rosterHtml}
   `;
   document.getElementById("mpLogoutBtn").onclick = logOut;
+  document.getElementById("mpCopyRoomCodeBtn").onclick = copyRoomCode;
+  // Clicking the code itself copies it too — select-all-on-click still works as a fallback
+  // (user-select:all above) for anyone whose browser blocks the Clipboard API.
+  document.getElementById("mpRoomCodeVal").onclick = copyRoomCode;
   modal.querySelectorAll(".mp-remove-btn").forEach((el) => {
     el.onclick = () => {
       if (confirm(`Remove ${el.previousElementSibling.textContent} from your campaign? Their character data will be deleted.`)) {
@@ -660,6 +687,46 @@ function renderAccountPanel() {
       }
     };
   });
+}
+
+// Copies the campaign code to the clipboard — wired to both the dedicated Copy button and a
+// click on the code itself. navigator.clipboard.writeText can still throw even when it exists
+// (NotAllowedError for a variety of permission/focus reasons across different browsers, not
+// just "unsupported") — confirmed directly while testing this, so the execCommand fallback
+// below is attempted on ANY failure of the async API, not only when it's absent outright. The
+// code text also has user-select:all as a last-resort manual-copy fallback if both fail.
+async function copyRoomCode() {
+  const code = mp.roomCode;
+  if (!code) return;
+  let copied = false;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    } catch (err) { /* fall through to the execCommand fallback below */ }
+  }
+  if (!copied) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = code;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (err) { /* both methods failed — code is still visible and selectable by hand */ }
+  }
+  if (copied) flashRoomCodeCopied();
+}
+let _roomCodeCopyMsgTimer = null;
+function flashRoomCodeCopied() {
+  const el = document.getElementById("mpRoomCodeCopyMsg");
+  if (!el) return;
+  el.textContent = "✓ Copied!";
+  clearTimeout(_roomCodeCopyMsgTimer);
+  _roomCodeCopyMsgTimer = setTimeout(() => { el.textContent = ""; }, 1500);
 }
 
 function escapeHtmlLocal(s) {
