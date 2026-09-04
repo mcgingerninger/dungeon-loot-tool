@@ -1,26 +1,34 @@
-// ===================== MULTIPLAYER SYNC (Firebase) — PHASE 1 =====================
-// Self-contained add-on for dungeon_loot_wheel: hosting/joining a shared online session,
-// and syncing a player's own inventory/state so it (a) persists in the cloud instead of
-// just one browser's localStorage, and (b) is visible to the DM. Everything multiplayer-
-// related lives in this one file — the main app file only needed two small additions to
-// support it (see the comment above its <script type="module" src="multiplayer-sync.js">
-// tag): a save-hook (window.onMultiplayerStateChange) and a load-hook
-// (window.applyRemoteMultiplayerState). Both are checked with `typeof x === 'function'`
-// before being called, so if this file is ever removed, the main app keeps working exactly
-// as it does today — nothing in it depends on this file existing.
+// ===================== MULTIPLAYER SYNC (Firebase) — PHASE 1 + ACCOUNTS =====================
+// Self-contained add-on for dungeon_loot_wheel: real player/DM accounts, a launch-time role
+// gate, role-based tab restrictions, and realtime sync of a player's full save-state to the
+// cloud. Everything multiplayer-related lives in this one file — the main app file only
+// needed two small named hook additions (see the comment above its
+// <script type="module" src="multiplayer-sync.js"> tag): window.onMultiplayerStateChange and
+// window.applyRemoteMultiplayerState. Both are checked with `typeof x === 'function'` before
+// being called, so if this file is ever removed, the main app keeps working exactly as it
+// does today — nothing in it depends on this file existing.
 //
-// What Phase 1 covers: creating/joining a room by a short code, anonymous sign-in (no
-// passwords, no real accounts), and syncing your own full save-state (same shape as the
-// existing localStorage blob) up to Firestore and back down in realtime — so if you close
-// your laptop and open your phone with the same room code, you're exactly where you left
-// off, and the DM's client sees you show up in a live roster.
+// ---- Account model ----
+// Real Firebase Email/Password accounts, but players/DMs never type or see an email — they
+// pick a USERNAME and password, and this file synthesizes a fake-but-valid email under the
+// hood (e.g. "dave" -> "dave@dnd-loot-tool.local") so Firebase's real password security
+// (hashing, rate limiting, etc.) handles everything properly instead of anything here rolling
+// its own crypto. Firebase's built-in email-uniqueness check doubles as username-uniqueness
+// enforcement for free — no separate "is this username taken" lookup collection needed.
 //
-// What's NOT in Phase 1 (deliberately deferred, see the conversation this was scoped in):
-//   - The DM viewing or editing a PLAYER's inventory from their own screen (Phase 3).
-//   - The DM pushing a specific item to a specific player (Phase 2).
-// Both of those need the DM's client to read/write a player's document that isn't its own,
-// which the Firestore security rules below already allow (dmUid check) — the client-side UI
-// for it just isn't built yet.
+// A DM's account owns exactly one campaign (a room code, generated at signup). A player's
+// account is linked to exactly one DM's campaign, entered once at signup — after that, they
+// just log in with their username/password from any device and land straight back in it.
+// (One account per campaign is a deliberate v1 simplification, not a hard technical limit.)
+//
+// ---- Role restrictions — read this before assuming it's airtight ----
+// Hiding DM-only tabs for players is a UX courtesy, not a security boundary — anyone who
+// opened browser devtools could still call the underlying functions directly. The REAL
+// enforcement is what Firestore's security rules let a signed-in player's account actually
+// read/write: only their own rooms/{code}/players/{uid} document, never anyone else's and
+// never the room document itself. A player fiddling with devtools could still, say, generate
+// themselves a legendary sword locally and have it sync — same as it always could with any
+// client-side app — but they can't touch another player's data or the DM's.
 //
 // ---- One-time setup you still need to do in the Firebase console ----
 // Test mode (from initial setup) allows any signed-in user to read/write everything for ~30
@@ -30,6 +38,11 @@
 //   rules_version = '2';
 //   service cloud.firestore {
 //     match /databases/{database}/documents {
+//       match /users/{uid} {
+//         allow read: if request.auth != null;
+//         allow create: if request.auth != null && request.auth.uid == uid;
+//         allow update: if request.auth != null && request.auth.uid == uid;
+//       }
 //       match /rooms/{roomCode} {
 //         allow read: if request.auth != null;
 //         allow create: if request.auth != null;
@@ -45,17 +58,16 @@
 //     }
 //   }
 //
-// This says: anyone signed in (anonymously) can read rooms and player docs; only the room's
-// own DM can edit/delete the room itself; a player doc can be written by that specific
-// player OR by the room's DM — which is what lets the DM edit a player's inventory once that
-// UI is built in Phase 3, without needing a rules change at that point.
+// "write" already covers create/update/delete combined — this is what lets a DM delete a
+// player's document (see removePlayer below) without needing a separate delete rule.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged,
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged, updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, onSnapshot, collection, serverTimestamp,
+  getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -71,6 +83,15 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
+// ---------- Username <-> synthetic email ----------
+const USERNAME_EMAIL_DOMAIN = "dnd-loot-tool.local";
+function sanitizeUsername(raw) {
+  return (raw || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+function usernameToEmail(username) {
+  return sanitizeUsername(username) + "@" + USERNAME_EMAIL_DOMAIN;
+}
+
 // Room codes avoid visually-ambiguous characters (0/O, 1/I/L) since these get read aloud
 // and typed by hand at the table.
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -80,163 +101,148 @@ function generateRoomCode(len = 5) {
   return out;
 }
 
+function userDocRef(uid) { return doc(db, "users", uid); }
+function roomDocRef(roomCode) { return doc(db, "rooms", roomCode); }
+function playerDocRef(roomCode, uid) { return doc(db, "rooms", roomCode, "players", uid); }
+
 // All multiplayer session state lives here, not scattered across module-level variables.
 const mp = {
   uid: null,
+  username: null,
+  role: null, // 'dm' | 'player'
   roomCode: null,
-  isDM: false,
-  displayName: null,
   connected: false,
   // Guards the save→sync→listener→apply→(would-be-save-again) loop: while a remote update
   // is being applied to local state, the save hook skips pushing back up.
   applyingRemote: false,
   playerUnsub: null,
   rosterUnsub: null,
-  roster: new Map(), // uid -> { displayName, isDM, updatedAt } — DM-only, for the roster list
+  roster: new Map(), // uid -> { username, updatedAt } — DM-only, for the roster/remove list
+  kicked: false, // set true if the DM removed us — blocks any further push attempts
 };
 
-function ensureSignedIn() {
-  return new Promise((resolve, reject) => {
-    if (auth.currentUser) { resolve(auth.currentUser); return; }
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) { unsub(); resolve(user); }
-    }, reject);
-    signInAnonymously(auth).catch((err) => { unsub(); reject(err); });
+// ---------- Sign up ----------
+async function signUpDM(username, password) {
+  const email = usernameToEmail(username);
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  const user = cred.user;
+  await updateProfile(user, { displayName: sanitizeUsername(username) });
+  const roomCode = generateRoomCode();
+  await setDoc(roomDocRef(roomCode), { dmUid: user.uid, createdAt: serverTimestamp() });
+  await setDoc(userDocRef(user.uid), {
+    role: "dm", username: sanitizeUsername(username), campaignCode: roomCode, createdAt: serverTimestamp(),
   });
+  await connectAsRole(user.uid, "dm", roomCode, sanitizeUsername(username));
 }
 
-function playerDocRef(roomCode, uid) {
-  return doc(db, "rooms", roomCode, "players", uid);
+async function signUpPlayer(username, password, campaignCode) {
+  campaignCode = (campaignCode || "").trim().toUpperCase();
+  if (!campaignCode) throw new Error("Enter the DM's campaign code.");
+  const roomSnap = await getDoc(roomDocRef(campaignCode));
+  if (!roomSnap.exists()) throw new Error(`No campaign found for code "${campaignCode}".`);
+  const email = usernameToEmail(username);
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  const user = cred.user;
+  await updateProfile(user, { displayName: sanitizeUsername(username) });
+  await setDoc(userDocRef(user.uid), {
+    role: "player", username: sanitizeUsername(username), campaignCode, createdAt: serverTimestamp(),
+  });
+  await connectAsRole(user.uid, "player", campaignCode, sanitizeUsername(username));
 }
 
-// Forces a fresh save in the main file before we push anything — otherwise, if someone
-// opens the page and hits Host/Join before any local save has happened yet (e.g. instantly
-// on load, before the 5s autosave tick or any action-triggered save), _latestLocalState
-// would still be null and we'd push nothing. window.saveAppState is safe to call here even
-// disconnected — it always writes to localStorage, and only pushes to Firestore too if
-// mp.connected is already true (it isn't yet at this point), so this just refreshes the
-// cache without a redundant double-push.
+// ---------- Log in (also used for the automatic "already signed in" restore on page load) ----------
+async function logIn(username, password) {
+  const email = usernameToEmail(username);
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  await restoreSession(cred.user);
+}
+
+// Reads this account's profile doc to find its role + campaign, then wires up the same sync
+// engine Phase 1 already built. Used both right after a fresh login and automatically on page
+// load if Firebase still has a valid persisted session for this browser.
+async function restoreSession(user) {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (!snap.exists()) throw new Error("Account profile not found — try logging in again.");
+  const data = snap.data();
+  await connectAsRole(user.uid, data.role, data.campaignCode, data.username);
+}
+
+async function connectAsRole(uid, role, roomCode, username) {
+  mp.uid = uid;
+  mp.role = role;
+  mp.roomCode = roomCode;
+  mp.username = username;
+  mp.kicked = false;
+  // Deliberately populate the local-state cache (for a first-time push, below) BEFORE
+  // flipping mp.connected on — window.onMultiplayerStateChange only auto-pushes when
+  // mp.connected is already true, so calling this while it's still false just refreshes the
+  // cache without triggering an eager push that could race ahead of the "does this account
+  // already have data" check right below it.
+  refreshLocalStateCache();
+  // A brand-new account has nothing synced yet — an existing one (returning login) already
+  // has a player doc, and pushing local state here would clobber it with whatever's in this
+  // browser's fresh localStorage. Only push if there's genuinely nothing there yet;
+  // startPlayerListener()'s first snapshot handles pulling existing state down either way.
+  const existing = await getDoc(playerDocRef(roomCode, uid));
+  mp.connected = true;
+  if (!existing.exists()) await pushOwnState();
+  startPlayerListener();
+  if (role === "dm") startRosterListener();
+  hideGate();
+  enforceRoleRestrictions(role);
+  renderAccountPanel();
+}
+
+function logOut() {
+  if (mp.playerUnsub) mp.playerUnsub();
+  if (mp.rosterUnsub) mp.rosterUnsub();
+  signOut(auth).catch(() => {});
+  mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
+  mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
+  document.body.classList.remove("role-player");
+  showGate();
+}
+
+// ---------- Sync engine (same design as Phase 1) ----------
 function refreshLocalStateCache() {
   if (typeof window.saveAppState === "function") window.saveAppState();
 }
+let _latestLocalState = null;
+function collectCurrentAppState() { return _latestLocalState; }
 
-// ---------- Hosting ----------
-async function hostSession(displayName) {
-  setMpStatus("Connecting…");
-  try {
-    refreshLocalStateCache();
-    const user = await ensureSignedIn();
-    const roomCode = generateRoomCode();
-    await setDoc(doc(db, "rooms", roomCode), {
-      dmUid: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    mp.uid = user.uid;
-    mp.roomCode = roomCode;
-    mp.isDM = true;
-    mp.displayName = displayName || "Dungeon Master";
-    mp.connected = true;
-    await pushOwnState();
-    startPlayerListener();
-    startRosterListener();
-    renderMultiplayerUI();
-  } catch (err) {
-    setMpStatus("Couldn't host a session: " + (err && err.message ? err.message : err), true);
-  }
-}
+window.onMultiplayerStateChange = function (data) {
+  _latestLocalState = data;
+  if (!mp.connected || mp.applyingRemote || mp.kicked) return;
+  pushOwnState(data);
+};
 
-// ---------- Joining ----------
-async function joinSession(roomCode, displayName) {
-  roomCode = (roomCode || "").trim().toUpperCase();
-  if (!roomCode) { setMpStatus("Enter a room code first.", true); return; }
-  setMpStatus("Connecting…");
-  try {
-    const user = await ensureSignedIn();
-    const roomSnap = await getDoc(doc(db, "rooms", roomCode));
-    if (!roomSnap.exists()) { setMpStatus(`No session found for room code "${roomCode}".`, true); return; }
-    mp.uid = user.uid;
-    mp.roomCode = roomCode;
-    mp.isDM = roomSnap.data().dmUid === user.uid;
-    mp.displayName = displayName || "Adventurer";
-    // Returning to a session you've already synced to (a new device, or reconnecting) should
-    // pull the cloud state DOWN, not push whatever's in this browser's localStorage UP over
-    // it — otherwise rejoining on a fresh device would wipe out everything already saved to
-    // this room. Only a genuinely first-time join pushes local state as the starting point;
-    // startPlayerListener()'s first snapshot handles pulling existing state down either way.
-    const existingPlayerSnap = await getDoc(playerDocRef(roomCode, user.uid));
-    mp.connected = true;
-    if (!existingPlayerSnap.exists()) {
-      refreshLocalStateCache();
-      await pushOwnState();
-    } else {
-      // Still refresh the displayName/role/updatedAt fields (harmless — merge:true leaves
-      // the existing `state` field alone since we're not including it here at all).
-      await setDoc(playerDocRef(roomCode, user.uid), {
-        displayName: mp.displayName, isDM: mp.isDM, updatedAt: serverTimestamp(),
-      }, { merge: true });
-    }
-    startPlayerListener();
-    if (mp.isDM) startRosterListener();
-    renderMultiplayerUI();
-  } catch (err) {
-    setMpStatus("Couldn't join that session: " + (err && err.message ? err.message : err), true);
-  }
-}
-
-function leaveSession() {
-  if (mp.playerUnsub) mp.playerUnsub();
-  if (mp.rosterUnsub) mp.rosterUnsub();
-  mp.roomCode = null;
-  mp.isDM = false;
-  mp.connected = false;
-  mp.roster.clear();
-  mp.playerUnsub = null;
-  mp.rosterUnsub = null;
-  renderMultiplayerUI();
-}
-
-// Writes the app's current full state (same shape as the localStorage save) to this
-// player's own document, tagged with a display name/role so the DM roster can show it.
 async function pushOwnState(stateOverride) {
-  if (!mp.connected || !mp.roomCode || !mp.uid) return;
+  if (!mp.connected || !mp.roomCode || !mp.uid || mp.kicked) return;
   const data = stateOverride || collectCurrentAppState();
   if (!data) return;
   try {
     await setDoc(playerDocRef(mp.roomCode, mp.uid), {
-      displayName: mp.displayName,
-      isDM: mp.isDM,
-      updatedAt: serverTimestamp(),
-      state: data,
+      username: mp.username, role: mp.role, updatedAt: serverTimestamp(), state: data,
     }, { merge: true });
   } catch (err) { /* transient network error — the next save cycle will retry */ }
 }
 
-// Pulls the current app state out of the main file via the same object shape saveAppState()
-// already builds — this function is only ever called FROM that hook (see
-// window.onMultiplayerStateChange below), so it's handed the data directly rather than
-// needing to reach into the main script's variables itself (a module can't see another
-// script's top-level let/const bindings — see the comment on applyRemoteMultiplayerState in
-// the main file for the other half of this).
-let _latestLocalState = null;
-function collectCurrentAppState() { return _latestLocalState; }
-
-// The save-hook: called from the main file's saveAppState() every time it writes to
-// localStorage. No-ops instantly if we're not in a connected session, or if this save was
-// itself triggered by us just applying a remote update a moment ago.
-window.onMultiplayerStateChange = function (data) {
-  _latestLocalState = data;
-  if (!mp.connected || mp.applyingRemote) return;
-  pushOwnState(data);
-};
-
-// Realtime listener on this player's own document — this is how a DM's edit, or loot the DM
-// pushes to you (once Phase 2/3 land), actually reaches your screen live. Also fires once
-// immediately on subscribe with whatever's already in Firestore, which is how "join a
-// session on a second device" picks up where the first one left off.
+// Realtime listener on this account's own document — this is how a DM's edit, or loot pushed
+// to you (Phase 2/3), reaches your screen live. Also detects the DM removing you: the
+// document disappearing entirely (rather than just being empty) is the "you've been kicked"
+// signal, since a normal account always has a document once connected.
 function startPlayerListener() {
   if (mp.playerUnsub) mp.playerUnsub();
   mp.playerUnsub = onSnapshot(playerDocRef(mp.roomCode, mp.uid), (snap) => {
-    if (!snap.exists()) return;
+    if (!snap.exists()) {
+      if (mp.connected && !mp.kicked) {
+        mp.kicked = true;
+        logOut();
+        showGate();
+        setGateStatus("You were removed from this campaign by the DM.", true);
+      }
+      return;
+    }
     const remote = snap.data();
     if (!remote || !remote.state) return;
     mp.applyingRemote = true;
@@ -250,175 +256,315 @@ function startPlayerListener() {
   });
 }
 
-// DM-only: listens to every player document in the room to keep a live roster (name, role,
-// last-updated). Phase 1 only surfaces this as a simple connected-players list; viewing or
-// editing any individual player's actual inventory is Phase 3.
+// DM-only: listens to every player document in the room to keep a live, removable roster.
 function startRosterListener() {
   if (mp.rosterUnsub) mp.rosterUnsub();
   mp.rosterUnsub = onSnapshot(collection(db, "rooms", mp.roomCode, "players"), (snap) => {
     mp.roster.clear();
     snap.forEach((docSnap) => {
       const d = docSnap.data();
-      mp.roster.set(docSnap.id, {
-        displayName: d.displayName || "Unnamed",
-        isDM: !!d.isDM,
-        updatedAt: d.updatedAt,
-      });
+      mp.roster.set(docSnap.id, { username: d.username || "Unnamed", role: d.role, updatedAt: d.updatedAt });
     });
-    renderMultiplayerUI();
+    renderAccountPanel();
   });
 }
 
+// DM action: deletes the player's document. Their account login still exists (Firebase
+// client SDKs can only delete YOUR OWN account, never someone else's — deleting the actual
+// login would need paid server-side infrastructure), but they lose all access to this
+// campaign and their character/inventory data is gone. Their own client's startPlayerListener
+// picks up the deletion and logs them out automatically.
+//
+// Known limitation, kept deliberately simple: this doesn't maintain a ban list, so if the
+// removed player logs back in with the same username/password, connectAsRole() sees no
+// existing player document, treats it like any other fresh connection, and re-creates one —
+// i.e. they can rejoin on their own. For a friendly home game this is usually fine (the DM
+// just removes them again if it becomes a real problem); a proper "banned from this campaign"
+// list is a small, well-contained addition if it's ever actually needed — a new
+// rooms/{code}/removed/{uid} marker doc, checked at the top of connectAsRole.
+async function removePlayer(uid) {
+  if (!mp.connected || mp.role !== "dm" || !mp.roomCode) return;
+  if (uid === mp.uid) return; // DM can't remove themselves this way
+  try { await deleteDoc(playerDocRef(mp.roomCode, uid)); } catch (err) { /* rules will reject if not actually DM */ }
+}
+
+// ===================== ROLE-BASED TAB RESTRICTIONS =====================
+// Pure CSS, targeting the exact onclick attributes already on the main file's nav buttons —
+// zero changes needed there. Content panels are ALSO hidden (not just the nav buttons) as a
+// safety net, since Roll Loot is the tab that's active by default on page load; without this,
+// a player logging in would briefly see its content before ever clicking anything.
+function enforceRoleRestrictions(role) {
+  document.body.classList.toggle("role-player", role === "player");
+  if (role !== "player") return;
+  // If the page's default active tab is one now hidden for players, move them to Inventory
+  // instead of leaving them looking at a blank content area.
+  const activeBtn = document.querySelector(".tab-btn.active");
+  const restricted = ["spin", "generate", "combat"];
+  const onRestricted = activeBtn && restricted.some((t) => activeBtn.getAttribute("onclick") === `showTab('${t}',this)`);
+  if (onRestricted && typeof window.showTab === "function") {
+    const invBtn = document.querySelector(`[onclick="showTab('inventory',this)"]`);
+    if (invBtn) window.showTab("inventory", invBtn);
+  }
+}
+
 // ===================== UI (injected at runtime — nothing added to the main HTML file) =====================
-function injectMultiplayerStyles() {
+function injectStyles() {
   const style = document.createElement("style");
   style.textContent = `
-    #mpLauncherBtn {
+    /* ---- Role-based tab hiding (see enforceRoleRestrictions) ---- */
+    body.role-player [onclick="showTab('spin',this)"],
+    body.role-player [onclick="showTab('generate',this)"],
+    body.role-player [onclick="showTab('combat',this)"],
+    body.role-player #tab-spin,
+    body.role-player #tab-generate,
+    body.role-player #tab-combat,
+    body.role-player .add-item-area,
+    body.role-player [onclick*="editItem("],
+    body.role-player [onclick*="removeItem("] { display: none !important; }
+
+    /* ---- Full-screen launch gate ---- */
+    #mpGate {
+      position: fixed; inset: 0; z-index: 9999; background: var(--bg, #12100d);
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+      font-family: 'Crimson Text', serif; color: var(--text, #e8dfc8);
+    }
+    #mpGate.hide { display: none; }
+    #mpGateBox {
+      width: min(420px, 94vw); background: var(--surface, #1a1a1a);
+      border: 1px solid var(--border, #3d3020); padding: 1.4rem;
+    }
+    #mpGateBox h2 { margin: 0 0 0.3rem; color: var(--gold, #c9a84c); letter-spacing: 0.03em; }
+    #mpGateBox p.mp-sub { color: var(--text-dim, #a89f8a); font-size: 0.85rem; margin: 0 0 1rem; }
+    .mp-role-row { display: flex; gap: 0.7rem; margin-bottom: 1rem; }
+    .mp-role-btn {
+      flex: 1; background: var(--bg, #12100d); border: 2px solid var(--border, #3d3020);
+      color: var(--text, #e8dfc8); font-family: 'Crimson Text', serif; font-weight: 600;
+      font-size: 0.95rem; padding: 0.8rem 0.5rem; cursor: pointer; text-align: center;
+    }
+    .mp-role-btn:hover, .mp-role-btn.active { border-color: var(--gold, #c9a84c); color: var(--gold, #c9a84c); }
+    .mp-mode-row { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
+    .mp-mode-btn {
+      flex: 1; background: none; border: none; border-bottom: 2px solid var(--border, #3d3020);
+      color: var(--text-dim, #a89f8a); font-family: 'Crimson Text', serif; font-size: 0.9rem;
+      padding: 0.4rem; cursor: pointer;
+    }
+    .mp-mode-btn.active { color: var(--gold, #c9a84c); border-color: var(--gold, #c9a84c); }
+    #mpGateBox label { display: block; font-size: 0.85rem; color: var(--text-dim, #a89f8a); margin: 0.6rem 0 0.25rem; }
+    #mpGateBox input[type=text], #mpGateBox input[type=password] {
+      width: 100%; box-sizing: border-box; background: var(--bg, #12100d);
+      border: 1px solid var(--border, #3d3020); color: var(--text, #e8dfc8);
+      font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.5rem 0.6rem;
+    }
+    .mp-btn {
+      margin-top: 1rem; width: 100%; box-sizing: border-box;
+      background: var(--gold, #c9a84c); color: var(--bg, #12100d);
+      border: none; font-weight: 600; padding: 0.6rem 0.9rem; cursor: pointer; letter-spacing: 0.02em;
+      font-family: 'Crimson Text', serif; font-size: 0.95rem;
+    }
+    .mp-btn.mp-danger { background: var(--danger, #e05252); color: #fff; }
+    .mp-status { margin-top: 0.6rem; font-size: 0.85rem; min-height: 1.2rem; }
+    .mp-status.error { color: var(--danger, #e05252); }
+    .mp-status.ok { color: var(--uncommon, #4caf7d); }
+
+    /* ---- Post-login account panel ---- */
+    #mpAccountBtn {
       position: fixed; bottom: 1rem; right: 1rem; z-index: 9000;
-      background: var(--surface, #1a1a1a); color: var(--gold, #c9a84c);
-      border: 2px solid var(--gold, #c9a84c); border-radius: 6px;
+      background: var(--surface, #1a1a1a); color: var(--uncommon, #4caf7d);
+      border: 2px solid var(--uncommon, #4caf7d); border-radius: 6px;
       font-family: 'Crimson Text', serif; font-weight: 600; font-size: 0.9rem;
       padding: 0.55rem 0.9rem; cursor: pointer; letter-spacing: 0.02em;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none;
     }
-    #mpLauncherBtn.connected { border-color: var(--uncommon, #4caf7d); color: var(--uncommon, #4caf7d); }
-    #mpOverlay {
+    #mpAccountBtn.show { display: block; }
+    #mpAccountOverlay {
       display: none; position: fixed; inset: 0; z-index: 9001;
       background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
     }
-    #mpOverlay.show { display: flex; }
-    #mpModal {
+    #mpAccountOverlay.show { display: flex; }
+    #mpAccountModal {
       background: var(--bg, #12100d); border: 1px solid var(--border, #3d3020);
       width: min(440px, 92vw); max-height: 85vh; overflow: auto;
       padding: 1.2rem; font-family: 'Crimson Text', serif; color: var(--text, #e8dfc8);
     }
-    #mpModal h3 { margin: 0 0 0.8rem; color: var(--gold, #c9a84c); font-size: 1.1rem; letter-spacing: 0.03em; }
-    #mpModal .mp-close { float: right; cursor: pointer; font-size: 1.3rem; line-height: 1; color: var(--text-dim, #a89f8a); }
-    #mpModal label { display: block; font-size: 0.85rem; color: var(--text-dim, #a89f8a); margin: 0.7rem 0 0.25rem; }
-    #mpModal input[type=text] {
-      width: 100%; box-sizing: border-box; background: var(--surface, #1a1a1a);
-      border: 1px solid var(--border, #3d3020); color: var(--text, #e8dfc8);
-      font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.5rem 0.6rem;
-    }
-    #mpModal .mp-btn {
-      margin-top: 0.8rem; background: var(--gold, #c9a84c); color: var(--bg, #12100d);
-      border: none; font-weight: 600; padding: 0.5rem 0.9rem; cursor: pointer; letter-spacing: 0.02em;
-    }
-    #mpModal .mp-btn.mp-danger { background: var(--danger, #e05252); color: #fff; }
-    #mpModal .mp-status { margin-top: 0.6rem; font-size: 0.85rem; min-height: 1.2rem; }
-    #mpModal .mp-status.error { color: var(--danger, #e05252); }
-    #mpModal .mp-status.ok { color: var(--uncommon, #4caf7d); }
-    #mpModal .mp-room-code {
-      font-family: 'Share Tech Mono', monospace; font-size: 1.4rem; letter-spacing: 0.15em;
+    #mpAccountModal h3 { margin: 0 0 0.5rem; color: var(--gold, #c9a84c); font-size: 1.1rem; letter-spacing: 0.03em; }
+    #mpAccountModal .mp-close { float: right; cursor: pointer; font-size: 1.3rem; line-height: 1; color: var(--text-dim, #a89f8a); }
+    #mpAccountModal .mp-room-code {
+      font-family: 'Share Tech Mono', monospace; font-size: 1.3rem; letter-spacing: 0.15em;
       color: var(--gold-bright, #e6c766); background: var(--surface, #1a1a1a);
-      border: 1px solid var(--border, #3d3020); padding: 0.5rem 0.8rem; text-align: center; margin-top: 0.5rem;
+      border: 1px solid var(--border, #3d3020); padding: 0.5rem 0.8rem; text-align: center; margin: 0.5rem 0;
     }
-    #mpModal .mp-roster { margin-top: 0.6rem; border-top: 1px solid var(--border, #3d3020); padding-top: 0.6rem; }
-    #mpModal .mp-roster-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.25rem 0; }
-    #mpModal .mp-roster-row .mp-dm-tag { color: var(--gold, #c9a84c); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    #mpModal hr { border: none; border-top: 1px solid var(--border, #3d3020); margin: 1rem 0; }
+    #mpAccountModal .mp-roster { margin-top: 0.7rem; border-top: 1px solid var(--border, #3d3020); padding-top: 0.6rem; }
+    #mpAccountModal .mp-roster-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 0.3rem 0; gap: 0.5rem; }
+    #mpAccountModal .mp-remove-btn { background: transparent; border: 1px solid var(--danger, #e05252); color: var(--danger, #e05252); font-size: 0.7rem; padding: 0.2rem 0.5rem; cursor: pointer; }
   `;
   document.head.appendChild(style);
 }
 
-function injectMultiplayerDom() {
-  const launcher = document.createElement("button");
-  launcher.id = "mpLauncherBtn";
-  launcher.textContent = "🌐 Multiplayer";
-  launcher.onclick = () => { document.getElementById("mpOverlay").classList.add("show"); };
-  document.body.appendChild(launcher);
+function injectDom() {
+  const gate = document.createElement("div");
+  gate.id = "mpGate";
+  gate.innerHTML = `<div id="mpGateBox"></div>`;
+  document.body.appendChild(gate);
+
+  const accountBtn = document.createElement("button");
+  accountBtn.id = "mpAccountBtn";
+  accountBtn.onclick = () => document.getElementById("mpAccountOverlay").classList.add("show");
+  document.body.appendChild(accountBtn);
 
   const overlay = document.createElement("div");
-  overlay.id = "mpOverlay";
+  overlay.id = "mpAccountOverlay";
   overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove("show"); };
-  overlay.innerHTML = `<div id="mpModal"></div>`;
+  overlay.innerHTML = `<div id="mpAccountModal"></div>`;
   document.body.appendChild(overlay);
 }
 
-function setMpStatus(msg, isError) {
-  const el = document.getElementById("mpStatus");
+function showGate() {
+  document.getElementById("mpGate").classList.remove("hide");
+  document.getElementById("mpAccountBtn").classList.remove("show");
+  renderGateRoleSelect();
+}
+function hideGate() { document.getElementById("mpGate").classList.add("hide"); }
+
+function setGateStatus(msg, isError) {
+  const el = document.getElementById("mpGateStatus");
   if (!el) return;
   el.textContent = msg || "";
   el.className = "mp-status" + (isError ? " error" : msg ? " ok" : "");
 }
 
-// Rebuilds the modal body based on current connection state — disconnected shows Host/Join
-// forms, connected shows room code + status + (DM only) the live roster.
-function renderMultiplayerUI() {
-  const launcher = document.getElementById("mpLauncherBtn");
-  const modal = document.getElementById("mpModal");
-  if (!launcher || !modal) return;
+// ---- Gate: step 1, role select ----
+let gateRole = null; // 'dm' | 'player', chosen before showing the login/signup form
+let gateMode = "login"; // 'login' | 'signup'
 
-  if (!mp.connected) {
-    launcher.classList.remove("connected");
-    launcher.textContent = "🌐 Multiplayer";
-    modal.innerHTML = `
-      <span class="mp-close" onclick="document.getElementById('mpOverlay').classList.remove('show')">×</span>
-      <h3>🌐 Multiplayer</h3>
-      <p style="color:var(--text-dim,#a89f8a);font-size:0.85rem;font-style:italic;">
-        Host a session as the DM, or join one with a room code. Everything you loot and equip
-        stays synced across every device you connect with this same code.
-      </p>
-      <div>
-        <label>Your name</label>
-        <input type="text" id="mpNameInput" placeholder="e.g. Dave, or your character's name">
-        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-          <button class="mp-btn" id="mpHostBtn">Host a New Session</button>
-        </div>
-        <hr>
-        <label>Room code</label>
-        <input type="text" id="mpJoinCodeInput" placeholder="e.g. K7M2P" style="text-transform:uppercase;">
-        <button class="mp-btn" id="mpJoinBtn">Join Session</button>
-      </div>
-      <div class="mp-status" id="mpStatus"></div>
-    `;
-    document.getElementById("mpHostBtn").onclick = () => {
-      hostSession(document.getElementById("mpNameInput").value.trim());
-    };
-    document.getElementById("mpJoinBtn").onclick = () => {
-      joinSession(document.getElementById("mpJoinCodeInput").value, document.getElementById("mpNameInput").value.trim());
-    };
-    return;
+function renderGateRoleSelect() {
+  const box = document.getElementById("mpGateBox");
+  box.innerHTML = `
+    <h2>🎲 Who's playing?</h2>
+    <p class="mp-sub">Choose your role to log in or create an account.</p>
+    <div class="mp-role-row">
+      <button class="mp-role-btn" id="mpRolePlayerBtn">🧙 Player</button>
+      <button class="mp-role-btn" id="mpRoleDmBtn">👑 Dungeon Master</button>
+    </div>
+    <div class="mp-status" id="mpGateStatus"></div>
+  `;
+  document.getElementById("mpRolePlayerBtn").onclick = () => { gateRole = "player"; gateMode = "login"; renderGateForm(); };
+  document.getElementById("mpRoleDmBtn").onclick = () => { gateRole = "dm"; gateMode = "login"; renderGateForm(); };
+}
+
+// ---- Gate: step 2, login/signup form for the chosen role ----
+function renderGateForm() {
+  const box = document.getElementById("mpGateBox");
+  const roleLabel = gateRole === "dm" ? "Dungeon Master" : "Player";
+  const campaignFieldHtml = (gateRole === "player" && gateMode === "signup") ? `
+    <label>DM's campaign code</label>
+    <input type="text" id="mpCampaignCode" placeholder="e.g. K7M2P" style="text-transform:uppercase;">
+  ` : "";
+  box.innerHTML = `
+    <span class="mp-close" style="float:right;cursor:pointer;color:var(--text-dim,#a89f8a);" id="mpBackBtn">← back</span>
+    <h2>${gateRole === "dm" ? "👑" : "🧙"} ${roleLabel}</h2>
+    <div class="mp-mode-row">
+      <button class="mp-mode-btn ${gateMode === "login" ? "active" : ""}" id="mpModeLoginBtn">Log In</button>
+      <button class="mp-mode-btn ${gateMode === "signup" ? "active" : ""}" id="mpModeSignupBtn">Create Account</button>
+    </div>
+    <label>Username</label>
+    <input type="text" id="mpUsername" placeholder="pick a username" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="mpPassword" placeholder="••••••••" autocomplete="${gateMode === "signup" ? "new-password" : "current-password"}">
+    ${campaignFieldHtml}
+    <button class="mp-btn" id="mpSubmitBtn">${gateMode === "signup" ? "Create Account" : "Log In"}</button>
+    <div class="mp-status" id="mpGateStatus"></div>
+  `;
+  document.getElementById("mpBackBtn").onclick = renderGateRoleSelect;
+  document.getElementById("mpModeLoginBtn").onclick = () => { gateMode = "login"; renderGateForm(); };
+  document.getElementById("mpModeSignupBtn").onclick = () => { gateMode = "signup"; renderGateForm(); };
+  document.getElementById("mpSubmitBtn").onclick = handleGateSubmit;
+}
+
+async function handleGateSubmit() {
+  const username = document.getElementById("mpUsername").value;
+  const password = document.getElementById("mpPassword").value;
+  if (!sanitizeUsername(username)) { setGateStatus("Enter a username (letters, numbers, - and _ only).", true); return; }
+  if (!password || password.length < 6) { setGateStatus("Password must be at least 6 characters.", true); return; }
+  setGateStatus("Working…");
+  try {
+    if (gateMode === "signup") {
+      if (gateRole === "dm") await signUpDM(username, password);
+      else await signUpPlayer(username, password, document.getElementById("mpCampaignCode").value);
+    } else {
+      await logIn(username, password);
+    }
+  } catch (err) {
+    setGateStatus(friendlyAuthError(err), true);
   }
+}
 
-  launcher.classList.add("connected");
-  launcher.textContent = "🌐 " + mp.roomCode;
-  const rosterHtml = mp.isDM ? `
+function friendlyAuthError(err) {
+  const code = err && err.code;
+  if (code === "auth/email-already-in-use") return "That username is already taken.";
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") return "Wrong username or password.";
+  if (code === "auth/weak-password") return "Password must be at least 6 characters.";
+  return (err && err.message) ? err.message.replace(/^Firebase:\s*/, "") : String(err);
+}
+
+// ---- Post-login account panel ----
+function renderAccountPanel() {
+  const btn = document.getElementById("mpAccountBtn");
+  const modal = document.getElementById("mpAccountModal");
+  if (!btn || !modal) return;
+  btn.classList.toggle("show", mp.connected);
+  if (!mp.connected) return;
+  btn.textContent = (mp.role === "dm" ? "👑 " : "🧙 ") + mp.username;
+
+  const rosterHtml = mp.role === "dm" ? `
     <div class="mp-roster">
       <label style="margin-top:0;">Connected players</label>
-      ${[...mp.roster.entries()].map(([uid, p]) => `
+      ${[...mp.roster.entries()].filter(([uid]) => uid !== mp.uid).map(([uid, p]) => `
         <div class="mp-roster-row">
-          <span>${escapeHtmlLocal(p.displayName)}${uid === mp.uid ? " (you)" : ""}</span>
-          ${p.isDM ? '<span class="mp-dm-tag">DM</span>' : ""}
+          <span>${escapeHtmlLocal(p.username)}</span>
+          <button class="mp-remove-btn" data-uid="${uid}">Remove</button>
         </div>
-      `).join("") || '<div style="color:var(--text-dim,#a89f8a);font-size:0.85rem;">No one else has joined yet.</div>'}
+      `).join("") || '<div style="color:var(--text-dim,#a89f8a);font-size:0.85rem;">No players have joined yet.</div>'}
     </div>
   ` : "";
   modal.innerHTML = `
-    <span class="mp-close" onclick="document.getElementById('mpOverlay').classList.remove('show')">×</span>
-    <h3>🌐 Connected${mp.isDM ? " — Dungeon Master" : ""}</h3>
-    <p style="color:var(--text-dim,#a89f8a);font-size:0.85rem;">Playing as <strong>${escapeHtmlLocal(mp.displayName)}</strong></p>
-    <label>Room code — share this with your group</label>
+    <span class="mp-close" onclick="document.getElementById('mpAccountOverlay').classList.remove('show')">×</span>
+    <h3>${mp.role === "dm" ? "👑 Dungeon Master" : "🧙 Player"}: ${escapeHtmlLocal(mp.username)}</h3>
+    <label>Campaign code</label>
     <div class="mp-room-code">${mp.roomCode}</div>
-    <button class="mp-btn mp-danger" id="mpLeaveBtn">Leave Session</button>
-    <div class="mp-status" id="mpStatus"></div>
+    <button class="mp-btn mp-danger" id="mpLogoutBtn">Log Out</button>
     ${rosterHtml}
   `;
-  document.getElementById("mpLeaveBtn").onclick = leaveSession;
+  document.getElementById("mpLogoutBtn").onclick = logOut;
+  modal.querySelectorAll(".mp-remove-btn").forEach((el) => {
+    el.onclick = () => {
+      if (confirm(`Remove ${el.previousElementSibling.textContent} from your campaign? Their character data will be deleted.`)) {
+        removePlayer(el.getAttribute("data-uid"));
+      }
+    };
+  });
 }
 
 function escapeHtmlLocal(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-function initMultiplayer() {
-  injectMultiplayerStyles();
-  injectMultiplayerDom();
-  renderMultiplayerUI();
+// ===================== INIT =====================
+function init() {
+  injectStyles();
+  injectDom();
+  showGate();
+  // Firebase persists the signed-in session in this browser (IndexedDB) across reloads —
+  // this is what makes "log back in" mostly automatic on the SAME device, while a genuinely
+  // different device still needs the username/password typed once.
+  onAuthStateChanged(auth, (user) => {
+    if (user && !mp.connected && !mp.kicked) {
+      restoreSession(user).catch(() => { /* stale/broken session — fall back to the gate */ });
+    }
+  });
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initMultiplayer);
+  document.addEventListener("DOMContentLoaded", init);
 } else {
-  initMultiplayer();
+  init();
 }
