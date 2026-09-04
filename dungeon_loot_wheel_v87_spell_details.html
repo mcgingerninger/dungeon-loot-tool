@@ -93,6 +93,19 @@
   .compendium-subtab-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
   .compendium-subpanel { display: none; }
   .compendium-subpanel.active { display: block; }
+  /* Combat's sub-tabs (Battle / Loot Presets) reuse this exact visual style under their own
+     class names — see showCombatSub() — so a global .compendium-subpanel selector elsewhere
+     (showCompendiumSub) can never also toggle Combat's panels off. */
+  .combat-subtabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; }
+  .combat-subtab-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'Crimson Text', serif; font-size: 0.95rem; padding: 0.4rem 1.1rem;
+    cursor: pointer; letter-spacing: 0.04em; transition: all 0.2s;
+  }
+  .combat-subtab-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .combat-subtab-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
+  .combat-subpanel { display: none; }
+  .combat-subpanel.active { display: block; }
 
   /* Effects & Traits reference sub-tab — a browsable list of every buff/debuff/condition/
      named-trait pool the generators (items, Fleshmancer, Combat tab monster variants) draw
@@ -412,6 +425,8 @@
   }
   .loot-save-btn:hover { border-color: var(--gold); color: var(--gold); }
   .loot-save-btn.saved { border-color: var(--uncommon); color: var(--uncommon); cursor: default; }
+  .loot-item-actions { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+  .loot-item-actions .loot-save-btn { margin-top: 0.35rem; }
   .meta-tag { font-family:'Share Tech Mono',monospace; font-size:0.68rem; color:var(--gold-bright); border:1px solid var(--border); background:rgba(0,0,0,0.2); padding:0.1rem 0.35rem; text-transform:uppercase; }
   .meta-tag.slot { color:var(--text-dim); }
   .meta-tag.weight { color:var(--text-dim); }
@@ -541,7 +556,7 @@
     gap: 0.5rem;
   }
 
-  .add-item-area input[type=text], .add-item-area textarea, .add-item-area select {
+  .add-item-area input[type=text], .add-item-area input[type=number], .add-item-area textarea, .add-item-area select {
     background: var(--bg);
     border: 1px solid var(--border);
     color: var(--text);
@@ -1025,6 +1040,8 @@
   .mw-reset-btn { background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.9rem; padding:0.35rem 0.9rem; cursor:pointer; transition:all 0.2s; margin-left:auto; }
   .mw-reset-btn:hover { border-color:var(--gold); color:var(--gold); }
   .ic-tags { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.3rem; }
+  .ic-interactions { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.3rem; }
+  .ic-interaction-chip { font-family:'Share Tech Mono',monospace; font-size:0.65rem; padding:0.1rem 0.4rem; border:1px solid rgba(91,156,246,0.4); color:#8fbcf7; background:rgba(0,0,0,0.2); letter-spacing:0.04em; }
   .ic-tag { font-family:'Share Tech Mono',monospace; font-size:0.65rem; padding:0.1rem 0.4rem; border:1px solid rgba(201,168,76,0.25); color:var(--text-dim); background:rgba(0,0,0,0.2); letter-spacing:0.04em; }
   .ic-tag.t-fire    { color:#ff7043; border-color:rgba(255,112,67,0.4); }
   .ic-tag.t-cold    { color:#80d8ff; border-color:rgba(128,216,255,0.4); }
@@ -1304,6 +1321,36 @@
   }
   .token-card-effect { font-size:0.8rem; color:var(--text-dim); line-height:1.4; font-style:italic; }
 
+  /* Monster Compendium detail — "Possible Drops" section */
+  .monster-drops-section { margin-top:1rem; border-top:1px solid var(--border); padding-top:0.8rem; }
+  .monster-drops-title { color:var(--gold); font-size:0.95rem; letter-spacing:0.04em; margin-bottom:0.6rem; }
+  .monster-drops-grid { display:flex; flex-wrap:wrap; gap:0.6rem; }
+  .monster-drop-card {
+    background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--common);
+    padding:0.5rem 0.7rem; display:flex; align-items:center; gap:0.5rem; cursor:default;
+    transition:border-color 0.15s, transform 0.15s;
+  }
+  .monster-drop-card:hover { transform:translateY(-2px); border-color:var(--gold); }
+  .monster-drop-card.common    { border-top-color:var(--common); }
+  .monster-drop-card.uncommon  { border-top-color:var(--uncommon); }
+  .monster-drop-card.rare      { border-top-color:var(--rare); }
+  .monster-drop-card.superrare { border-top-color:var(--superrare); }
+  .monster-drop-card.legendary { border-top-color:var(--legendary); }
+  .monster-drop-card.celestial { border-top-color:var(--celestial); }
+  .monster-drop-name { font-size:0.85rem; color:var(--text); }
+  .monster-drops-empty { color:var(--text-dim); font-style:italic; font-size:0.88rem; }
+
+  /* Item Compendium — "Monster Parts" reference tab */
+  .monsterparts-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:0.8rem; }
+  .mp-parttype-card { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--gold); padding:0.8rem 0.9rem; }
+  .mp-parttype-title { color:var(--gold-bright); font-size:1rem; margin-bottom:0.5rem; letter-spacing:0.03em; }
+  .mp-effect-row { margin-bottom:0.6rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border); }
+  .mp-effect-row:last-child { margin-bottom:0; padding-bottom:0; border-bottom:none; }
+  .mp-effect-label { color:var(--text); font-size:0.9rem; margin-bottom:0.2rem; }
+  .mp-effect-applies { color:var(--text-dim); font-size:0.72rem; font-style:italic; }
+  .mp-effect-text { color:var(--text-dim); font-size:0.8rem; line-height:1.4; }
+  .mp-effect-text b { color:var(--text); }
+
   /* ===================== INVENTORY TAB ===================== */
   .inv-summary-bar { display:flex; align-items:center; gap:1.5rem; background:var(--surface); border:1px solid var(--border); padding:0.8rem 1rem; margin-bottom:1rem; flex-wrap:wrap; font-size:0.92rem; color:var(--text-dim); }
   .inv-summary-bar strong { color:var(--gold); }
@@ -1343,6 +1390,23 @@
   /* 2/3-wide items: no padding/gap so the icon frame can stretch edge-to-edge instead of
      sitting as a small square next to a name label. */
   .inv-item.inv-item-fill { padding:0; gap:0; }
+  /* Recently Looted — a fixed 6x6 staging grid (reuses .inv-grid/.inv-row for the outer
+     layout) that "Loot" now fills instead of the main inventory grid directly. Uniform
+     1-slot-per-item (no footprint math like the main grid) since it's just a holding pen —
+     use the ➡ button to move something into a real inventory slot, or 🗑 to discard it. */
+  .rl-cell { width:130px; height:44px; background:var(--bg); border:1px dashed var(--border); flex-shrink:0; }
+  .rl-item { width:130px; height:44px; background:var(--surface2); border:2px solid var(--border); display:flex; align-items:center; gap:0.25rem; padding:0 0.35rem; cursor:grab; overflow:hidden; flex-shrink:0; }
+  .rl-item:active { cursor:grabbing; }
+  .rl-item.common    { border-color:var(--common); }
+  .rl-item.uncommon  { border-color:var(--uncommon); }
+  .rl-item.rare      { border-color:var(--rare); }
+  .rl-item.superrare { border-color:var(--superrare); }
+  .rl-item.legendary { border-color:var(--legendary); }
+  .rl-item.celestial { border-color:var(--celestial); }
+  .rl-item-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.76rem; }
+  .rl-item-actions { display:flex; gap:0.15rem; flex-shrink:0; }
+  .rl-mini-btn { background:transparent; border:1px solid var(--border); color:var(--text-dim); font-size:0.68rem; width:18px; height:18px; line-height:1; cursor:pointer; padding:0; flex-shrink:0; }
+  .rl-mini-btn:hover { border-color:var(--gold); color:var(--gold); }
   .inv-item.common    { border-color:var(--common); }
   .inv-item.uncommon  { border-color:var(--uncommon); }
   .inv-item.rare      { border-color:var(--rare); }
@@ -1367,14 +1431,25 @@
   .mangler-drop-slot {
     flex:1 1 220px; min-height:80px; border:2px dashed var(--border); background:var(--surface);
     padding:0.8rem; text-align:center; transition:border-color 0.15s, background 0.15s;
+    cursor:pointer;
   }
   .mangler-drop-slot:hover { border-color:var(--gold); }
+  .mangler-drop-slot.mangler-slot-focused { border-style:solid; border-color:var(--gold); background:rgba(201,168,76,0.08); }
   .mangler-drop-slot.slot-invalid { border-color:var(--danger) !important; animation:slotShake 0.3s; }
   .mangler-drop-label { color:var(--gold); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.5rem; }
   .mangler-drop-content { display:flex; align-items:center; justify-content:center; gap:0.5rem; color:var(--text-dim); font-style:italic; font-size:0.88rem; min-height:32px; }
   .mangler-arrow { font-size:1.4rem; color:var(--text-dim); }
   .mangler-preview { margin:0.6rem 0; font-size:0.9rem; color:var(--text); }
   .mangler-preview-line { margin-bottom:0.3rem; }
+  .mangler-finished-work { margin:1rem 0; border:2px solid var(--gold); background:rgba(201,168,76,0.06); padding:0.9rem; }
+  .mangler-finished-label { color:var(--gold); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem; }
+  .mangler-finished-card { display:flex; align-items:center; gap:0.7rem; margin-bottom:0.7rem; }
+  .mangler-finished-name { color:var(--gold-bright); font-size:1rem; margin-bottom:0.2rem; }
+  .mangler-finished-effect { color:var(--text-dim); font-size:0.82rem; }
+  .mangler-finished-actions { display:flex; gap:0.6rem; flex-wrap:wrap; }
+  .mangler-finished-actions .action-btn { width:auto; max-width:none; flex:1 1 160px; }
+  .mangler-retrieve-btn:hover { border-color:var(--uncommon); color:var(--uncommon); }
+  .mangler-discard-btn { border-color:rgba(224,82,82,0.4); color:var(--danger); }
   .mangler-preview-cost { color:var(--gold-bright); }
 
   /* ===================== PLAYER TAB ===================== */
@@ -1515,7 +1590,7 @@
   .tt-rarity { font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; }
   .tt-stats { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem; }
   .tt-stats span { background:var(--surface); border:1px solid var(--border); padding:0.1rem 0.4rem; font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--gold); }
-  .tt-desc { font-style:italic; color:var(--text-dim); margin-bottom:0.4rem; }
+  .tt-desc { font-style:italic; color:var(--text-dim); margin-bottom:0.4rem; white-space:pre-line; }
   .tt-effect { color:var(--text); margin-bottom:0.3rem; }
   .tt-mods { margin-top:0.4rem; }
   .tt-mod { font-size:0.82rem; color:var(--text-dim); margin-bottom:0.2rem; }
@@ -1524,6 +1599,8 @@
   .tt-properties, .tt-tags { display:flex; flex-wrap:wrap; gap:0.3rem; margin-bottom:0.4rem; }
   .tt-prop-chip { background:rgba(201,168,76,0.12); border:1px solid var(--gold); color:var(--gold-bright); font-size:0.68rem; padding:0.05rem 0.35rem; text-transform:uppercase; letter-spacing:0.03em; }
   .tt-tag-chip { background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.68rem; padding:0.05rem 0.35rem; }
+  .tt-interactions { display:flex; flex-wrap:wrap; gap:0.3rem; margin-bottom:0.4rem; }
+  .tt-interaction-chip { background:rgba(91,156,246,0.1); border:1px solid var(--blue,#5b9cf6); color:#8fbcf7; font-family:'Share Tech Mono',monospace; font-size:0.68rem; padding:0.05rem 0.35rem; }
   .tt-unlocks { margin-top:0.5rem; border-top:1px solid var(--border); padding-top:0.4rem; }
   .tt-unlocks-title { font-size:0.75rem; color:var(--gold); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem; }
   .tt-unlock-tier { font-size:0.8rem; color:var(--text-dim); margin-bottom:0.2rem; }
@@ -1616,6 +1693,11 @@
   .combat-picker-row:last-child{border-bottom:none}
   .combat-picker-name{flex:1;font-size:.92rem}
   .combat-picker-cr{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--text-dim);white-space:nowrap}
+  .combat-suggested-label{color:var(--text-dim);font-size:.82rem;font-style:italic;padding:.6rem .8rem .3rem}
+  .combat-suggested-chips{display:flex;flex-wrap:wrap;gap:.5rem;padding:.2rem .8rem .8rem}
+  .combat-suggested-chip{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.85rem;padding:.35rem .7rem;cursor:pointer;transition:border-color .15s,color .15s}
+  .combat-suggested-chip:hover{border-color:var(--gold);color:var(--gold)}
+  .combat-suggested-cr{font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--text-dim)}
   /* Roll Loot tab: creature-driven loot source */
   .spin-source-toggle{display:flex;gap:.6rem;margin-bottom:.8rem}
   .spin-mode-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem 1rem;cursor:pointer;transition:all .2s}
@@ -1649,8 +1731,10 @@
   .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
   .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
   .combat-card-remove:hover{color:var(--danger)}
-  .combat-card-stats{display:flex;gap:1rem;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
+  .combat-card-stats{display:flex;gap:1rem;align-items:center;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
   .combat-hp-dice{color:var(--text-dim);font-style:italic}
+  .combat-hp-row{display:flex;align-items:center;gap:0.4rem}
+  .combat-hp-slider{width:90px;accent-color:var(--uncommon);cursor:pointer}
   .combat-card-mods{font-size:.78rem;line-height:1.5;color:var(--text-dim)}
   .combat-variant-chance-val{font-family:'Share Tech Mono',monospace;color:var(--gold);min-width:2.6em;display:inline-block}
   .combat-chaos-chance-val{font-family:'Share Tech Mono',monospace;color:var(--superrare);min-width:2.6em;display:inline-block}
@@ -1697,6 +1781,7 @@
   .combat-result-title.hit{color:var(--uncommon)}
   .combat-result-title.miss{color:var(--danger)}
   .combat-result-title.crit{color:var(--legendary)}
+  .combat-action-name{border-bottom:1px dotted var(--text-dim);cursor:help}
   .combat-log{background:var(--surface);border:1px solid var(--border);max-height:400px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:.5rem;padding:.8rem}
   .combat-log-empty{color:var(--text-dim);font-style:italic;text-align:center;padding:1.5rem}
   .combat-empty-roster{color:var(--text-dim);font-style:italic;padding:1.5rem;text-align:center;border:1px dashed var(--border)}
@@ -1734,11 +1819,10 @@
 <body>
 
 <h1>⚔ Dungeon Loot ⚔</h1>
-<p class="subtitle">Spin the wheel. Claim your spoils.</p>
+<p class="subtitle">Spin the wheel. Claim your spoils. <span id="appVersionTag" style="opacity:0.5;font-size:0.75em;"></span></p>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('spin',this)">Roll Loot</button>
-  <button class="tab-btn" onclick="showTab('chest',this)">Treasure Chest</button>
+  <button class="tab-btn active" onclick="showTab('spin',this)">🎲 Loot</button>
   <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
@@ -1755,22 +1839,17 @@
     <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
   </div>
 
-  <!-- Loot source: "Random" is the original flat-slider behavior below, untouched. "From
-       Creatures" rolls loot for specific monsters instead — each selected creature becomes
-       one enemy, and its own CR (or rolled variant tier) drives its loot rarity via the same
-       per-tier presets the Combat tab's monster-defeat loot uses (combatLootSettings), so
-       adjusting one adjusts the other. -->
+  <!-- Loot source: two modes of the same tab. "Random Loot" is the wheel-spin below,
+       untouched. "Treasure Chest" is the chest-opening flow that used to be its own tab —
+       merged in here since they're both "generate some random loot" utilities, just with a
+       different presentation. (Creature-specific loot generation now lives entirely on the
+       Combat tab instead — add a creature to the battle roster and right-click it twice.) -->
   <div class="spin-source-toggle">
     <button class="spin-mode-btn active" id="spinModeRandomBtn" onclick="setSpinLootMode('random')">🎲 Random Loot</button>
-    <button class="spin-mode-btn" id="spinModeCreatureBtn" onclick="setSpinLootMode('creatures')">👹 From Creatures</button>
-  </div>
-  <div id="spinCreaturePicker" style="display:none;">
-    <input id="spinMonsterSearch" type="text" placeholder="Search a creature name to roll loot from…" oninput="renderSpinMonsterPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
-    <div class="combat-picker-results" id="spinPickerResults"><div class="spell-loading">Type at least 2 characters to search creatures.</div></div>
-    <div class="spin-selected-list" id="spinSelectedList"></div>
-    <p class="combat-variant-note">Each creature added below becomes one "enemy" when you roll — the Min/Max Items and Enemies fields are ignored while any are selected (an item count is rolled per-creature instead, from its own tier's preset). Add the same creature more than once for multiple copies. Adjust each tier's item count, monster-part odds, and rarity weights from the Combat tab's "Monster Loot Settings" panel — the same presets apply here.</p>
+    <button class="spin-mode-btn" id="spinModeChestBtn" onclick="setSpinLootMode('chest')">📦 Treasure Chest</button>
   </div>
 
+  <div id="spinRandomPanel">
   <div class="wheel-layout">
     <div class="wheel-wrap">
 
@@ -1973,10 +2052,9 @@
       </div>
     </div>
   </details>
-</div>
+  </div>
 
-<!-- TREASURE CHEST TAB -->
-<div id="tab-chest" class="tab-content">
+  <div id="spinChestPanel" style="display:none;">
   <div class="chest-layout">
     <div class="chest-wrap">
 
@@ -2048,6 +2126,7 @@
       <div id="chestResultsList"></div>
     </div>
   </div>
+  </div>
 </div>
 
 <!-- ITEM COMPENDIUM TAB (merges Edit Items, Spell Compendium, and Monster Compendium into
@@ -2059,6 +2138,7 @@
     <button class="compendium-subtab-btn" onclick="showCompendiumSub('spells',this)">📖 Spells</button>
     <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsters',this)">🐉 Monsters</button>
     <button class="compendium-subtab-btn" onclick="showCompendiumSub('effects',this)">🎲 Effects &amp; Traits</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsterparts',this)">🦴 Monster Parts</button>
   </div>
 
   <div id="compendium-items" class="compendium-subpanel active">
@@ -2189,6 +2269,16 @@
   </p>
   <input id="effectsSearch" type="text" class="effects-search" placeholder="Search effects, conditions, traits…" oninput="renderEffectsCompendium()">
   <div id="effectsCompendiumWrap"></div>
+  </div>
+
+  <div id="compendium-monsterparts" class="compendium-subpanel">
+  <p class="spells-intro">
+    Every monster part type the Monster Mangler can work into a weapon or piece of armor, and the full range of
+    effects it can roll. Magnitude scales with the PART's own rarity (Common/Uncommon parts roll the weakest
+    version, Celestial parts the strongest) — not the base item being modified. To see what a specific creature
+    can actually drop, open its entry on the Monsters tab instead.
+  </p>
+  <div id="monsterPartsCompendiumWrap"></div>
   </div>
 </div>
 
@@ -2430,6 +2520,14 @@
       The Bounty Hunter works differently still — no goods for sale, just three wanted posters at a time, each pulled from the
       creature registry with its own reward and warnings.
     </p>
+    <details class="collapsible" open style="margin-bottom:1rem;">
+      <summary>🎒 Your Inventory — drag an item onto a merchant below to buy, sell, or use it</summary>
+      <div class="collapsible-body">
+        <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'storeInventoryGrid')">
+          <div id="storeInventoryGrid" class="inv-grid"></div>
+        </div>
+      </div>
+    </details>
     <div class="store-merchant-list" id="storeMerchantList"></div>
     <div class="store-panel" id="storePanel">
       <div class="gen-empty">🛒 Choose a merchant above to see what they have for sale.</div>
@@ -2544,18 +2642,19 @@
         </div>
       </div>
       <p class="flesh-intro">
-        Drag a monster part into the first slot and a weapon or piece of armor into the second — he'll work the part's
-        latent essence into the item for a fee based on both their rarities. Parts with no latent essence (check its
-        description) still get worked in for flavor, just without a mechanical effect. The part is used up; the item
-        stays yours, permanently changed.
+        Drag a monster part into the first slot and a weapon or piece of armor into the second — he'll reforge them
+        into a brand-new item with an effect themed to that part and scaled by its rarity, for a fee based on both
+        their rarities. Click a slot below to filter "Your Items" down to only what fits there. Both the part and
+        the original item are consumed — the reforged result lands in Finished Work below, where you can save it
+        to your Token Library or discard it before mangling again.
       </p>
       <div class="mangler-slots-row">
-        <div class="mangler-drop-slot" id="manglerPartSlot" ondragover="slotDragOver(event)" ondrop="manglerPartDrop(event)">
+        <div class="mangler-drop-slot" id="manglerPartSlot" onclick="setManglerFocus('part')" ondragover="slotDragOver(event)" ondrop="manglerPartDrop(event)">
           <div class="mangler-drop-label">🩸 Monster Part</div>
           <div class="mangler-drop-content" id="manglerPartContent">Drag a monster part here</div>
         </div>
         <div class="mangler-arrow">➜</div>
-        <div class="mangler-drop-slot" id="manglerItemSlot" ondragover="slotDragOver(event)" ondrop="manglerItemDrop(event)">
+        <div class="mangler-drop-slot" id="manglerItemSlot" onclick="setManglerFocus('item')" ondragover="slotDragOver(event)" ondrop="manglerItemDrop(event)">
           <div class="mangler-drop-label">⚔ Weapon / Armor</div>
           <div class="mangler-drop-content" id="manglerItemContent">Drag a weapon or armor piece here</div>
         </div>
@@ -2563,6 +2662,8 @@
       <div class="mangler-preview" id="manglerPreview"></div>
       <button class="generate-btn" id="manglerCombineBtn" onclick="combineMonsterPart()" disabled>🔧 Combine (select both first)</button>
       <div class="store-buy-msg" id="storeManglerMsg"></div>
+
+      <div class="mangler-finished-work" id="manglerFinishedWork" style="display:none;"></div>
 
       <h4 class="store-section-label">🎒 Your Items</h4>
       <div class="token-toolbar">
@@ -2619,6 +2720,12 @@
       random, and a d20 decides how effective that attack actually was.
     </p>
 
+    <div class="combat-subtabs">
+      <button class="combat-subtab-btn active" onclick="showCombatSub('battle',this)">⚔ Battle</button>
+      <button class="combat-subtab-btn" onclick="showCombatSub('presets',this)">⚙ Loot Presets</button>
+    </div>
+
+    <div id="combat-battle" class="combat-subpanel active">
     <div class="combat-settings">
       <label>Target AC to roll against: <input type="number" id="battleTargetAC" value="15" min="1" max="30"></label>
       <label>Variant chance: <input type="range" id="battleVariantChance" min="0" max="100" value="15" oninput="document.getElementById('battleVariantChanceVal').textContent=this.value+'%'"> <span id="battleVariantChanceVal" class="combat-variant-chance-val">15%</span></label>
@@ -2626,10 +2733,9 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon).</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice — drag a roster card's HP slider down as it takes damage, and it's automatically marked defeated the moment it hits 0. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon).</p>
 
-    <p class="combat-variant-note">Right-click a roster card to defeat it, then right-click the defeated card again to roll its loot — rarity is driven by the monster's own tier (its rolled variant tier if it has one, otherwise its CR), and there's a chance of a monster part instead of (or alongside) normal gear. Each tier's loot preset — item count, monster part odds, and the rarity weights it draws from — is fully visible and adjustable below.</p>
-    <div id="combatLootSettingsPanel"></div>
+    <p class="combat-variant-note">Right-click a roster card to defeat it (or just drag its HP slider to 0), then right-click the defeated card again to roll its loot — rarity is driven by the monster's own tier (its rolled variant tier if it has one, otherwise its CR), and there's a chance of a monster part instead of (or alongside) normal gear. Hover a rolled loot item for its full details. Each tier's loot preset — item count, monster part odds, and the rarity weights it draws from — is adjustable under the Loot Presets sub-tab.</p>
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
@@ -2642,6 +2748,12 @@
         <button class="combat-roll-btn" onclick="rollAllBattleAttacks()">🎲 Roll All Attacks</button>
       </div>
       <div class="combat-roster" id="combatRoster"><div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div></div>
+    </div>
+    </div>
+
+    <div id="combat-presets" class="combat-subpanel">
+      <p class="combat-variant-note">Each tier's loot preset controls how many items a defeated creature of that tier drops, the odds one of those drops is a monster part instead of (or alongside) normal gear, and the rarity weights the item rolls draw from.</p>
+      <div id="combatLootSettingsPanel"></div>
     </div>
 
     <div>
@@ -2753,6 +2865,17 @@
     </div>
   </div>
 
+  <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:0.05em;margin:1.5rem 0 0.6rem;">📦 Recently Looted</h3>
+  <p style="color:var(--text-dim);font-style:italic;margin-bottom:0.6rem;font-size:0.9rem;">
+    Anywhere you can "Loot" an item — Treasure Chests, Roll Loot, killed monsters, the Monster Mangler, the Fleshmancer, the Item Compendium — it lands here first, in its own 36-slot holding pen, instead of going straight into your real inventory. Click ➡ on a card to move it into an open inventory slot, or 🗑 to discard it for good.
+  </p>
+  <div class="inv-summary-bar" style="margin-bottom:0.6rem;">
+    <span>📦 Slots Used: <strong id="rlSlotsUsed">0</strong> / <span id="rlSlotsTotal">36</span></span>
+    <button class="action-btn" style="width:auto;max-width:none" onclick="clearRecentlyLooted()">Clear All</button>
+  </div>
+  <div class="inv-grid" id="recentlyLootedGrid"></div>
+  <div class="store-buy-msg" id="recentlyLootedMsg"></div>
+
   <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:0.05em;margin:1.5rem 0 0.6rem;">🎒 Token Library</h3>
   <div class="token-toolbar">
     <input type="text" id="invTokenSearch" class="token-search" placeholder="Search items…" oninput="renderInventoryTokenGrid()">
@@ -2764,6 +2887,9 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v87).
+const APP_VERSION = 'v87';
+{ const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 const lootData = {
   common: [
@@ -3532,7 +3658,7 @@ const ITEM_SUBCATEGORIES = {
   armor: ['head','facewear','chest','cloak','belt','boots','leggings','handwear','offhand'],
   weapon: ['onehanded','twohanded'],
   consumable: ['potion','scroll','food','throwable'],
-  misc: ['ring','amulet','charm'],
+  misc: ['ring','amulet','charm','commonMisc','rareMisc','wondrousMisc'],
   // Fleshmancer-grafted body parts get their own top-level type instead of living under misc.
   limb: ['arm','hand','leg','foot','eye','ear','finger','heart','tongue'],
   // Mounts and pets both equip to the single Mount/Pet slot — see SUBCATEGORY_TO_SLOT_CATEGORY.
@@ -3545,6 +3671,7 @@ const SUBCATEGORY_LABELS = {
   onehanded:'One-Handed', twohanded:'Two-Handed',
   potion:'Potion', scroll:'Scroll', food:'Food', throwable:'Throwable',
   ring:'Ring', amulet:'Amulet', charm:'Charm / Misc',
+  commonMisc:'Common Misc', rareMisc:'Rare Misc', wondrousMisc:'Wondrous Misc',
   arm:'Arm', hand:'Hand', leg:'Leg', foot:'Foot', eye:'Eye', ear:'Ear',
   finger:'Finger', heart:'Heart', tongue:'Tongue',
   pet:'Pet', mount:'Mount',
@@ -3559,7 +3686,7 @@ const SUBCATEGORY_SLOT_SIZE = {
   head:1, facewear:1, chest:2, cloak:1, belt:1, boots:1, leggings:1, handwear:1, offhand:2,
   onehanded:1, twohanded:2,
   potion:1, scroll:1, food:1, throwable:1,
-  ring:1, amulet:1, charm:1,
+  ring:1, amulet:1, charm:1, commonMisc:1, rareMisc:1, wondrousMisc:1,
   pet:1, mount:1,
   arm:2, hand:1, leg:2, foot:1, eye:1, ear:1, finger:1, heart:1, tongue:1,
   // Raw crafting materials (see MONSTER_PART_TYPES) — small enough to always be 1 slot.
@@ -3576,7 +3703,7 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
   boots:'boots', leggings:'leggings', handwear:'handwear', offhand:'offhand',
   onehanded:'weapon', twohanded:'weapon',
   potion:'charm', scroll:'charm', food:'charm', throwable:'charm',
-  ring:'ring', amulet:'amulet', charm:'charm',
+  ring:'ring', amulet:'amulet', charm:'charm', commonMisc:'charm', rareMisc:'charm', wondrousMisc:'charm',
   // All grafted-limb subcategories share the single generic 'limb' slot category, so any
   // body part can go in any of the 5 limb slots — the slots don't care what kind of limb.
   arm:'limb', hand:'limb', leg:'limb', foot:'limb', eye:'limb',
@@ -3597,7 +3724,17 @@ const SUBCATEGORY_TO_SLOT_CATEGORY = {
 // Derives a subcategory purely from the item's name and general type — this is the one
 // place that decides "what kind of armor/weapon/consumable/misc item is this", so every
 // generator in the app (lootData, Unique Item Generator, Store, Fleshmancer) agrees.
-function classifySubcategory(name, type) {
+// Buckets any non-ring/amulet misc item into one of three new subcategories by rarity tier
+// (common/uncommon -> Common Misc, rare/superrare -> Rare Misc, legendary/celestial ->
+// Wondrous Misc) instead of the old single flat "Charm / Misc" bucket, which had grown to
+// hold hundreds of unrelated wondrous items at every power level. Unknown/missing rarity
+// falls back to Common Misc rather than guessing.
+function miscTierSubcategory(rarity) {
+  if (rarity === 'rare' || rarity === 'superrare') return 'rareMisc';
+  if (rarity === 'legendary' || rarity === 'celestial') return 'wondrousMisc';
+  return 'commonMisc';
+}
+function classifySubcategory(name, type, rarity) {
   const n = (name || '').toLowerCase();
   if (type === 'armor') {
     if (/shield/.test(n)) return 'offhand';
@@ -3626,7 +3763,7 @@ function classifySubcategory(name, type) {
     // misrouting every torch into Accessory > Neck > Amulet. Also added talisman/
     // locket/brooch/medallion as common jewelry synonyms that were missing entirely.
     if (/amulet|necklace|pendant|periapt|\btorc\b|gorget|holy symbol|talisman|locket|brooch|medallion/.test(n)) return 'amulet';
-    return 'charm';
+    return miscTierSubcategory(rarity);
   }
   if (type === 'limb') {
     if (/\barm\b/.test(n)) return 'arm';
@@ -3689,7 +3826,7 @@ const WEIGHT_RANGE_BY_SUBCATEGORY = {
   boots:[1,4], leggings:[2,8], handwear:[0.5,2], offhand:[4,12],
   onehanded:[1,8], twohanded:[6,20],
   potion:[0.5,1.5], scroll:[0.02,0.1], food:[0.3,3], throwable:[0.5,2],
-  ring:[0.05,0.3], amulet:[0.2,1], charm:[0.1,2],
+  ring:[0.05,0.3], amulet:[0.2,1], charm:[0.1,2], commonMisc:[0.1,2], rareMisc:[0.1,2.5], wondrousMisc:[0.1,3],
   pet:[0,0], mount:[0,0],
   arm:[4,15], hand:[1,4], leg:[5,18], foot:[1,4],
   eye:[0.1,1], ear:[0.1,1], finger:[0.1,0.5], heart:[0.3,1.5], tongue:[0.2,1],
@@ -3702,7 +3839,7 @@ const HEAVY_WEAPON_KEYWORDS = /massive|giant'?s|titan|colossal|great.?axe|great.
 const HEAVY_WEAPON_RANGE = [15, 50];
 function computeItemWeight(item) {
   if (!item || item.type === 'companion') return 0;
-  const sub = item.subcategory || classifySubcategory(item.name, item.type);
+  const sub = item.subcategory || classifySubcategory(item.name, item.type, item.rarity);
   let range = WEIGHT_RANGE_BY_SUBCATEGORY[sub];
   if (!range) return 0;
   // classifySubcategory only reads the item's name, so plenty of flavor-named "obviously
@@ -3931,7 +4068,7 @@ function closePowerPicker() {
 // Body-slot label used for the Armor tree's material branches (2.1–2.3), independent of the
 // "which doll slot does this equip to" mapping SUBCATEGORY_TO_SLOT_CATEGORY already handles.
 const ARMOR_BODY_SLOT_LABEL = { head:'Head', chest:'Chest', handwear:'Hands', leggings:'Legs', boots:'Feet', facewear:'Head' };
-function classifyItemHierarchy(item) {
+function classifyItemHierarchy(item, rarity) {
   const n = (item.name || '').toLowerCase();
   const text = n + ' ' + ((item.desc || '') + ' ' + (item.effect || '')).toLowerCase();
   const type = item.type;
@@ -4277,18 +4414,36 @@ function classifyItemHierarchy(item) {
   if (/strange|humming|unidentif|inexplicable/.test(text)) return ['Miscellaneous','Unknown','Strange Object'];
 
   // ---- Wondrous Item — the real D&D "Wondrous Item" classification: genuinely one-of-a-
-  // kind magic items (Bag of Holding, Efreeti Bottle, Ioun Stones, Eye of Vecna, Decanter
+  // kind MAGIC items (Bag of Holding, Efreeti Bottle, Ioun Stones, Eye of Vecna, Decanter
   // of Endless Water, etc.) that don't fit any body slot, tool discipline, material, or
-  // document/treasure/quest-object category above. These used to all collapse into
-  // "Unidentified Object," which is wrong — that label should mean "we don't know what
-  // this does," and every item here has a known, documented `effect`. Gated on item.effect
-  // so it's only used for items that actually DO something; a true unknown curiosity with
-  // no mechanical effect still falls through to Unidentified Object below.
-  if (item.effect) {
+  // document/treasure/quest-object category above. Gated on actually reading as magical —
+  // an explicit magic keyword in the text, OR any effect at uncommon rarity or above — not
+  // merely "has an effect string," which used to catch completely mundane common gear
+  // (Tinderbox, Bedroll, Sack, Whetstone, Belt Pouch, Iron Pot...) and mislabel it as a
+  // wondrous magic item just because it does something. Mundane gear with a real effect
+  // falls to the Adventuring Gear branch below instead; a true unknown curiosity with no
+  // mechanical effect still falls through to Unidentified Object at the very end.
+  const wcText = n + ' ' + ((item.desc || '') + ' ' + (item.effect || '')).toLowerCase();
+  const wcMagicKeyword = /magical|magic\b|enchant|arcane|spell\b|rune|glowing|shimmer|ench\.|attunement|curse|blessed|\bholy\b(?!\s*days?)|\bdivine\b(?!\s*service)|conjure|summon/.test(wcText);
+  const wcRarity = rarity || item.rarity;
+  const wcIsMagical = wcMagicKeyword || (wcRarity && wcRarity !== 'common' && item.effect);
+  if (item.effect && wcIsMagical) {
     if (/\bbag\b|\bhole\b|\bbottle\b|\bflask\b|\bvessel\b|\bwell\b|\bapparatus\b/.test(n)) return ['Miscellaneous','Wondrous Item','Storage / Container'];
     if (/\bchime\b|\bdecanter\b|\bdriftglobe\b|\bram\b|\bfan\b|\bpipes?\b|\bhorn\b|\bcandle\b/.test(n)) return ['Miscellaneous','Wondrous Item','Environmental / Utility'];
     if (/\beye of\b|\bhand of\b|\bsphere\b|\bcube\b|\bscarab\b|\bgem\b|\bcrystal ball\b|\bioun stone\b|\bshard\b|\borb\b/.test(n)) return ['Miscellaneous','Wondrous Item','Relic / Artifact'];
     return ['Miscellaneous','Wondrous Item','Unique Wondrous Item'];
+  }
+  // ---- Adventuring Gear — mundane, non-magical misc equipment with a real (but ordinary)
+  // effect: the stuff that fills out a common-rarity loot table without being "wondrous."
+  if (item.effect) {
+    if (/\bsack\b|\bpouch\b|\bbackpack\b|\bsatchel\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Container'];
+    if (/tinderbox|\bflint\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Fire-Starting'];
+    if (/bedroll|\bblanket\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Bedding'];
+    if (/whetstone/.test(n)) return ['Miscellaneous','Adventuring Gear','Maintenance'];
+    if (/\bmirror\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Mirror'];
+    if (/parchment|\bpaper\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Writing Material'];
+    if (/\bpot\b|\bpan\b|\bkettle\b/.test(n)) return ['Miscellaneous','Adventuring Gear','Cookware'];
+    return ['Miscellaneous','Adventuring Gear','General Gear'];
   }
   return ['Miscellaneous','Unknown','Unidentified Object'];
 }
@@ -4306,7 +4461,9 @@ function deriveItemProperties(item, rarity) {
   // uncommon+ rarity — NOT just "isn't literally type:misc" (that caught every mundane
   // weapon/armor/document/treasure) and NOT just "has any effect text" (that caught flavor
   // text like a mug's "holds a drink").
-  const magicKeyword = /magical|magic\b|enchant|arcane|spell\b|rune|glowing|shimmer|ench\.|attunement|curse|blessed|holy|divine|conjure|summon/.test(text);
+  // \bholy\b(?!\s*days?) / \bdivine\b(?!\s*service) — "holy days"/"divine service" are
+  // calendar/flavor phrasing (e.g. an almanac's "tide tables, holy days"), not a magic signal.
+  const magicKeyword = /magical|magic\b|enchant|arcane|spell\b|rune|glowing|shimmer|ench\.|attunement|curse|blessed|\bholy\b(?!\s*days?)|\bdivine\b(?!\s*service)|conjure|summon/.test(text);
   const magicByRarity = ['weapon', 'armor', 'consumable'].includes(item.type) && r !== 'common' && item.effect;
   if (magicKeyword || magicByRarity) props.push('Magical');
   if (/curse|cursed/.test(text)) props.push('Cursed');
@@ -4319,7 +4476,7 @@ function deriveItemProperties(item, rarity) {
   if (/lightning|thunder|shock/.test(text)) props.push('Lightning');
   if (/poison|venom|toxic/.test(text)) props.push('Poison');
   if (/necrotic|undead|death\b/.test(text)) props.push('Necrotic');
-  if (/radiant|holy|divine/.test(text)) props.push('Radiant');
+  if (/radiant|\bholy\b(?!\s*days?)|\bdivine\b(?!\s*service)/.test(text)) props.push('Radiant');
   return [...new Set(props)];
 }
 
@@ -4353,10 +4510,107 @@ function deriveItemTags(item, classification, properties) {
 // constructs an item (lootData at load, generated items when saved, monster parts, etc).
 function classifyItemFull(item, rarity) {
   if (item.classification) return item;
-  item.classification = classifyItemHierarchy(item);
+  item.classification = classifyItemHierarchy(item, rarity);
   item.properties = deriveItemProperties(item, rarity);
   item.tags = deriveItemTags(item, item.classification, item.properties);
+  item.interactions = computeItemInteractions(item);
   return item;
+}
+
+// ===================== INTERACTION SYSTEM =====================
+// A centralized "what can this item be used FOR" layer, kept deliberately separate from
+// classification (what an item IS — type/subcategory, above) and from properties/tags (what
+// an item HAS — Magical/Cursed/Fire/etc., above). Every place in the app that needs to know
+// whether an item can be equipped, sold, salvaged, fed to a crafting/monster/ritual system,
+// etc. should call canInteract(item, 'action_id') instead of re-deriving that answer with its
+// own ad-hoc type/name check — this is the one place those rules live, so adding a new
+// crafting system, equipment slot, or recipe type later never requires touching the item
+// database itself.
+//
+// Each action's `default` rule reads only type/subcategory/partType/classification/
+// properties/effect-text — never the item's specific name — so it applies correctly to any
+// of the hand-authored lootData items and to anything generated later (monster parts, store
+// staples, Fleshmancer limbs, future recipes) with zero per-item bookkeeping. A handful of
+// items can still carry an explicit `extraInteractions` / `blockedInteractions` array (see
+// computeItemInteractions below) for the rare case a default rule gets a specific item wrong
+// — that's the escape hatch, not the primary mechanism.
+function itemRequiresAttunement(item) {
+  return /requires attunement/i.test((item && item.effect) || '') || /requires attunement/i.test((item && item.desc) || '');
+}
+// Monster-part crafting affinities, keyed by MONSTER_PART_TYPES' `key` (see buildMonsterPartItem)
+// — this is what lets a Gargoyle's Hide default to {armor_material, trophy} while a Kraken's
+// Claw (themed as a "Tentacle" on aquatic monsters) defaults to {weapon_material} instead,
+// entirely from the part's TYPE rather than which monster it came from.
+const WEAPON_MATERIAL_PARTS = new Set(['fang', 'claw', 'horn', 'tail', 'bone', 'talon']);
+const ARMOR_MATERIAL_PARTS  = new Set(['hide', 'horn', 'wing', 'bone', 'shell', 'pelt']);
+const REAGENT_PARTS         = new Set(['eye', 'fang', 'claw', 'venomsac', 'heart', 'tongue']);
+const RITUAL_PARTS          = new Set(['eye', 'horn', 'venomsac', 'heart', 'bone', 'tongue']);
+const SUMMON_PARTS          = new Set(['heart', 'bone']);
+const FLESHMANCER_PARTS     = new Set(['eye', 'heart', 'tongue', 'venomsac']);
+const TROPHY_PARTS          = new Set(['eye', 'hide', 'horn', 'wing', 'tail', 'heart', 'shell', 'pelt', 'talon']);
+const INTERACTIONS = {
+  // ---- Equipment ----
+  equip:            { cat: 'Equipment',   label: 'Equip',              default: it => ['armor', 'weapon', 'limb', 'companion', 'misc'].includes(it.type) },
+  attune:           { cat: 'Equipment',   label: 'Attune',             default: it => itemRequiresAttunement(it) },
+  // ---- Economy ---- (sell/trade/gift/appraise were removed — they applied to nearly every
+  // item in the game and carried no real information; "can this be sold" isn't a useful
+  // question when the answer is "yes" for 95% of the database. Whether an item is quest-
+  // locked from the economy is now just the absence of the `quest_item` tag below, checked
+  // directly at the one place that needs it (traderSellDrop).)
+  // ---- Crafting ----
+  craft_material:   { cat: 'Crafting',    label: 'Crafting Material',  default: it => it.type === 'craftable' || (it.classification || [])[0] === 'Material' },
+  weapon_material:  { cat: 'Crafting',    label: 'Weapon Material',    default: it => it.type === 'craftable' && WEAPON_MATERIAL_PARTS.has(it.partType) },
+  armor_material:   { cat: 'Crafting',    label: 'Armor Material',     default: it => it.type === 'craftable' && ARMOR_MATERIAL_PARTS.has(it.partType) },
+  reagent:          { cat: 'Crafting',    label: 'Reagent',            default: it => (it.type === 'craftable' && REAGENT_PARTS.has(it.partType)) || (it.classification || []).includes('Alchemical') },
+  component:        { cat: 'Crafting',    label: 'Component',          default: it => (it.classification || [])[0] === 'Material' && (it.classification || []).includes('Mineral') },
+  // ---- Modification ----
+  enchant:          { cat: 'Modification', label: 'Enchant',           default: it => ['weapon', 'armor'].includes(it.type) || (it.type === 'misc' && ['ring', 'amulet'].includes(it.subcategory)) },
+  socket:           { cat: 'Modification', label: 'Socket',            default: it => ['weapon', 'armor'].includes(it.type) },
+  repair:           { cat: 'Modification', label: 'Repair',            default: it => ['weapon', 'armor'].includes(it.type) },
+  // ---- Magic ----
+  spell_focus:      { cat: 'Magic',       label: 'Spell Focus',        default: it => /spellcasting focus|holy symbol|arcane focus|druidic focus/i.test(it.effect || '') },
+  ritual_component: { cat: 'Magic',       label: 'Ritual Component',   default: it => it.type === 'craftable' && RITUAL_PARTS.has(it.partType) },
+  summon_component: { cat: 'Magic',       label: 'Summoning Component', default: it => it.type === 'craftable' && SUMMON_PARTS.has(it.partType) },
+  // ---- Monster ----
+  monster_material: { cat: 'Monster',     label: 'Monster Material',   default: it => it.type === 'craftable' && it.subcategory === 'monsterpart' },
+  fleshmancer_input:{ cat: 'Monster',     label: 'Fleshmancer Input',  default: it => it.type === 'craftable' && FLESHMANCER_PARTS.has(it.partType) },
+  trophy:           { cat: 'Monster',     label: 'Trophy',             default: it => it.type === 'craftable' && TROPHY_PARTS.has(it.partType) },
+  // ---- Processing ----
+  salvage:          { cat: 'Processing',  label: 'Salvage',            default: it => ['weapon', 'armor'].includes(it.type) },
+  harvest:          { cat: 'Processing',  label: 'Harvest',            default: it => it.type !== 'craftable' && (it.classification || [])[0] === 'Material' },
+  // ---- Consumable ----
+  consume:          { cat: 'Consumable',  label: 'Consume',            default: it => it.type === 'consumable' && ['potion', 'food'].includes(it.subcategory) },
+  apply:            { cat: 'Consumable',  label: 'Apply',              default: it => it.type === 'consumable' && /\boil\b|ointment|salve|balm/i.test(it.name || '') },
+  // ---- Combat ----
+  throw:            { cat: 'Combat',      label: 'Throw',              default: it => it.subcategory === 'throwable' },
+  weapon_coating:   { cat: 'Combat',      label: 'Weapon Coating',     default: it => it.type === 'consumable' && /poison/i.test(it.name || '') },
+  // ---- World ----
+  place:            { cat: 'World',       label: 'Place',              default: it => /\btrap\b|\btotem\b|\bward\b|\bbanner\b|\bbeacon\b/i.test(it.name || '') },
+  unlock:           { cat: 'World',       label: 'Unlock',             default: it => it.type === 'questitem' && it.subcategory === 'key' },
+  // ---- Quest ----
+  quest_item:       { cat: 'Quest',       label: 'Quest Item',         default: it => it.type === 'questitem' },
+  turn_in:          { cat: 'Quest',       label: 'Turn-In',            default: it => it.type === 'questitem' },
+};
+// Runs every default rule once and folds in any hand-authored exceptions — `extraInteractions`
+// grants an action the default rule wouldn't infer on its own, `blockedInteractions` removes
+// one the default rule would otherwise grant. Both are optional escape hatches; most items
+// need neither.
+function computeItemInteractions(item) {
+  const set = new Set();
+  for (const action in INTERACTIONS) {
+    if (INTERACTIONS[action].default(item)) set.add(action);
+  }
+  (item.extraInteractions || []).forEach(a => set.add(a));
+  (item.blockedInteractions || []).forEach(a => set.delete(a));
+  return [...set];
+}
+// The single query point every part of the app should use: canInteract(item, 'equip'),
+// canInteract(item, 'weapon_material'), canInteract(item, 'attune'), etc. Computes on demand
+// for items that haven't run through classifyItemFull yet, otherwise reads the cached list.
+function canInteract(item, action) {
+  if (!item || !INTERACTIONS[action]) return false;
+  const list = item.interactions || computeItemInteractions(item);
+  return list.includes(action);
 }
 
 // Rarity-tiered fallback mechanics — same shape/spirit as the wheel/generator's existing
@@ -4375,7 +4629,7 @@ function inferItemMetadata(item, rarity){
     else if(/\bpotion\b|\boil\b|\brations\b|\bherbs\b|\bantitoxin\b|\bdust\b|\bscroll\b|\bfire\b|\btanglefoot\b|\bsmokestick\b/.test(n)) item.type='consumable';
     else item.type='misc';
   }
-  if(!item.subcategory) item.subcategory=classifySubcategory(item.name, item.type);
+  if(!item.subcategory) item.subcategory=classifySubcategory(item.name, item.type, rarity);
   if(!item.slotSize) item.slotSize=SUBCATEGORY_SLOT_SIZE[item.subcategory]||1;
   if(item.type==='consumable' && !item.charges) item.charges=rollConsumableCharges(item.subcategory);
   if(item.weight===undefined || item.weight===null) item.weight=computeItemWeight(item);
@@ -4400,19 +4654,21 @@ function showTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   btn.classList.add('active');
-  if (tab === 'spin') updateInventorySummary();
+  // Random Loot and Treasure Chest are two modes of the same tab now (see setSpinLootMode) —
+  // both get refreshed on entry regardless of which is currently visible, so switching modes
+  // mid-tab never shows stale content.
+  if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); }
   if (tab === 'print') renderPrintTable();
-  if (tab === 'chest') { renderChestSVG(); renderChestResults(); }
   // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
   // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
   // browsable Token Library plus Saved Loadouts.
-  if (tab === 'inventory') { renderInventoryGrid(); renderInventoryTokenGrid(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
+  if (tab === 'inventory') { renderInventoryGrid(); renderRecentlyLootedGrid(); renderInventoryTokenGrid(); renderPlayerSlots(); renderActiveEffects(); renderSavedLoadouts(); }
   // The Item Compendium tab holds three sub-panels (Items/Spells/Monsters, see
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
   if (tab === 'compendium') initCompendiumSub(activeCompendiumSub);
   if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); renderCombatLootSettings(); }
-  if (tab === 'store') { renderStoreTab(); }
+  if (tab === 'store') { renderStoreTab(); renderInventoryGrid(); }
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -4422,6 +4678,7 @@ function initCompendiumSub(sub) {
   else if (sub === 'spells') loadSpellDatabase(false);
   else if (sub === 'monsters') loadMonsterDatabase(false);
   else if (sub === 'effects') renderEffectsCompendium();
+  else if (sub === 'monsterparts') renderMonsterPartsCompendium();
 }
 function showCompendiumSub(sub, btn) {
   activeCompendiumSub = sub;
@@ -4430,6 +4687,17 @@ function showCompendiumSub(sub, btn) {
   document.getElementById('compendium-' + sub).classList.add('active');
   btn.classList.add('active');
   initCompendiumSub(sub);
+}
+// Same visual sub-tab pattern as the Item Compendium (showCompendiumSub) — Combat's sub-tab
+// elements carry the compendium-subtab-btn/compendium-subpanel classes too (for the shared
+// CSS) but are selected here through their OWN combat-subtab-btn/combat-subpanel classes, so
+// this never collides with showCompendiumSub()'s unscoped querySelectorAll('.compendium-*').
+function showCombatSub(sub, btn) {
+  document.querySelectorAll('.combat-subpanel').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.combat-subtab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('combat-' + sub).classList.add('active');
+  btn.classList.add('active');
+  if (sub === 'presets') renderCombatLootSettings();
 }
 
 // Renders the full buff/debuff/condition/named-trait reference pools (GEN.buffsSelf,
@@ -4633,114 +4901,22 @@ function spawnLootPop(text, color) {
   setTimeout(() => el.remove(), 1000);
 }
 
-// ===================== ROLL LOOT: CREATURE-DRIVEN SOURCE =====================
-// "Random" mode (default) is the original flat-slider behavior in resolveRoll() below,
-// completely untouched. "From Creatures" mode instead rolls loot for specific monsters
-// picked from the same registry the Combat tab searches — each one becomes one "enemy,"
-// and its own CR (or a rolled variant tier, via monsterRarityTier() — defined later in the
-// Combat/Monster Looting section, but only ever called here at roll time, well after the
-// whole script has parsed) drives its loot rarity through the exact same per-tier presets
-// (combatLootSettings) the Combat tab's monster-defeat loot already uses. Adjusting a
-// preset from either tab adjusts it for both, since it's the same shared settings object.
+// ===================== ROLL LOOT: MODE TOGGLE =====================
+// Random Loot and Treasure Chest are the two modes of this tab (see the LOOT ROLL TAB HTML).
+// Creature-specific loot generation used to be a third mode here ("From Creatures") but now
+// lives entirely on the Combat tab (add a creature to the roster, right-click it twice) —
+// its loot still runs through the same shared combatLootSettings presets either way.
 let spinLootMode = 'random';
-let spinSelectedMonsters = [];
 function setSpinLootMode(mode) {
   spinLootMode = mode;
   const randomBtn = document.getElementById('spinModeRandomBtn');
-  const creatureBtn = document.getElementById('spinModeCreatureBtn');
-  const picker = document.getElementById('spinCreaturePicker');
+  const chestBtn = document.getElementById('spinModeChestBtn');
+  const randomPanel = document.getElementById('spinRandomPanel');
+  const chestPanel = document.getElementById('spinChestPanel');
   if (randomBtn) randomBtn.classList.toggle('active', mode === 'random');
-  if (creatureBtn) creatureBtn.classList.toggle('active', mode === 'creatures');
-  if (picker) picker.style.display = mode === 'creatures' ? 'block' : 'none';
-  // These three fields are meaningless once loot comes from a creature list — each
-  // creature rolls its own item count from its tier's own preset instead — so grey them
-  // out rather than leaving them looking live but silently ignored.
-  ['minItems', 'maxItems', 'numEnemies'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.disabled = mode === 'creatures';
-  });
-  if (mode === 'creatures') renderSpinSelectedList();
-}
-function renderSpinMonsterPicker() {
-  const wrap = document.getElementById('spinPickerResults');
-  if (!wrap) return;
-  const q = (document.getElementById('spinMonsterSearch')?.value || '').toLowerCase().trim();
-  if (q.length < 2) { wrap.innerHTML = '<div class="spell-loading">Type at least 2 characters to search creatures.</div>'; return; }
-  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) {
-    wrap.innerHTML = '<div class="spell-loading">Monster database still loading…</div>';
-    return;
-  }
-  const rows = monsterDatabase.filter(m => m.name.toLowerCase().includes(q))
-    .sort((a, b) => crSortValue(a.cr) - crSortValue(b.cr) || a.name.localeCompare(b.name))
-    .slice(0, 40);
-  if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match that search.</div>'; return; }
-  wrap.innerHTML = rows.map(m => {
-    const tier = monsterRarityTier(m, null);
-    return `<div class="combat-picker-row">
-      <span class="combat-picker-name">${escapeHtml(m.name)} <span style="color:${rarityColors[tier]}">(${rarityNames[tier]})</span></span>
-      <span class="combat-picker-cr">CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.type)}</span>
-      <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToSpinSelection(${monsterDatabase.indexOf(m)})">+ Add</button>
-    </div>`;
-  }).join('');
-}
-function addMonsterToSpinSelection(idx) {
-  const m = monsterDatabase[idx];
-  if (!m) return;
-  spinSelectedMonsters.push(m);
-  renderSpinSelectedList();
-}
-function removeSpinSelection(i) {
-  spinSelectedMonsters.splice(i, 1);
-  renderSpinSelectedList();
-}
-function renderSpinSelectedList() {
-  const wrap = document.getElementById('spinSelectedList');
-  if (!wrap) return;
-  if (!spinSelectedMonsters.length) {
-    wrap.innerHTML = '<div class="spell-loading">No creatures selected yet — search above and add some.</div>';
-    return;
-  }
-  wrap.innerHTML = spinSelectedMonsters.map((m, i) => {
-    const tier = monsterRarityTier(m, null);
-    return `<div class="spin-selected-row ${tier}">
-      <span>${escapeHtml(m.name)}</span>
-      <span style="color:${rarityColors[tier]}">${rarityNames[tier]} · CR ${escapeHtml(String(m.cr))}</span>
-      <button class="combat-card-remove" onclick="removeSpinSelection(${i})" title="Remove">×</button>
-    </div>`;
-  }).join('');
-}
-// One "enemy" per selected creature — item count, rarity weights, and monster-part odds all
-// come from that creature's own tier preset (combatLootSettings), same math the Combat
-// tab's defeat-loot uses, just keyed off the creature's book CR instead of a rolled variant.
-function resolveCreatureRoll() {
-  spinSelectedMonsters.forEach(monster => {
-    const tier = monsterRarityTier(monster, null);
-    const settings = (typeof combatLootSettings !== 'undefined' && combatLootSettings[tier]) || freshCombatLootSettings(tier);
-    const count = rn(settings.minItems, settings.maxItems);
-    const items = [];
-    const usedNames = new Set();
-    for (let i = 0; i < count; i++) {
-      const r = weightedPickFromObject(settings.weights);
-      const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
-      if (!pool.length) continue;
-      const raw = ri(pool);
-      usedNames.add(raw.name);
-      const item = resolveScrollSpell(raw);
-      const descText = item.desc || '';
-      items.push({ rarity: r, name: item.name, desc: descText, type: item.type, slotSize: item.slotSize, dmg: item.dmg, ac: item.ac, hp: item.hp, effect: item.effect, gp: item.gp, charges: item.charges, requirement: item.requirement });
-    }
-    // Sourced from this exact creature when we already know which one it is.
-    if (Math.random() * 100 < settings.partChance) items.push(generateMonsterPart(monster, tier));
-    spinResults.push({ enemy: spinResults.length + 1, items, sourceCreature: monster.name, sourceTier: tier });
-  });
-  const lastResult = spinResults[spinResults.length - 1];
-  if (lastResult) {
-    const rarityColorMap = {common:'#a0a8b0',uncommon:'#4caf7d',rare:'#5b9cf6',superrare:'#c47cf5',legendary:'#ff9f43',celestial:'#7de7ff'};
-    lastResult.items.slice(0, 3).forEach((it, i) => {
-      setTimeout(() => spawnLootPop(it.name.split(' ')[0], rarityColorMap[it.rarity]), i * 150);
-    });
-  }
-  renderResults();
+  if (chestBtn) chestBtn.classList.toggle('active', mode === 'chest');
+  if (randomPanel) randomPanel.style.display = mode === 'random' ? 'block' : 'none';
+  if (chestPanel) chestPanel.style.display = mode === 'chest' ? 'block' : 'none';
 }
 
 // ===================== MONSTER PARTS IN GENERAL LOOT TABLES =====================
@@ -4763,7 +4939,6 @@ function maybeAddMonsterPart(items, tier) {
 }
 
 function resolveRoll(numEnemies, minItems, maxItems) {
-  if (spinLootMode === 'creatures' && spinSelectedMonsters.length) { resolveCreatureRoll(); return; }
   for(let e=0;e<numEnemies;e++){
     const count=minItems+Math.floor(Math.random()*(maxItems-minItems+1));
     const items=[];
@@ -5025,19 +5200,12 @@ function renderResults() {
   empty.style.display='none';
   const inspectMode = document.getElementById('inspectModeRoll')?.checked || false;
   list.innerHTML=spinResults.map(result=>{
-    // Creature-sourced results (see resolveCreatureRoll) carry the monster's own name and
-    // loot tier — show that instead of the generic "Enemy #N" label so it's clear which
-    // roll came from which creature.
-    const label = result.sourceCreature
-      ? `${escapeHtml(result.sourceCreature)} <span style="color:${rarityColors[result.sourceTier]}">(${rarityNames[result.sourceTier]} tier)</span> — ${result.items.length} item${result.items.length!==1?'s':''}`
-      : `Enemy #${result.enemy} — ${result.items.length} item${result.items.length!==1?'s':''}`;
-    // Mob-generated results (anything with a sourceCreature — i.e. rolled from "From
-    // Creatures" mode) get "Loot" instead of "Save as Token": it moves the item straight
-    // into the inventory grid rather than just making it available in the Token Library.
-    // Plain Random-mode results are untouched.
-    const saveBtnHtml = (ii) => result.sourceCreature
-      ? `<button class="loot-save-btn" onclick="lootSpinItem(${result.enemy-1},${ii},this)">🎒 Loot</button>`
-      : `<button class="loot-save-btn" onclick="saveSpinItem(${result.enemy-1},${ii},this)">💾 Save as Token</button>`;
+    const label = `Enemy #${result.enemy} — ${result.items.length} item${result.items.length!==1?'s':''}`;
+    const saveBtnHtml = (ii) => `<span class="loot-item-actions">
+      <button class="loot-save-btn" onclick="saveSpinItem(${result.enemy-1},${ii},this)">💾 Save</button>
+      <button class="loot-save-btn" onclick="lootSpinItem(${result.enemy-1},${ii},this)">🎒 Loot</button>
+      <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
+    </span>`;
     return `
     <div class="enemy-result">
       <div class="enemy-label">${label}</div>
@@ -5680,7 +5848,11 @@ function renderChestResults() {
           <span class="rarity-label">[${rarityNames[it.rarity]}]</span>
           <div class="loot-item-text">
             ${renderItemWithInspection(it, inspectMode, `chest-${chest.id}-${ii}`)}
-            <button class="loot-save-btn" onclick="saveChestItemToken(${chest.id-1},${ii},this)">💾 Save as Token</button>
+            <span class="loot-item-actions">
+              <button class="loot-save-btn" onclick="saveChestItemToken(${chest.id-1},${ii},this)">💾 Save</button>
+              <button class="loot-save-btn" onclick="lootChestItemToken(${chest.id-1},${ii},this)">🎒 Loot</button>
+              <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
+            </span>
           </div>
         </div>
       `).join('')}
@@ -5787,7 +5959,9 @@ function classificationTagsRowHtml(item) {
     ? `<div class="tt-properties">${item.properties.map(p => `<span class="tt-prop-chip">${escapeHtml(p)}</span>`).join('')}</div>` : '';
   const tagsHtml = (item.tags && item.tags.length)
     ? `<div class="tt-tags">${item.tags.map(t => `<span class="tt-tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : '';
-  return crumb + props + tagsHtml;
+  const interactionsHtml = (item.interactions && item.interactions.length)
+    ? `<div class="tt-interactions">${item.interactions.map(a => `<span class="tt-interaction-chip">#${escapeHtml(a)}</span>`).join('')}</div>` : '';
+  return crumb + props + tagsHtml + interactionsHtml;
 }
 // Items with a `mods` array (e.g. Fleshmancer limbs) render one colorized line per
 // modifier instead of the flattened `effect` string, so the Edit Items tab shows the
@@ -5848,6 +6022,8 @@ function renderItemsList() {
         ${item.unlocks && item.unlocks.length ? renderUnlocks(item, rarity) : ''}
       </div>
       <div class="item-actions">
+        <button class="edit-btn" onclick="saveCompendiumItem('${rarity}', ${i}, this)" title="Save a copy to your Token Library">💾</button>
+        <button class="edit-btn" onclick="lootCompendiumItem('${rarity}', ${i}, this)" title="Loot a copy to Recently Looted">🎒</button>
         <button class="edit-btn" onclick="editItem('${rarity}', ${i})" title="Edit">✎</button>
         <button class="del-btn" onclick="removeItem('${rarity}', ${i})" title="Remove">✕</button>
       </div>
@@ -5870,10 +6046,13 @@ function addItem() {
   if(!name) return;
   const type=document.getElementById('newItemType').value;
   const slotSize=parseInt(document.getElementById('newItemSlot').value);
+  const rarity=document.getElementById('newItemRarity').value;
   // Compute subcategory up front (rather than leaving it to the legacy name-sniffing
   // fallback in inferSlotType) so a Companion — or any type — routes to the right equip
-  // slot immediately, without waiting for a later pass to infer it.
-  const item={name,desc,type,slotSize,subcategory:classifySubcategory(name,type)};
+  // slot immediately, without waiting for a later pass to infer it. Rarity is passed through
+  // so a misc item lands in the correct Common/Rare/Wondrous Misc bucket immediately, instead
+  // of always defaulting to Common Misc.
+  const item={name,desc,type,slotSize,subcategory:classifySubcategory(name,type,rarity)};
   const dmg=document.getElementById('newItemDmg').value.trim();
   const ac=document.getElementById('newItemAc').value.trim();
   const hp=document.getElementById('newItemHp').value.trim();
@@ -5890,7 +6069,6 @@ function addItem() {
   if(charges) item.charges=charges;
   if(gp) item.gp=gp;
   if(effect) item.effect=effect;
-  const rarity=document.getElementById('newItemRarity').value;
   lootData[rarity].push(item);
   document.getElementById('newItemName').value='';
   document.getElementById('newItemDesc').value='';
@@ -5981,6 +6159,29 @@ function readUnlockTiers() {
   return result;
 }
 
+// Save/Loot a Compendium row: unlike every other Save/Loot button in the app (which consumes
+// a one-off rolled result), a catalog entry is a reusable template — clicking these makes a
+// fresh independent copy rather than "claiming" the row itself, so the button briefly
+// confirms and then re-enables instead of permanently disabling like a spent result would.
+function flashCompendiumActionBtn(btn, text) {
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = text;
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 900);
+}
+function saveCompendiumItem(rarity, index, btn) {
+  const item = lootData[rarity]?.[index];
+  if (!item) return;
+  saveLootResultItem({ ...item, rarity }, null);
+  flashCompendiumActionBtn(btn, '✓');
+}
+function lootCompendiumItem(rarity, index, btn) {
+  const item = lootData[rarity]?.[index];
+  if (!item) return;
+  const { placed } = lootItemToRecentlyLooted({ ...item, rarity }, null);
+  flashCompendiumActionBtn(btn, placed ? '✓' : '⚠');
+}
 function editItem(rarity, index) {
   editingItemRarity = rarity;
   editingItemIndex = index;
@@ -6026,7 +6227,7 @@ function saveEditedItem() {
   // Re-derive subcategory from the (possibly just-changed) name/type — e.g. switching an
   // item to Companion needs to pick pet vs. mount, and switching type in general shouldn't
   // leave a stale subcategory pointing at the wrong equip slot.
-  item.subcategory = classifySubcategory(item.name, type);
+  item.subcategory = classifySubcategory(item.name, type, editingItemRarity);
   item.slotSize = parseInt(document.getElementById('editItemSlot').value) || 1;
   ['dmg','ac','hp','charges'].forEach(k => delete item[k]);
   const gp      = document.getElementById('editItemGp').value.trim();
@@ -6849,7 +7050,7 @@ function buildItemName(baseName, rarity, stats = {}, mods = []) {
 // matter which tab produced it. Subcategory (and therefore slotSize) comes from the base
 // item's name, never randomized.
 function rollItemStats(cat, rarity, baseName) {
-  const subcategory = classifySubcategory(baseName, cat);
+  const subcategory = classifySubcategory(baseName, cat, rarity);
   const slotSize = SUBCATEGORY_SLOT_SIZE[subcategory] || 1;
   const s = GEN.scale[rarity];
   let dmg = '', ac = '', hp = '', requirement = '', charges = '';
@@ -7479,41 +7680,144 @@ function saveLootResultItem(item, btn) {
 function saveSpinItem(enemyIdx, itemIdx, btn) {
   saveLootResultItem(spinResults[enemyIdx]?.items[itemIdx], btn);
 }
+function lootSpinItem(enemyIdx, itemIdx, btn) {
+  lootItemToRecentlyLooted(spinResults[enemyIdx]?.items[itemIdx], btn);
+}
 function saveChestItemToken(chestIdx, itemIdx, btn) {
   saveLootResultItem(chestResults[chestIdx]?.items[itemIdx], btn);
 }
-// "Loot" — for mob-generated drops (Combat tab defeats, the Roll Loot "From Creatures"
-// mode) specifically: rather than just making the item available in the Token Library like
-// saveLootResultItem() does, this also finds it a spot in the inventory grid and places it
-// there right away — "killing something and looting its stuff" should end with the loot
-// actually in your bag, not just theoretically obtainable. Falls back to save-only (with a
-// clear "Inventory Full" label) if there's genuinely no room for its slot size anywhere.
-function lootItemToInventory(item, btn) {
-  if (!item) return;
+function lootChestItemToken(chestIdx, itemIdx, btn) {
+  lootItemToRecentlyLooted(chestResults[chestIdx]?.items[itemIdx], btn);
+}
+// ===================== RECENTLY LOOTED (36-slot staging grid) =====================
+// Every "Loot" action across the app — chests, wheel spins, killed monsters, the Monster
+// Mangler, the Fleshmancer, the Item Compendium — lands here now instead of going straight
+// into the real inventory grid. It's a flat fill-order array (not a row/col placement table
+// like the main grid — see INV_ROWS/inventoryPlacements) since every card is exactly one slot;
+// there's no footprint math to do. Getting an item back out is an explicit action (➡ move to
+// inventory, 🗑 discard) rather than drag-and-drop between two independent grids, to avoid
+// the ambiguity of two separate placement systems fighting over the same dragged token.
+const RL_SLOTS = 36;
+let recentlyLooted = [];
+function flashRecentlyLootedMessage(msg, isError) {
+  const el = document.getElementById('recentlyLootedMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._rlMsgTimer);
+  window._rlMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+// Returns { item: saved, placed: boolean } so callers that don't pass a button (Fleshmancer's
+// saveFleshItem, for one) can still tell the player whether it actually landed in Recently
+// Looted or the holding pen itself is full (36 slots — clear some out via the main grid or
+// discard a few before looting more).
+function lootItemToRecentlyLooted(item, btn) {
+  if (!item) return { item: null, placed: false };
   const saved = { ...item, id: Date.now() + Math.random() };
   inferItemMetadata(saved);
   savedGeneratedItems.unshift(saved);
   if (typeof renderSavedItems === 'function') renderSavedItems();
   buildTokenIndex();
   const key = 'gen:' + saved.id;
-  const w = Math.min(3, Math.max(1, saved.slotSize || 1));
-  const spot = findFirstOpenInventorySpot(w);
-  if (spot && placeNewInventoryItem(key, spot.row, spot.col)) {
-    renderInventoryGrid();
+  const placed = recentlyLooted.length < RL_SLOTS;
+  if (placed) {
+    recentlyLooted.push(key);
+    renderRecentlyLootedGrid();
     if (btn) { btn.textContent = '✓ Looted'; btn.disabled = true; btn.classList.add('saved'); }
   } else if (btn) {
-    btn.textContent = '⚠ Inventory Full';
+    btn.textContent = '⚠ Recently Looted Full';
     btn.disabled = true;
     btn.classList.add('saved');
   }
+  return { item: saved, placed };
 }
-function lootSpinItem(enemyIdx, itemIdx, btn) {
-  lootItemToInventory(spinResults[enemyIdx]?.items[itemIdx], btn);
+function renderRecentlyLootedGrid() {
+  const el = document.getElementById('recentlyLootedGrid');
+  if (!el) return;
+  const cols = 6, rows = RL_SLOTS / 6;
+  let html = '';
+  for (let row = 0; row < rows; row++) {
+    html += `<div class="inv-row">`;
+    for (let col = 0; col < cols; col++) {
+      const idx = row * cols + col;
+      const key = recentlyLooted[idx];
+      const entry = key ? TOKEN_INDEX[key] : null;
+      if (entry) {
+        const safeKey = key.replace(/'/g, "\\'");
+        html += `<div class="rl-item ${entry.rarity}" draggable="true"
+          ondragstart="tokenDragStart(event,'${safeKey}')"
+          onmouseenter="showTokenTooltip(event,'${safeKey}')"
+          onmousemove="moveTokenTooltip(event)"
+          onmouseleave="hideTokenTooltip()">
+          ${itemPixelIcon(entry.item, 20, entry.rarity)}<span class="rl-item-name">${escapeHtml(entry.item.name)}</span>
+          <div class="rl-item-actions">
+            <button class="rl-mini-btn" title="Move to Inventory" onclick="event.stopPropagation();moveRecentlyLootedToInventory(${idx})">➡</button>
+            <button class="rl-mini-btn" title="Discard" onclick="event.stopPropagation();discardRecentlyLooted(${idx})">🗑</button>
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="rl-cell"></div>`;
+      }
+    }
+    html += `</div>`;
+  }
+  el.innerHTML = html;
+  const countEl = document.getElementById('rlSlotsUsed');
+  if (countEl) countEl.textContent = recentlyLooted.length;
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function moveRecentlyLootedToInventory(idx) {
+  const key = recentlyLooted[idx];
+  if (!key) return;
+  buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) { recentlyLooted.splice(idx, 1); renderRecentlyLootedGrid(); return; }
+  const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
+  const spot = findFirstOpenInventorySpot(w);
+  if (spot && placeNewInventoryItem(key, spot.row, spot.col)) {
+    recentlyLooted.splice(idx, 1);
+    renderInventoryGrid();
+    renderRecentlyLootedGrid();
+  } else {
+    flashRecentlyLootedMessage('No room in your inventory for that — free up some space first.', true);
+  }
+}
+function discardRecentlyLooted(idx) {
+  const key = recentlyLooted[idx];
+  if (!key) return;
+  const entry = TOKEN_INDEX[key];
+  const name = entry ? entry.item.name : 'Item';
+  recentlyLooted.splice(idx, 1);
+  if (key.indexOf('gen:') === 0) removeTokenEverywhere(key);
+  renderRecentlyLootedGrid();
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+  flashRecentlyLootedMessage(`${name} discarded.`);
+}
+function clearRecentlyLooted() {
+  [...recentlyLooted].forEach(key => { if (key && key.indexOf('gen:') === 0) removeTokenEverywhere(key); });
+  recentlyLooted = [];
+  renderRecentlyLootedGrid();
+  if (typeof renderSavedItems === 'function') renderSavedItems();
 }
 function lootCombatItem(uid, idx, btn) {
   const entry = battleRoster.find(e => e.uid === uid);
   if (!entry || !entry.loot || !entry.loot.items[idx]) return;
-  lootItemToInventory(entry.loot.items[idx], btn);
+  lootItemToRecentlyLooted(entry.loot.items[idx], btn);
+}
+function saveCombatItem(uid, idx, btn) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
+  saveLootResultItem(entry.loot.items[idx], btn);
+}
+// Marks a result-card action row as discarded — used by chest/wheel-spin/combat loot rows
+// (ephemeral display objects that were never saved anywhere), so clicking Discard there is
+// just a UI acknowledgment rather than needing to clean up any backing data.
+function markResultDiscarded(btn) {
+  if (!btn) return;
+  btn.textContent = '🗑 Discarded';
+  btn.disabled = true;
+  btn.classList.add('saved');
 }
 
 function saveGenItem() {
@@ -7526,6 +7830,7 @@ function saveGenItem() {
 }
 
 function renderSavedItems() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const el = document.getElementById('savedItemsList');
   if (!savedGeneratedItems.length) {
     el.innerHTML = '<span style="color:var(--text-dim);font-size:0.88rem;font-style:italic;">No saved items yet.</span>';
@@ -7535,7 +7840,7 @@ function renderSavedItems() {
     <div class="saved-item-row" onclick="loadSavedItem(${item.id})">
       <div class="saved-item-dot" style="background:var(--${item.rarity})"></div>
       <span class="saved-item-name">${item.name}</span>
-      <span class="saved-item-rarity">${GEN.scale[item.rarity].label}</span>
+      <span class="saved-item-rarity">${(GEN.scale[item.rarity] || {}).label || rarityNames[item.rarity] || item.rarity || ''}</span>
       <button class="saved-del" onclick="event.stopPropagation();deleteSavedItem(${item.id})" title="Remove">✕</button>
     </div>
   `).join('');
@@ -7963,7 +8268,7 @@ function fleshRollOutcome(rarity) {
 // graft's outcome quality can shift a modifier's duration up or down the ladder instead
 // of just leaving it untouched. "permanently" sits at the very top, reachable only via
 // a transcendent graft pushing an already-celestial duration off the end.
-const DURATION_LADDER = ['1 minute','5 minutes','10 minutes','30 minutes','1 hour','8 hours','24 hours','3 days','7 days','30 days','1 year','permanently'];
+const DURATION_LADDER = ['1 minute','5 minutes','10 minutes','30 minutes','1 hour','2 hours','8 hours','24 hours','3 days','7 days','30 days','1 year','permanently'];
 function shiftDuration(dur, shift) {
   const idx = DURATION_LADDER.indexOf(dur);
   if (idx === -1 || shift === 0) return dur;
@@ -8104,7 +8409,9 @@ function attemptFleshAttach() {
         <div class="ic-modifiers">${modsHtml}</div>
       </div>
       <div class="item-card-actions" id="fleshSaveActions">
-        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save Item</button>
+        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>
+        <button class="ic-action-btn" onclick="lootFleshItem()">🎒 Loot</button>
+        <button class="ic-action-btn" onclick="discardFleshItem()">🗑 Discard</button>
       </div>
     </div>
   `;
@@ -8112,13 +8419,35 @@ function attemptFleshAttach() {
   fleshSelectedIndex = null;
 }
 
+// Grafted limbs are a player-specific roll, not shared reference data, so all three of the
+// standard generated-item actions apply here exactly like they do for chest/wheel-spin/
+// combat loot: Save (Token Library only), Loot (Recently Looted — see lootItemToRecentlyLooted),
+// or Discard (nothing kept, the graft attempt's gold cost was already spent and stays spent).
 function saveFleshItem() {
   if (!_pendingFleshItem) return;
-  lootData[_pendingFleshItem.rarity].unshift(_pendingFleshItem);
+  const item = _pendingFleshItem;
   const actionsEl = document.getElementById('fleshSaveActions');
+  saveLootResultItem(item, null);
+  if (actionsEl) actionsEl.innerHTML = `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ ${escapeHtml(item.name)} saved to your Token Library.</span>`;
+  _pendingFleshItem = null;
+}
+function lootFleshItem() {
+  if (!_pendingFleshItem) return;
+  const item = _pendingFleshItem;
+  const actionsEl = document.getElementById('fleshSaveActions');
+  const { placed } = lootItemToRecentlyLooted(item, null);
   if (actionsEl) {
-    actionsEl.innerHTML = `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ Saved — find and edit it on the Edit Items tab, or equip it as a token from the Inventory tab.</span>`;
+    actionsEl.innerHTML = placed
+      ? `<span style="color:var(--uncommon);font-size:0.85rem;align-self:center;">✓ ${escapeHtml(item.name)} sent to Recently Looted.</span>`
+      : `<span style="color:var(--gold);font-size:0.85rem;align-self:center;">✓ ${escapeHtml(item.name)} saved — Recently Looted is full, so it's waiting in the Token Library instead.</span>`;
   }
+  _pendingFleshItem = null;
+}
+function discardFleshItem() {
+  if (!_pendingFleshItem) return;
+  const name = _pendingFleshItem.name;
+  const actionsEl = document.getElementById('fleshSaveActions');
+  if (actionsEl) actionsEl.innerHTML = `<span style="color:var(--text-dim);font-size:0.85rem;align-self:center;">🗑 ${escapeHtml(name)} discarded.</span>`;
   _pendingFleshItem = null;
 }
 
@@ -8513,15 +8842,55 @@ const MERCHANTS = {
   },
 };
 
+// Which item categories each merchant deals in — the single source of truth for both what
+// a merchant's daily wares can roll as (generateStoreItem, below) and what they'll accept
+// when you try to sell to them (merchantWillBuy). `null` means unrestricted — only the
+// General Trader ("a little bit of everything") gets that; every specialist is genuinely
+// limited to their own trade, matching their standing-stock staples (see MERCHANTS above).
+const MERCHANT_ITEM_CATS = {
+  blacksmith: ['armor', 'weapon'],
+  alchemist: ['consumable'],
+  mage: ['misc', 'consumable'],
+  animaltamer: ['companion'],
+  trader: null,
+};
+// A couple of merchants share a top-level category but split on WHICH kind — the Alchemist
+// deals in potions/food/throwables (plants and potion supplies), the Arcanist in scrolls
+// (the "consumable" side of magic items) — so consumable alone isn't a fine enough filter.
+function merchantAllowsSubcategory(merchantKey, cat, sub) {
+  if (cat !== 'consumable') return true;
+  if (merchantKey === 'alchemist') return sub !== 'scroll';
+  if (merchantKey === 'mage') return sub === 'scroll';
+  return true;
+}
+// Whether a given merchant will buy a given item off the player — used by merchantSellDrop.
+// The General Trader buys anything (quest items are already blocked separately, everywhere);
+// every other merchant only takes what they'd actually stock themselves.
+function merchantWillBuy(merchantKey, item) {
+  if (merchantKey === 'trader') return true;
+  const cats = MERCHANT_ITEM_CATS[merchantKey];
+  if (!cats) return true;
+  const cat = item.type || item.cat;
+  if (!cats.includes(cat)) return false;
+  return merchantAllowsSubcategory(merchantKey, cat, item.subcategory);
+}
 // Rolls one fully random magic item for sale — reuses the exact same base-name pools,
 // tag/synergy system, and modifier generation as the Unique Item Generator, so shop
 // wares feel consistent with everything else the app produces. Rarity is rolled with
 // the same weighted Rarity Chances sliders used everywhere else (so any rarity, including
-// celestial, can turn up), and priced via the steeper commerce scale.
+// celestial, can turn up), and priced via the steeper commerce scale. The category pool
+// (and, for consumables, the specific subcategory) is restricted to whatever this merchant
+// actually deals in — see MERCHANT_ITEM_CATS — so a Blacksmith's daily wares are always
+// armor/weapons, never a random potion.
 function generateStoreItem(merchantKey) {
   const rarity = pickRarity();
-  const cat = ri(['armor','weapon','consumable','misc']);
-  const baseName = ri(GEN[cat]);
+  const allowedCats = MERCHANT_ITEM_CATS[merchantKey] || ['armor','weapon','consumable','misc'];
+  let cat, baseName, catAttempts = 0;
+  do {
+    cat = ri(allowedCats);
+    baseName = ri(GEN[cat]);
+    catAttempts++;
+  } while (!merchantAllowsSubcategory(merchantKey, cat, classifySubcategory(baseName, cat, rarity)) && catAttempts < 20);
   const tags = detectTags(baseName);
   const { pool: weightedPool } = buildWeightedModPool(tags);
 
@@ -8599,7 +8968,7 @@ function rerollStoreDaily() {
 
 function storeStapleCardHtml(staple, merchantKey, idx) {
   const icon = itemPixelIcon(staple, 40, 'common');
-  const subcategory = classifySubcategory(staple.name, staple.type || 'misc');
+  const subcategory = classifySubcategory(staple.name, staple.type || 'misc', 'common');
   const statBits = [];
   if (staple.dmg) statBits.push(`⚔ ${staple.dmg}`);
   if (staple.ac) statBits.push(`🛡 AC ${staple.ac}`);
@@ -8697,6 +9066,7 @@ function merchantPortraitSvg(key) {
 }
 
 function renderStoreTab() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const listEl = document.getElementById('storeMerchantList');
   if (listEl) {
     listEl.innerHTML = Object.entries(MERCHANTS).map(([key, m]) => `
@@ -8754,6 +9124,7 @@ function renderStoreTab() {
       const portraitSlot = document.getElementById('manglerPortraitSlot');
       if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('monstermangler');
       renderManglerSlots();
+      renderManglerFinishedWork();
       renderManglerTokenGrid();
     }
     return;
@@ -8778,54 +9149,83 @@ function renderStoreTab() {
     <div class="store-grid">${staplesHtml}</div>
     <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Reroll</button></h4>
     <div class="store-grid">${dailyHtml}</div>
-    ${currentMerchant === 'trader' ? `
     <h4 class="store-section-label">💰 Sell Your Goods</h4>
-    <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a token from your inventory below onto the sell zone to trade it in for its gp value.</p>
+    <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a token from your inventory below onto the sell zone to trade it in for its gp value — ${escapeHtml(m.name)} ${merchantTradeDescription(currentMerchant)}</p>
     <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to sell it</div>
     <div class="token-toolbar" style="margin-top:0.8rem;">
       <input type="text" id="traderSellSearch" class="token-search" placeholder="Search your items…" oninput="renderTraderSellTokenGrid()">
       <span class="token-count" id="traderSellCount"></span>
     </div>
     <div class="token-grid" id="traderSellGrid"></div>
-    ` : ''}
     <div class="store-buy-msg" id="storeBuyMsg"></div>
   `;
-  if (currentMerchant === 'trader') renderTraderSellTokenGrid();
+  renderTraderSellTokenGrid();
+}
+// Human-readable summary of what a merchant deals in, for the sell-zone hint text.
+function merchantTradeDescription(merchantKey) {
+  if (merchantKey === 'trader') return 'buys and sells a little of everything.';
+  const labels = {
+    armor: 'armor', weapon: 'weapons',
+    consumable: merchantKey === 'alchemist' ? 'potions and other consumables' : merchantKey === 'mage' ? 'scrolls' : 'consumables',
+    misc: 'rings, wands, staves, and other magic trinkets',
+    companion: 'pets and mounts',
+  };
+  const cats = MERCHANT_ITEM_CATS[merchantKey] || [];
+  return `only buys and sells ${cats.map(c => labels[c] || c).join(' and ')}.`;
 }
 
+// Every purchase (standing stock, daily wares) goes through this — assigns a fresh id, saves
+// it into the Token Library either way, then tries to find it a spot in the REAL inventory
+// grid (same findFirstOpenInventorySpot/placeNewInventoryItem pattern moveRecentlyLootedToInventory
+// uses), falling back to Token-Library-only with a clear message if the grid's genuinely full.
+function placeItemIntoInventory(item) {
+  if (!item) return { item: null, placed: false };
+  const saved = { ...item, id: Date.now() + Math.random() };
+  inferItemMetadata(saved);
+  savedGeneratedItems.unshift(saved);
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+  buildTokenIndex();
+  const key = 'gen:' + saved.id;
+  const w = Math.min(3, Math.max(1, saved.slotSize || 1));
+  const spot = findFirstOpenInventorySpot(w);
+  const placed = !!(spot && placeNewInventoryItem(key, spot.row, spot.col));
+  if (placed) renderInventoryGrid();
+  return { item: saved, placed };
+}
 function buyStapleItem(merchantKey, idx) {
   const staple = MERCHANTS[merchantKey]?.staples?.[idx];
   if (!staple) return;
-  const id = Date.now();
   const type = staple.type || 'misc';
   // Same canonical fields as every other item in the project: subcategory (derived from
   // the name, same as everywhere else) drives slotSize instead of a hardcoded 1.
-  const subcategory = classifySubcategory(staple.name, type);
+  const subcategory = classifySubcategory(staple.name, type, 'common');
   const slotSize = SUBCATEGORY_SLOT_SIZE[subcategory] || 1;
   const item = {
-    id, name: staple.name, rarity: 'common', cat: type, type, subcategory,
+    name: staple.name, rarity: 'common', cat: type, type, subcategory,
     gp: staple.gp, dmg: staple.dmg||'', ac: staple.ac||'', hp: staple.hp||'', requirement:'',
     charges: staple.charges||'',
     slotSize, weight: computeItemWeight({ type, subcategory, name: staple.name }), mods: [],
     desc: staple.desc, flavor: staple.desc + (staple.effect ? '\n\n' + staple.effect : ''),
     tags: [], effect: staple.effect,
   };
-  savedGeneratedItems.unshift(item);
-  renderSavedItems();
-  flashStoreBuyMessage(`${staple.name} purchased for ${staple.gp}.`);
+  const { placed } = placeItemIntoInventory(item);
+  flashStoreBuyMessage(placed
+    ? `${staple.name} purchased for ${staple.gp} and added to your inventory.`
+    : `${staple.name} purchased for ${staple.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
 }
 function buyStoreDailyItem(idx) {
   const src = storeDailyItems[idx];
   if (!src) return;
-  const item = { ...src, id: Date.now() };
-  savedGeneratedItems.unshift(item);
-  renderSavedItems();
-  flashStoreBuyMessage(`${src.name} purchased for ${src.gp}.`);
+  const { placed } = placeItemIntoInventory(src);
+  flashStoreBuyMessage(placed
+    ? `${src.name} purchased for ${src.gp} and added to your inventory.`
+    : `${src.name} purchased for ${src.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
 }
-function flashStoreBuyMessage(msg) {
+function flashStoreBuyMessage(msg, isError) {
   const el = document.getElementById('storeBuyMsg');
   if (!el) return;
-  el.textContent = '✓ ' + msg;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
   el.classList.add('show');
   clearTimeout(window._storeBuyMsgTimer);
   window._storeBuyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
@@ -8838,20 +9238,34 @@ function renderTraderSellTokenGrid() {
   buildTokenIndex();
   const searchEl = document.getElementById('traderSellSearch');
   const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search));
+  // Only shows what this specific merchant will actually buy (see merchantWillBuy) — avoids
+  // the confusing experience of browsing a list full of things you'd just get rejected for
+  // dropping. Quest items are excluded everywhere, same as the drop handler itself enforces.
+  const entries = Object.values(TOKEN_INDEX).filter(e => {
+    if (!(!search || e.item.name.toLowerCase().includes(search))) return false;
+    if (!e.item.interactions) classifyItemFull(e.item, e.rarity);
+    if (canInteract(e.item, 'quest_item')) return false;
+    return merchantWillBuy(currentMerchant, e.item);
+  });
   const grid = document.getElementById('traderSellGrid');
   const countEl = document.getElementById('traderSellCount');
   if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
   if (!grid) return;
   if (!entries.length) {
-    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
+    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">Nothing in your inventory this merchant is interested in.</div>';
     return;
   }
-  grid.innerHTML = entries.map(tokenCardHtml).join('');
+  // Explicit arrow, not a bare `tokenCardHtml` reference — Array.map passes (item, index) to
+  // its callback, and index would otherwise land in tokenCardHtml's showSlotSelect parameter.
+  grid.innerHTML = entries.map(e => tokenCardHtml(e, true)).join('');
 }
 // Accepts a drop from either the sell grid above (a plain token key) or the Inventory
 // tab's placed items (an "invplace:" id) — if it came from a placement, that placement is
 // also removed from the inventory grid, since the item has now actually been sold off.
+// Shared by every generic merchant now (Trader, Blacksmith, Alchemist, Arcanist, Animal
+// Tamer), not just the Trader — which merchant is buying comes from currentMerchant, so the
+// same drop target correctly enforces "the Blacksmith won't buy your potion" for all of them
+// without needing a separate handler per merchant.
 function traderSellDrop(evt) {
   evt.preventDefault();
   const raw = evt.dataTransfer.getData('text/plain') || (_draggedInvPlacement ? 'invplace:' + _draggedInvPlacement : _draggedTokenKey);
@@ -8866,6 +9280,13 @@ function traderSellDrop(evt) {
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
   if (!entry) { flashTraderSellInvalid(); return; }
+  if (!entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
+  if (canInteract(entry.item, 'quest_item')) { flashTraderSellInvalid(); return; }
+  if (!merchantWillBuy(currentMerchant, entry.item)) {
+    flashTraderSellInvalid();
+    flashStoreBuyMessage(`${MERCHANTS[currentMerchant]?.name || 'This merchant'} has no use for ${entry.item.name} — try someone whose trade it matches.`, true);
+    return;
+  }
   const value = Math.round(gpToNumber(entry.item.gp) * 100) / 100;
   if (placementId) removeFromInventory(placementId);
   flashStoreBuyMessage(`Sold ${entry.item.name} for ${formatGpAmount(value)}.`);
@@ -9159,12 +9580,15 @@ function pickWeightedType(pool, exclude = []) {
 // Normalizes legacy wheel entries and gives every result a rarity-scaled value and appropriate basic qualities.
 const BAL = {
   rarityOrder:['common','uncommon','rare','superrare','legendary','celestial'],
-  // Only celestial-rarity effects can ever roll "permanently" — everything below that,
-  // including legendary, is long-lasting but still has a listed end date.
+  // Compressed hard: a common effect (a buff, a transformation, whatever) has no business
+  // outlasting a short errand — "mere minutes." Only legendary and celestial effects ever
+  // reach the 24-hour+ range; celestial is the only rarity that can roll "permanently."
+  // Super rare tops out at 2 hours specifically — noticeably better than rare's 1 hour, but
+  // nowhere near an overnight-or-longer commitment.
   durations:{
-    common:['1 minute','10 minutes','1 hour'], uncommon:['10 minutes','1 hour','8 hours'],
-    rare:['1 hour','8 hours','24 hours'], superrare:['24 hours','3 days','7 days'],
-    legendary:['7 days','30 days','1 year'], celestial:['30 days','1 year','permanently']
+    common:['1 minute','5 minutes','10 minutes'], uncommon:['5 minutes','10 minutes','30 minutes'],
+    rare:['10 minutes','30 minutes','1 hour'], superrare:['30 minutes','1 hour','2 hours'],
+    legendary:['2 hours','8 hours','24 hours'], celestial:['24 hours','7 days','permanently']
   },
   // Rarity-gated subsets of POWER_POOL (see above) — derived, not duplicated, so editing a
   // power's name or tier in POWER_POOL never leaves this out of sync.
@@ -10091,7 +10515,12 @@ function setTokenSlotOverride(key, value) {
   tokenSlotOverrides[key] = value;
 }
 
-function tokenCardHtml(e) {
+// showSlotSelect defaults true (Trader sell grid, Monster Mangler's "Your Items" grid both
+// still want the equip-slot-category override dropdown). The Inventory tab's own Token
+// Library passes false — that dropdown was really an equip-slot override, not an item-type
+// editor, and re-typing an item now happens from the Edit Items popup in the Item Compendium
+// instead (see editItem/#editItemType), so it doesn't need to be reachable from every card too.
+function tokenCardHtml(e, showSlotSelect = true) {
   const item = e.item;
   const slotType = getTokenSlotType(e);
   const effectPreview = getItemEffectText(item);
@@ -10099,6 +10528,10 @@ function tokenCardHtml(e) {
   const options = SLOT_TYPES.map(st =>
     `<option value="${st.id}" ${st.id === slotType ? 'selected' : ''}>${st.label}</option>`
   ).join('');
+  const slotSelectHtml = showSlotSelect ? `
+      <select class="token-slot-select" onclick="event.stopPropagation()" onchange="setTokenSlotOverride('${e.key.replace(/'/g,"\\'")}', this.value)">
+        ${options}
+      </select>` : '';
   return `
     <div class="token-card ${e.rarity}" draggable="true"
          ondragstart="tokenDragStart(event,'${e.key.replace(/'/g,"\\'")}')"
@@ -10106,10 +10539,7 @@ function tokenCardHtml(e) {
          onmousemove="moveTokenTooltip(event)"
          onmouseleave="hideTokenTooltip()">
       <div class="token-card-head">${itemPixelIcon(item, 30, e.rarity)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
-      <div class="token-card-rarity">${rarityNames[e.rarity] || e.rarity}</div>
-      <select class="token-slot-select" onclick="event.stopPropagation()" onchange="setTokenSlotOverride('${e.key.replace(/'/g,"\\'")}', this.value)">
-        ${options}
-      </select>
+      <div class="token-card-rarity">${rarityNames[e.rarity] || e.rarity}</div>${slotSelectHtml}
       <div class="token-card-effect">${escapeHtml(shortPreview)}</div>
     </div>
   `;
@@ -10424,7 +10854,10 @@ function inventoryCellDrop(evt, row, col) {
 // snaps to whichever actual open spot is closest to that estimate and hands off to the
 // normal inventoryCellDrop() so every placement rule (footprint, repositioning, unequip-
 // into-inventory) stays exactly the same as a precise drop.
-function inventoryGridSmartDrop(evt) {
+// gridElId lets this run against either rendered copy of the grid (see INV_GRID_MIRRORS) —
+// the imprecise "somewhere near an open square" snap needs the bounding rect of whichever
+// copy was actually dropped onto, not always the Inventory tab's own #inventoryGrid.
+function inventoryGridSmartDrop(evt, gridElId) {
   const raw = getDragPayload(evt);
   if (!raw) { evt.preventDefault(); return; }
   let key = null, w = 1, ignoreId = null;
@@ -10444,7 +10877,7 @@ function inventoryGridSmartDrop(evt) {
   if (!entry) { evt.preventDefault(); return; }
   if (!ignoreId) w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
 
-  const gridEl = document.getElementById('inventoryGrid');
+  const gridEl = document.getElementById(gridElId || 'inventoryGrid');
   if (!gridEl) { evt.preventDefault(); return; }
   const rect = gridEl.getBoundingClientRect();
   const cellSpan = 47; // 44px cell + 3px gap, matching .inv-cell/.inv-row's CSS
@@ -10518,51 +10951,67 @@ function clearInventory() {
   renderInventoryGrid();
 }
 
-function renderInventoryGrid() {
-  const el = document.getElementById('inventoryGrid');
-  if (el) {
-    let html = '';
-    for (let row = 0; row < INV_ROWS; row++) {
-      html += `<div class="inv-row">`;
-      let col = 0;
-      while (col < INV_COLS) {
-        const placementId = inventoryGrid[row][col];
-        const p = placementId ? inventoryPlacements[placementId] : null;
-        if (p && p.col === col) {
-          const entry = TOKEN_INDEX[p.key];
-          const name = entry ? entry.item.name : '(missing item)';
-          const rarity = entry ? entry.rarity : 'common';
-          const safeKey = p.key.replace(/'/g, "\\'");
-          // 2- and 3-wide items get their pixel art scaled to fill their whole footprint
-          // instead of one small icon sitting next to a name label — there's room for it,
-          // and it reads at a glance which cells belong to the same item. 1-wide items keep
-          // the small-icon-plus-name layout since there isn't room for anything bigger.
-          const wide = p.w > 1;
-          const body = wide
-            ? (entry ? itemPixelIcon(entry.item, null, rarity, true) : '')
-            : `${entry ? itemPixelIcon(entry.item, 22, rarity) : ''}<span class="inv-item-name">${escapeHtml(name)}</span>`;
-          // Deliberately NOT a drop target — only genuinely empty cells (below) accept
-          // drops, so there's never any ambiguity about two different items overlapping.
-          // Repositioning onto a spot that overlaps the item's OWN old footprint still
-          // works because invCanPlaceAt ignores the dragged item's own cells; it just has
-          // to be dropped starting on an empty cell, same as any other move.
-          html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
-            ondragstart="inventoryItemDragStart(event,'${placementId}')"
-            oncontextmenu="inventoryItemContextMenu(event,'${placementId}')"
-            onmouseenter="showTokenTooltip(event,'${safeKey}')"
-            onmousemove="moveTokenTooltip(event)"
-            onmouseleave="hideTokenTooltip()">${body}</div>`;
-          col += p.w;
-        } else {
-          html += `<div class="inv-cell" id="inv-cell-${row}-${col}" ondragover="slotDragOver(event)" ondrop="inventoryCellDrop(event,${row},${col})"></div>`;
-          col++;
-        }
+// Builds the grid markup once; idPrefix keeps element ids unique per rendered copy (two
+// copies of #inv-cell-0-0 in the DOM at once would be invalid and make getElementById
+// ambiguous) — see renderInventoryGrid, which mirrors this into every registered instance.
+function buildInventoryGridHtml(idPrefix) {
+  let html = '';
+  for (let row = 0; row < INV_ROWS; row++) {
+    html += `<div class="inv-row">`;
+    let col = 0;
+    while (col < INV_COLS) {
+      const placementId = inventoryGrid[row][col];
+      const p = placementId ? inventoryPlacements[placementId] : null;
+      if (p && p.col === col) {
+        const entry = TOKEN_INDEX[p.key];
+        const name = entry ? entry.item.name : '(missing item)';
+        const rarity = entry ? entry.rarity : 'common';
+        const safeKey = p.key.replace(/'/g, "\\'");
+        // 2- and 3-wide items get their pixel art scaled to fill their whole footprint
+        // instead of one small icon sitting next to a name label — there's room for it,
+        // and it reads at a glance which cells belong to the same item. 1-wide items keep
+        // the small-icon-plus-name layout since there isn't room for anything bigger.
+        const wide = p.w > 1;
+        const body = wide
+          ? (entry ? itemPixelIcon(entry.item, null, rarity, true) : '')
+          : `${entry ? itemPixelIcon(entry.item, 22, rarity) : ''}<span class="inv-item-name">${escapeHtml(name)}</span>`;
+        // Deliberately NOT a drop target — only genuinely empty cells (below) accept
+        // drops, so there's never any ambiguity about two different items overlapping.
+        // Repositioning onto a spot that overlaps the item's OWN old footprint still
+        // works because invCanPlaceAt ignores the dragged item's own cells; it just has
+        // to be dropped starting on an empty cell, same as any other move.
+        html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="${idPrefix}inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
+          ondragstart="inventoryItemDragStart(event,'${placementId}')"
+          oncontextmenu="inventoryItemContextMenu(event,'${placementId}')"
+          onmouseenter="showTokenTooltip(event,'${safeKey}')"
+          onmousemove="moveTokenTooltip(event)"
+          onmouseleave="hideTokenTooltip()">${body}</div>`;
+        col += p.w;
+      } else {
+        html += `<div class="inv-cell" id="${idPrefix}inv-cell-${row}-${col}" ondragover="slotDragOver(event)" ondrop="inventoryCellDrop(event,${row},${col})"></div>`;
+        col++;
       }
-      html += `</div>`;
     }
-    el.innerHTML = html;
+    html += `</div>`;
   }
+  return html;
+}
+// Every place the real inventory grid is rendered — the Inventory tab's own grid, plus a
+// mirrored copy on the Store tab so a merchant page can be dragged from/into directly without
+// leaving it. Same backing data (inventoryPlacements/inventoryGrid) everywhere, so a change
+// made through one copy is instantly reflected in the other the next time either re-renders —
+// which is every time this function runs, since both copies always re-render together.
+const INV_GRID_MIRRORS = [
+  { id: 'inventoryGrid', prefix: '' },
+  { id: 'storeInventoryGrid', prefix: 'store-' },
+];
+function renderInventoryGrid() {
+  INV_GRID_MIRRORS.forEach(({ id, prefix }) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = buildInventoryGridHtml(prefix);
+  });
   updateInventorySummary();
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 
 function renderInventoryTokenGrid() {
@@ -10578,7 +11027,9 @@ function renderInventoryTokenGrid() {
     grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
     return;
   }
-  grid.innerHTML = entries.map(tokenCardHtml).join('');
+  // false — no equip-slot-category dropdown here; re-typing an item happens from the Edit
+  // Items popup in the Item Compendium instead (see editItem/#editItemType).
+  grid.innerHTML = entries.map(e => tokenCardHtml(e, false)).join('');
 }
 
 // Totals up everything currently placed in the inventory grid and mirrors the result both
@@ -10645,6 +11096,7 @@ function saveLoadout() {
 }
 
 function renderSavedLoadouts() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const listEl = document.getElementById('loadoutList');
   if (!listEl) return;
   const searchEl = document.getElementById('loadoutSearch');
@@ -10738,6 +11190,7 @@ function renderPlayerSlots() {
     el.onmousemove = (evt) => moveTokenTooltip(evt);
     el.onmouseleave = () => hideTokenTooltip();
   });
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 
 // Formats milliseconds remaining as a short "2h 14m" / "3m 05s" / "12s" style string for
@@ -10753,6 +11206,7 @@ function formatRemainingTime(ms) {
   return `${s}s`;
 }
 function renderActiveEffects() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const container = document.getElementById('activeEffectsList');
   if (!container) return;
   const filled = Object.entries(playerSlots).filter(([slotId, key]) => key && TOKEN_INDEX[key]);
@@ -10846,6 +11300,9 @@ function buildTooltipHtml(entry) {
   const tagsHtml = (item.tags && item.tags.length)
     ? `<div class="tt-tags">${item.tags.map(t => `<span class="tt-tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>`
     : '';
+  const interactionsHtml = (item.interactions && item.interactions.length)
+    ? `<div class="tt-interactions">${item.interactions.map(a => `<span class="tt-interaction-chip">#${escapeHtml(a)}</span>`).join('')}</div>`
+    : '';
   return `
     <div class="tt-header ${rarity}" style="display:flex;align-items:center;gap:0.5rem;">${itemPixelIcon(item, 24, rarity)}<span>${escapeHtml(item.name)}</span></div>
     <div class="tt-rarity">${rarityNames[rarity] || rarity}${typeLabel ? ' · ' + escapeHtml(typeLabel) : ''} · ${SLOT_TYPES.find(s=>s.id===getTokenSlotType(entry))?.label || ''}</div>
@@ -10856,6 +11313,7 @@ function buildTooltipHtml(entry) {
     <div class="tt-effect">${escapeHtml(effect)}</div>
     ${modsHtml}
     ${tagsHtml}
+    ${interactionsHtml}
     ${unlocksHtml}
   `;
 }
@@ -10886,6 +11344,54 @@ function moveTokenTooltip(evt) {
 function hideTokenTooltip() {
   const tt = document.getElementById('itemTooltip');
   if (tt) tt.style.display = 'none';
+}
+// Same tooltip as the Token Library/Inventory (buildTooltipHtml), but for an item that isn't
+// in TOKEN_INDEX at all — combat loot (entry.loot.items) is generated fresh per kill and never
+// saved into the catalog or savedGeneratedItems unless/until the player clicks Loot, so there's
+// no key to look it up by. Takes the raw item + rarity directly instead.
+function showRawItemTooltip(evt, item, rarity) {
+  if (!item) return;
+  const tt = document.getElementById('itemTooltip');
+  if (!tt) return;
+  tt.innerHTML = buildTooltipHtml({ item, rarity });
+  tt.style.display = 'block';
+  moveTokenTooltip(evt);
+}
+function showCombatLootTooltip(evt, uid, idx) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  const it = entry && entry.loot && entry.loot.items[idx];
+  if (it) showRawItemTooltip(evt, it, it.rarity || (entry.loot && entry.loot.tier));
+}
+
+// A combat log/roster line only ever says something like "uses Children of the Night —
+// effectiveness roll: 5 → Weak", which means nothing without knowing what that action
+// actually does. Every rolled attack/spell/trait's full rules text (action.text, straight
+// from the monster's stat block) gets registered here under a short id, and the action's
+// name in the log is wrapped to show it on hover — same floating tooltip element the item
+// system already uses, just with simpler contents. Capped so an extremely long session
+// doesn't grow this without bound; battleLog itself is already capped to 50 entries, so a
+// couple hundred headroom comfortably covers that plus one live result per roster creature.
+let _battleActionTextMap = {};
+let _battleActionCounter = 0;
+function registerBattleActionText(name, text) {
+  const id = 'ba' + (++_battleActionCounter);
+  _battleActionTextMap[id] = { name, text };
+  const keys = Object.keys(_battleActionTextMap);
+  if (keys.length > 200) delete _battleActionTextMap[keys[0]];
+  return id;
+}
+function battleActionNameHtml(name, text) {
+  const id = registerBattleActionText(name, text || '');
+  return `<strong class="combat-action-name" onmouseenter="showBattleActionTooltip(event,'${id}')" onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">${escapeHtml(name)}</strong>`;
+}
+function showBattleActionTooltip(evt, id) {
+  const info = _battleActionTextMap[id];
+  if (!info) return;
+  const tt = document.getElementById('itemTooltip');
+  if (!tt) return;
+  tt.innerHTML = `<div class="tt-header" style="display:flex;align-items:center;gap:0.5rem;"><span>${escapeHtml(info.name)}</span></div><div class="tt-desc">${escapeHtml(info.text || 'No further description available.')}</div>`;
+  tt.style.display = 'block';
+  moveTokenTooltip(evt);
 }
 
 
@@ -11247,6 +11753,33 @@ function monsterActionsHtml(list, label) {
   if (!list || !list.length) return '';
   return `<div class="ic-mod-group"><div class="ic-mod-label">${escapeHtml(label)}</div>${list.map(a => `<div class="ic-mod-entry"><strong>${escapeHtml(a.name)}.</strong> ${escapeHtml(a.text).replace(/\n/g,'<br>')}</div>`).join('')}</div>`;
 }
+// Every premade monster part (see generatePremadeMonsterParts) is tagged with the exact
+// monster it came from (item.sourceMonster) and lives in lootData at that monster's own
+// natural CR tier (monsterRarityTier(monster, null) — the same tier the generator used) —
+// so "everything this creature can drop" is just that tier's bucket filtered down to this
+// one name. These are real catalog entries already in TOKEN_INDEX ('loot:'+tier+':'+name),
+// so the existing hover tooltip (showTokenTooltip/buildTooltipHtml) works on them unchanged.
+function monsterPossibleDropsHtml(monster) {
+  const tier = monsterRarityTier(monster, null);
+  const parts = (lootData[tier] || []).filter(it =>
+    it.type === 'craftable' && it.subcategory === 'monsterpart' && it.sourceMonster === monster.name);
+  const body = parts.length
+    ? `<div class="monster-drops-grid">${parts.map(it => {
+        classifyItemFull(it, tier);
+        const key = ('loot:' + tier + ':' + it.name).replace(/'/g, "\\'");
+        return `<div class="monster-drop-card ${tier}"
+            onmouseenter="showTokenTooltip(event,'${key}')"
+            onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
+            ${itemPixelIcon(it, 34, tier)}
+            <span class="monster-drop-name">${escapeHtml(it.name)}</span>
+          </div>`;
+      }).join('')}</div>`
+    : `<div class="monster-drops-empty">This creature doesn't yield any monster parts.</div>`;
+  return `<div class="monster-drops-section">
+    <div class="monster-drops-title">🎁 Possible Drops <span style="color:${rarityColors[tier]}">(${rarityNames[tier]} tier)</span></div>
+    ${body}
+  </div>`;
+}
 function showMonsterDetail(i) {
   const m = monsterDatabase[i]; const el = document.getElementById('monsterDetail'); if (!m || !el) return;
   const fields = [
@@ -11265,7 +11798,8 @@ function showMonsterDetail(i) {
   ].join('');
   el.innerHTML = `<div class="spell-detail-head"><div><div class="spell-detail-name">${escapeHtml(m.name)}</div><div class="spell-detail-sub">${escapeHtml(m.sourceLabel)}</div></div><button class="edit-modal-close" onclick="document.getElementById('monsterDetail').classList.remove('open')">×</button></div>
     <div class="spell-detail-grid">${monsterAbilityBlockHtml(m)}${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div>
-    <div class="ic-modifiers" style="margin-top:1rem;">${actionsHtml}</div>`;
+    <div class="ic-modifiers" style="margin-top:1rem;">${actionsHtml}</div>
+    ${monsterPossibleDropsHtml(m)}`;
   el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -11276,10 +11810,43 @@ let battleRoster = [];
 let battleLog = [];
 let battleUidCounter = 0;
 
+// Picks a handful of creatures spread across the whole CR spectrum (roughly evenly-spaced
+// percentiles through the sorted bestiary, with a little jitter within each band so it isn't
+// the exact same six every time) — shown as one-click "+ Add" chips before the player has
+// typed anything, so an empty search box gives ideas instead of just an empty box.
+function suggestedMonstersForCombat() {
+  if (!monsterDatabase.length) return [];
+  const sorted = [...monsterDatabase].sort((a, b) => crSortValue(a.cr) - crSortValue(b.cr));
+  const percentiles = [0.02, 0.18, 0.36, 0.55, 0.75, 0.95];
+  const used = new Set();
+  const picks = [];
+  percentiles.forEach(p => {
+    const center = Math.floor(p * (sorted.length - 1));
+    const radius = Math.max(1, Math.floor(sorted.length * 0.03));
+    const lo = Math.max(0, center - radius), hi = Math.min(sorted.length - 1, center + radius);
+    let idx = center;
+    for (let tries = 0; tries < 8; tries++) {
+      const cand = rn(lo, hi);
+      if (!used.has(cand)) { idx = cand; break; }
+    }
+    used.add(idx);
+    picks.push(sorted[idx]);
+  });
+  return picks;
+}
+function suggestedMonstersHtml() {
+  const picks = suggestedMonstersForCombat();
+  if (!picks.length) return '';
+  const chips = picks.map(m => `<button class="combat-suggested-chip" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)})" title="${escapeHtml(m.type)}">${escapeHtml(m.name)} <span class="combat-suggested-cr">CR ${escapeHtml(String(m.cr))}</span></button>`).join('');
+  return `<div class="combat-suggested-label">✨ Need an idea? Try one of these:</div><div class="combat-suggested-chips">${chips}</div>`;
+}
 function renderCombatPicker() {
   const wrap = document.getElementById('combatPickerResults'); if (!wrap) return;
   const q = (document.getElementById('battleMonsterSearch')?.value || '').toLowerCase().trim();
-  if (q.length < 2) { wrap.innerHTML = '<div class="spell-loading">Type at least 2 characters to search creatures.</div>'; return; }
+  if (q.length < 2) {
+    wrap.innerHTML = suggestedMonstersHtml() || '<div class="spell-loading">Type at least 2 characters to search creatures.</div>';
+    return;
+  }
   if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) {
     wrap.innerHTML = '<div class="spell-loading">Monster database still loading…</div>';
     return;
@@ -11496,6 +12063,34 @@ function rollChaosGear(chaosChance) {
 // just one — how many is rolled first via rollMonsterTraitCount, then each is picked and
 // built individually, biased by this monster's overall buffed/weakened leaning. Separately,
 // the Chaos slider can also hand it a weapon, armor, or spell it normally wouldn't have.
+// Merges stat lines that share the same stat name (e.g. two different traits each granting
+// "Armor Class", or a variant's own buff landing on the same stat as a trait) into one net
+// line instead of listing each contributing source separately. Condition lines (Frightened,
+// Cannot Be Paralyzed, etc.) aren't numeric, so exact duplicates are deduped by text instead
+// of summed. A stat whose contributions cancel out to exactly zero (a +5 and a -5) is dropped
+// entirely — there's nothing left to show or apply.
+function combineStatLines(lines) {
+  const sums = {};
+  const order = [];
+  const seenConditions = new Set();
+  const combined = [];
+  lines.forEach(line => {
+    if (line.isCondition) {
+      if (!seenConditions.has(line.text)) { seenConditions.add(line.text); combined.push(line); }
+      return;
+    }
+    const amt = parseInt(line.text, 10);
+    if (!Number.isFinite(amt)) { combined.push(line); return; }
+    if (!(line.stat in sums)) { sums[line.stat] = 0; order.push(line.stat); }
+    sums[line.stat] += amt;
+  });
+  order.forEach(stat => {
+    const total = sums[stat];
+    if (total === 0) return;
+    combined.push({ stat, isCondition: false, positive: total > 0, text: `${total > 0 ? '+' : ''}${total} ${stat}` });
+  });
+  return combined;
+}
 function buildBattleEntry(monster) {
   const hpRoll = rollMonsterHP(monster);
   const baseAC = parseInt(monster.ac, 10);
@@ -11537,6 +12132,14 @@ function buildBattleEntry(monster) {
     }
   }
 
+  // The variant and each trait roll their stat lines independently, with no cross-checking
+  // against each other — so two different traits (or a trait and the variant) can easily
+  // both land on, say, "Armor Class" or "Persuasion" and show up as two separate lines
+  // instead of one. combineStatLines folds same-stat lines into a single net line (and drops
+  // one that nets to exactly zero, e.g. a +5 and a -5 on the same stat cancelling out) before
+  // anything gets applied or displayed, so the mechanical effect and the shown trait list
+  // always agree with each other.
+  statLines = combineStatLines(statLines);
   statLines.forEach(line => {
     if (line.isCondition) return;
     const amt = parseInt(line.text, 10);
@@ -11565,7 +12168,7 @@ function buildBattleEntry(monster) {
 
   return {
     uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGearList,
-    hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
+    hp, maxHp: hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
   };
 }
 
@@ -11580,7 +12183,7 @@ function buildFrozenBattleEntry(monster) {
   return {
     uid: ++battleUidCounter, monster, displayName: f.displayName, variant: f.variant,
     traits: f.traits, leaning: f.leaning, chaosGearList: f.chaosGearList || [],
-    hp: f.hp, hpRoll: f.hpRoll, ac: f.ac, atkMod: f.atkMod, dmgMult: f.dmgMult,
+    hp: f.hp, maxHp: f.hp, hpRoll: f.hpRoll, ac: f.ac, atkMod: f.atkMod, dmgMult: f.dmgMult,
     statLines: f.statLines || [], lastResult: null,
   };
 }
@@ -11606,41 +12209,153 @@ function addMonsterToBattle(idx) {
 // modifier pulled from the exact same named-trait pool used for player gear and monster
 // traits — flavor now, and the raw material the (future) Monster Mangler will consume to
 // actually imbue that modifier into a compatible weapon or piece of armor.
+// Monster-material anatomy is organized into broad categories with creature-aware
+// variants. The category key stays stable for the existing Monster Material filters, while
+// the displayed label is chosen from the source creature's actual anatomy.
+function monsterAnatomyText(monster) {
+  return [
+    monster?.name || '', monster?.type || '', monster?.size || '', monster?.speed || '',
+    ...(monster?.traits || []).map(x => `${x?.name || ''} ${x?.text || ''}`),
+    ...(monster?.actions || []).map(x => `${x?.name || ''} ${x?.text || ''}`),
+  ].join(' ').toLowerCase();
+}
+function monsterIsHumanoid(monster) {
+  return /humanoid|human|elf|dwarf|halfling|gnome|orc|goblin|kobold|bugbear|hobgoblin|ogre|giant|troll/.test(monsterAnatomyText(monster));
+}
+function monsterIsConstruct(monster) { return /construct|golem|modron|warforged/.test(monsterAnatomyText(monster)); }
+function monsterIsElemental(monster) { return /elemental|mephit|genie|djinn|efreet|dao|marid/.test(monsterAnatomyText(monster)); }
+function monsterIsUndead(monster) { return /undead|zombie|skeleton|vampire|lich|ghoul|wight|wraith|revenant|mummy/.test(monsterAnatomyText(monster)); }
+function monsterHasFur(monster) { return /fur|furry|hair|wool|mane|pelt|bear|wolf|fox|lion|tiger|ape|cat|dog|rat|badger|boar|deer|elk|goat|ram/.test(monsterAnatomyText(monster)); }
+function monsterHasScales(monster) { return /scale|scaled|dragon|drake|kobold|lizard|serpent|snake|yuan-ti|saur/.test(monsterAnatomyText(monster)); }
+function monsterHasShell(monster) { return /shell|carapace|chitin|exoskeleton|crab|lobster|turtle|tortoise|beetle|insect|spider|scorpion/.test(monsterAnatomyText(monster)); }
+function monsterHasWings(monster) { return /wing|fly|flying|flight|hover|bat|bird|angel|demon|devil|dragon|drake|fairy|pixie|harpy|wyvern/.test(monsterAnatomyText(monster)); }
+function monsterHasTail(monster) { return /tail|stinger|snake|serpent|dragon|devil|demon|lizard|rat|cat|dog|scorpion|whip tail/.test(monsterAnatomyText(monster)); }
+function monsterHasHorns(monster) { return /horn|antler|tusk|ram|minotaur|devil|demon|tiefling|goat/.test(monsterAnatomyText(monster)); }
+function monsterHasVenom(monster) { return /venom|poison|toxic|poisonous|stinger|sting|venomous|spit poison|poison spray/.test(monsterAnatomyText(monster)); }
+function monsterHasBite(monster) { return /fang|bite|bites|teeth|tooth|canine|tusk|swallow|munch/.test(monsterAnatomyText(monster)); }
+function monsterHasClaws(monster) { return /claw|claws|pincer|talon|hooked|grasp|tentacle|raptor|scratch/.test(monsterAnatomyText(monster)); }
+function monsterIsBirdlike(monster) { return /bird|avian|eagle|hawk|owl|raven|crow|roc|harpy|aarakocra|griffon|griffin|hippogriff/.test(monsterAnatomyText(monster)); }
+function monsterIsAquaticTentacled(monster) { return /kraken|octopus|squid|aberration|tentacle|star spawn|flumph|gibbering/.test(monsterAnatomyText(monster)); }
+function monsterIsOrganic(monster) { return !monsterIsConstruct(monster) && !monsterIsElemental(monster); }
+
 const MONSTER_PART_TYPES = [
-  { key:'eye',      label:'Eye' },      { key:'fang',    label:'Fang' },
-  { key:'claw',     label:'Claw' },     { key:'hide',    label:'Hide' },
-  { key:'horn',     label:'Horn' },     { key:'wing',    label:'Wing' },
-  { key:'tail',     label:'Tail' },     { key:'venomsac',label:'Venom Sac' },
-  { key:'heart',    label:'Heart' },    { key:'bone',    label:'Bone' },
-  { key:'talon',    label:'Talon' },    { key:'tongue',  label:'Tongue' },
-  { key:'shell',    label:'Shell' },    { key:'pelt',    label:'Pelt' },
+  { key:'eye', label:'Eye', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/compound eye|many eyes|multiple eyes|eye stalk|stalked eye/.test(t)) return ri(['Compound Eye','Stalked Eye','Multifaceted Eye']);
+      if (/slit pupil|reptile|serpent|snake|dragon/.test(t)) return ri(['Slit-Pupil Eye','Reptilian Eye','Dragon Eye']);
+      if (/spider|arachnid|insect|beetle/.test(t)) return ri(['Faceted Eye','Beadlike Eye','Compound Eye']);
+      if (/undead|vampire|lich|wraith|ghost/.test(t)) return ri(['Unnatural Eye','Dead Eye','Spectral Eye']);
+      return ri(['Eye','Watchful Eye','Clear Eye']);
+    }, when: () => true },
+  { key:'fang', label:'Fang', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/tusk|elephant|mammoth|boar|orc/.test(t)) return ri(['Tusk','Curved Tusk','Heavy Tusk']);
+      if (/vampire|bat|wolf|werewolf|dire wolf/.test(t)) return ri(['Fang','Long Fang','Predator Fang']);
+      if (/snake|serpent|yuan-ti/.test(t)) return ri(['Hollow Fang','Venom Fang','Needle Fang']);
+      return ri(['Fang','Sharp Fang','Jagged Fang']);
+    }, when: monsterHasBite },
+  { key:'claw', label:'Claw', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (monsterIsHumanoid(monster) && !monsterHasClaws(monster)) return ri(['Hand','Calloused Hand','Grasping Hand','Weathered Hand']);
+      if (monsterIsAquaticTentacled(monster)) return ri(['Grasping Tentacle','Suction-Cup Tentacle','Barbed Tentacle']);
+      if (/pincer|crab|lobster|scorpion/.test(t)) return ri(['Pincer','Crushing Pincer','Hooked Pincer']);
+      if (monsterIsBirdlike(monster)) return ri(['Clawed Foot','Hooked Claw','Raking Claw']);
+      if (/hoof|centaur|goat|ram|deer|horse/.test(t)) return ri(['Hoof','Split Hoof','Hard Hoof']);
+      return ri(['Claw','Hooked Claw','Raking Claw','Heavy Claw']);
+    }, when: () => true },
+  { key:'hide', label:'Hide', variants: monster => {
+      if (monsterIsHumanoid(monster)) return ri(['Skin','Scalp','Hide','Calloused Skin']);
+      if (monsterHasScales(monster)) return ri(['Scaled Hide','Scale-Lined Hide','Thick Hide']);
+      if (monsterHasShell(monster)) return ri(['Armored Hide','Chitin-Lined Hide','Tough Hide']);
+      if (monsterIsUndead(monster)) return ri(['Dead Hide','Dried Hide','Necrotic Skin']);
+      return ri(['Hide','Thick Hide','Tough Hide','Weathered Hide']);
+    }, when: monsterIsOrganic },
+  { key:'horn', label:'Horn', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/antler|deer|elk|stag/.test(t)) return ri(['Antler','Forked Antler','Crown Antler']);
+      if (/ram|goat|minotaur/.test(t)) return ri(['Ram Horn','Curved Horn','Spiral Horn']);
+      if (/tusk|elephant|mammoth|boar/.test(t)) return ri(['Tusk','Ivory Tusk','Heavy Tusk']);
+      return ri(['Horn','Curved Horn','Ridge Horn','Crown Horn']);
+    }, when: monsterHasHorns },
+  { key:'wing', label:'Wing', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/bat|vampire|devil|demon|dragon|wyvern/.test(t)) return ri(['Membranous Wing','Batlike Wing','Leathery Wing']);
+      if (monsterIsBirdlike(monster)) return ri(['Feathered Wing','Flight Wing','Broad Wing']);
+      if (/insect|beetle|fly|wasp|bee|dragonfly|pixie|fairy/.test(t)) return ri(['Insect Wing','Veined Wing','Delicate Wing']);
+      return ri(['Wing','Broad Wing','Powerful Wing']);
+    }, when: monsterHasWings },
+  { key:'tail', label:'Tail', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/scorpion|stinger|venom/.test(t)) return ri(['Stinger Tail','Barbed Tail','Venomous Tail']);
+      if (/dragon|wyvern/.test(t)) return ri(['Dragon Tail','Armored Tail','Spiked Tail']);
+      if (/snake|serpent|lizard/.test(t)) return ri(['Scaled Tail','Whiplike Tail','Prehensile Tail']);
+      return ri(['Tail','Whiplike Tail','Prehensile Tail','Tufted Tail']);
+    }, when: monsterHasTail },
+  { key:'venomsac', label:'Venom Sac', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/spider|scorpion|insect/.test(t)) return ri(['Venom Sac','Poison Gland','Venom Bladder']);
+      return ri(['Venom Sac','Poison Gland','Toxic Sac','Venom Gland']);
+    }, when: monsterHasVenom },
+  { key:'heart', label:'Heart', variants: monster => {
+      if (monsterIsConstruct(monster)) return ri(['Arcane Core','Power Core','Construct Core']);
+      if (monsterIsElemental(monster)) return ri(['Elemental Core','Essence Core','Primal Core']);
+      if (monsterIsUndead(monster)) return ri(['Necrotic Heart','Dead Heart','Blackened Heart']);
+      return ri(['Heart','Strong Heart','Vital Heart']);
+    }, when: () => true },
+  { key:'bone', label:'Bone', variants: monster => {
+      if (monsterIsUndead(monster)) return ri(['Bone','Rib Bone','Vertebra','Jawbone']);
+      return ri(['Bone','Rib Bone','Vertebra','Long Bone','Jawbone']);
+    }, when: monster => monsterIsOrganic(monster) || monsterIsUndead(monster) },
+  { key:'talon', label:'Talon', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (monsterIsBirdlike(monster)) return ri(['Talon','Hooked Talon','Raptor Talon','Eagle Talon']);
+      if (/dragon|wyvern/.test(t)) return ri(['Dragon Talon','Hooked Talon','Raking Talon']);
+      return ri(['Talon','Hooked Talon','Raking Talon']);
+    }, when: monster => monsterIsBirdlike(monster) || /talon|raptor|bird|dragon|wyvern|claw foot/.test(monsterAnatomyText(monster)) },
+  { key:'tongue', label:'Tongue', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/snake|serpent|lizard|yuan-ti/.test(t)) return ri(['Forked Tongue','Scaled Tongue','Serpent Tongue']);
+      if (/frog|toad|bullywug/.test(t)) return ri(['Long Tongue','Sticky Tongue','Frog Tongue']);
+      if (/tentacle|kraken|aberration/.test(t)) return ri(['Sensory Tongue','Barbed Tongue','Prehensile Tongue']);
+      return ri(['Tongue','Long Tongue','Rough Tongue']);
+    }, when: monster => monsterIsOrganic(monster) || monsterIsUndead(monster) },
+  { key:'shell', label:'Shell', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/turtle|tortoise/.test(t)) return ri(['Shell','Carapace','Armored Shell']);
+      if (/crab|lobster/.test(t)) return ri(['Carapace','Chitin Plate','Armored Carapace']);
+      return ri(['Shell','Carapace','Chitin Plate','Exoskeletal Plate']);
+    }, when: monsterHasShell },
+  { key:'pelt', label:'Pelt', variants: monster => {
+      const t = monsterAnatomyText(monster);
+      if (/lion|tiger|cat/.test(t)) return ri(['Pelt','Fur','Striped Pelt','Soft Coat']);
+      if (/wolf|dog|fox/.test(t)) return ri(['Pelt','Fur','Thick Coat','Guard Hair']);
+      if (/bear/.test(t)) return ri(['Pelt','Bearskin','Dense Fur','Heavy Coat']);
+      if (/mane/.test(t)) return ri(['Mane','Pelt','Coarse Fur','Thick Mane']);
+      return ri(['Pelt','Fur','Thick Coat','Tuft of Fur']);
+    }, when: monsterHasFur },
 ];
+
 const MONSTER_PART_WEIGHT_RANGE = { common:[0.2,2], uncommon:[0.5,3], rare:[1,5], superrare:[2,8], legendary:[3,12], celestial:[5,20] };
 const MONSTER_PART_GP_RANGE = { common:[5,25], uncommon:[25,100], rare:[100,400], superrare:[400,1500], legendary:[1500,6000], celestial:[6000,20000] };
-const MONSTER_PART_MOD_CHANCE = { common:0.15, uncommon:0.25, rare:0.4, superrare:0.55, legendary:0.75, celestial:0.9 };
 let monsterPartCounter = 0;
-function describeNamedModifier(mod) {
-  const parts = [...(mod.buffs || []).map(b => '+' + b), ...(mod.debuffs || []).map(d => '-' + d)];
-  return `${mod.name} (${parts.join(', ')})`;
-}
 // Builds one specific part-type item for a monster at a given tier — shared by the random
 // per-kill roll (generateMonsterPart, picks one partType at random) and the premade catalog
 // generator (generatePremadeMonsterParts, below, which builds all of them up front).
 function buildMonsterPartItem(monster, tier, partType) {
-  const name = `${monster.name} ${partType.label}`;
+  const label = typeof partType.variants === 'function' ? partType.variants(monster) : partType.label;
+  const name = `${monster.name} ${label}`;
   const [wLo, wHi] = MONSTER_PART_WEIGHT_RANGE[tier] || MONSTER_PART_WEIGHT_RANGE.common;
   const weight = Math.round((wLo + Math.random() * (wHi - wLo)) * 10) / 10;
   const [gLo, gHi] = MONSTER_PART_GP_RANGE[tier] || MONSTER_PART_GP_RANGE.common;
   const gp = formatGpAmount(rn(gLo, gHi));
-  const mod = Math.random() < (MONSTER_PART_MOD_CHANCE[tier] || 0.15) ? ri(GEN.namedModifiers) : null;
-  const effect = mod
-    ? `Latent essence: ${describeNamedModifier(mod)}. Can be worked into a compatible weapon or piece of armor to imbue this effect.`
-    : `Raw crafting material — no effect on its own, but can be worked into a compatible weapon or piece of armor.`;
+  // No effect on its own — what it imbues is decided at combine time by the Monster Mangler,
+  // based on this part's type and rarity (see MONSTER_PART_EFFECT_POOL / applyMonsterPartToItem).
+  const effect = `Raw crafting material — no effect on its own, but the Monster Mangler can work it into a compatible weapon or piece of armor, imbuing an effect themed to what it is (${label.toLowerCase()}) and scaled by its own rarity (${rarityNames[tier] || tier}).`;
   const part = {
     id: 'part' + (++monsterPartCounter), name, type: 'craftable', subcategory: 'monsterpart',
     partType: partType.key, rarity: tier, weight, gp, slotSize: 1,
-    desc: `A ${partType.label.toLowerCase()} harvested from a defeated ${monster.name.toLowerCase()}, still faintly redolent of the creature it came from.`,
-    effect, sourceMonster: monster.name, modifier: mod,
+    desc: `A ${label.toLowerCase()} harvested from a defeated ${monster.name.toLowerCase()}, still faintly redolent of the creature it came from.`,
+    effect, sourceMonster: monster.name,
   };
   // Premade parts (generatePremadeMonsterParts) are pushed straight into lootData without
   // ever passing through inferItemMetadata, so classification has to happen here at
@@ -11649,7 +12364,8 @@ function buildMonsterPartItem(monster, tier, partType) {
   return part;
 }
 function generateMonsterPart(monster, tier) {
-  return buildMonsterPartItem(monster, tier, ri(MONSTER_PART_TYPES));
+  const eligible = MONSTER_PART_TYPES.filter(p => !p.when || p.when(monster));
+  return buildMonsterPartItem(monster, tier, ri(eligible.length ? eligible : MONSTER_PART_TYPES));
 }
 // Pre-generates every part type for every creature in the registry, at that creature's own
 // natural CR tier (not every rarity for every monster — a Kobold's celestial-tier Fang
@@ -11666,6 +12382,7 @@ function generatePremadeMonsterParts() {
   monsterDatabase.forEach(monster => {
     const tier = monsterRarityTier(monster, null);
     MONSTER_PART_TYPES.forEach(partType => {
+      if (partType.when && !partType.when(monster)) return;
       lootData[tier].push(buildMonsterPartItem(monster, tier, partType));
     });
   });
@@ -11703,9 +12420,25 @@ const COMBAT_LOOT_PRESET_DEFAULTS = {
   legendary: { minItems:3, maxItems:5, partChance:70 },
   celestial: { minItems:3, maxItems:6, partChance:85 },
 };
+// Monster-defeat loot draws from a distribution over ALL SIX rarities regardless of the
+// monster's own tier — unlike a treasure chest (CHEST_CASCADE_WEIGHTS, which can never roll
+// above its own rolled rarity), even a common creature has a tiny non-zero shot at legendary
+// or celestial gear (0.001 / 0.0001 respectively). Common is a hard floor at every tier
+// except celestial (where it's explicitly 40%, the one stated exception); uncommon never
+// exceeds 25% (reached only at celestial). Raw weights, not required to sum to 100 — same
+// convention as CHEST_CASCADE_WEIGHTS and the Rarity Chances sliders; weightedPickFromObject()
+// normalizes by share of the total.
+const MONSTER_LOOT_RARITY_WEIGHTS = {
+  common:    { common: 99.5, uncommon: 0.44, rare: 0.05, superrare: 0.008, legendary: 0.001, celestial: 0.0001 },
+  uncommon:  { common: 90,   uncommon: 8,    rare: 1.5,  superrare: 0.4,   legendary: 0.09,  celestial: 0.01 },
+  rare:      { common: 75,   uncommon: 15,   rare: 7,    superrare: 2.5,   legendary: 0.4,   celestial: 0.1 },
+  superrare: { common: 62,   uncommon: 20,   rare: 11,   superrare: 5.5,   legendary: 1.2,   celestial: 0.3 },
+  legendary: { common: 50,   uncommon: 23,   rare: 13,   superrare: 9,     legendary: 4,     celestial: 1 },
+  celestial: { common: 40,   uncommon: 25,   rare: 15,   superrare: 10,    legendary: 7.5,   celestial: 2.5 },
+};
 function freshCombatLootSettings(tier) {
   const d = COMBAT_LOOT_PRESET_DEFAULTS[tier];
-  return { minItems: d.minItems, maxItems: d.maxItems, partChance: d.partChance, weights: { ...(CHEST_CASCADE_WEIGHTS[tier] || {}) } };
+  return { minItems: d.minItems, maxItems: d.maxItems, partChance: d.partChance, weights: { ...(MONSTER_LOOT_RARITY_WEIGHTS[tier] || {}) } };
 }
 let combatLootSettings = {};
 BAL.rarityOrder.forEach(tier => { combatLootSettings[tier] = freshCombatLootSettings(tier); });
@@ -11714,7 +12447,10 @@ function resetCombatLootPreset(tier) {
   renderCombatLootSettings();
 }
 function updateCombatLootWeight(tier, outTier, value) {
-  combatLootSettings[tier].weights[outTier] = parseInt(value, 10) || 0;
+  // parseFloat, not parseInt — the default monster-loot weights (MONSTER_LOOT_RARITY_WEIGHTS)
+  // include fractional values as small as 0.0001, and truncating a manual slider adjustment
+  // to a whole number would make it impossible to dial back in anything that fine.
+  combatLootSettings[tier].weights[outTier] = parseFloat(value) || 0;
   const el = document.getElementById(`cls-${tier}-${outTier}`);
   if (el) el.textContent = value;
 }
@@ -11726,7 +12462,7 @@ function combatLootSettingsHtml() {
     const s = combatLootSettings[tier];
     const weightRows = BAL.rarityOrder.map(outTier => `
       <div class="mw-row"><label style="color:${rarityColors[outTier]}">${rarityNames[outTier]}</label>
-        <input type="range" min="0" max="100" value="${s.weights[outTier] || 0}" oninput="updateCombatLootWeight('${tier}','${outTier}',this.value)">
+        <input type="range" min="0" max="100" step="0.01" value="${s.weights[outTier] || 0}" oninput="updateCombatLootWeight('${tier}','${outTier}',this.value)">
         <span class="mw-val" id="cls-${tier}-${outTier}">${s.weights[outTier] || 0}</span>
       </div>`).join('');
     return `
@@ -11785,7 +12521,11 @@ function rollMonsterCombatLoot(entry) {
   const usedNames = new Set();
   for (let i = 0; i < itemCount; i++) {
     const r = weightedPickFromObject(settings.weights);
-    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
+    // Excludes monster parts from the general pool — lootData[r] holds every creature's
+    // premade parts mixed in with ordinary gear (see generatePremadeMonsterParts), so without
+    // this an Owl kill could just as easily hand back a Water Elemental Tongue. Parts are
+    // sourced from the actual monster below instead, via generateMonsterPart(entry.monster).
+    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name) && !(it.type === 'craftable' && it.subcategory === 'monsterpart'));
     if (!pool.length) continue;
     const raw = ri(pool);
     usedNames.add(raw.name);
@@ -11811,6 +12551,23 @@ function combatCardContextMenu(evt, uid) {
   if (entry.loot) return;
   entry.loot = rollMonsterCombatLoot(entry);
   renderCombatRoster();
+}
+// Dragging the HP slider updates the live number in place (no full re-render, so the drag
+// stays smooth) unless it just crossed to 0 — at that point the creature is automatically
+// marked defeated, same as the first right-click, and the card re-renders to swap its action
+// area over to the "right-click again to loot" state.
+function updateBattleHp(uid, value) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  const hp = Math.max(0, Math.min(entry.maxHp, parseInt(value, 10) || 0));
+  entry.hp = hp;
+  if (hp <= 0 && !entry.defeated) {
+    entry.defeated = true;
+    renderCombatRoster();
+    return;
+  }
+  const numEl = document.getElementById('combatHpNum' + uid);
+  if (numEl) numEl.textContent = hp;
 }
 function removeFromBattle(uid) {
   battleRoster = battleRoster.filter(e => e.uid !== uid);
@@ -11918,13 +12675,13 @@ function resolveBattleAttack(entry) {
     const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
     result = {
       cls, title,
-      detail: `<strong>${escapeHtml(name)}</strong> uses <strong>${escapeHtml(action.name)}</strong> — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
     };
   } else {
     const eff = battleEffectivenessLabel(d20);
     result = {
       cls: eff.cls, title: eff.label,
-      detail: `<strong>${escapeHtml(name)}</strong> uses <strong>${escapeHtml(action.name)}</strong>${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)}${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
     };
   }
 
@@ -11952,6 +12709,7 @@ function rollAllBattleAttacks() {
 }
 
 function renderCombatRoster() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const wrap = document.getElementById('combatRoster'); if (!wrap) return;
   if (!battleRoster.length) {
     wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
@@ -11996,9 +12754,15 @@ function renderCombatRoster() {
           <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[lootTier]}">(${rarityNames[lootTier]} tier)</span></div>
           <div class="combat-loot-gold">💰 ${escapeHtml(entry.loot.gold)}</div>
           ${entry.loot.items.length ? entry.loot.items.map((it, idx) => `
-            <div class="combat-loot-item ${it.rarity}">
+            <div class="combat-loot-item ${it.rarity}"
+              onmouseenter="showCombatLootTooltip(event, ${entry.uid}, ${idx})"
+              onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
               <span>${escapeHtml(it.name)}</span>
-              <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
+              <span class="loot-item-actions">
+                <button class="loot-save-btn" onclick="saveCombatItem(${entry.uid}, ${idx}, this)">💾 Save</button>
+                <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
+                <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
+              </span>
             </div>
           `).join('') : '<div class="combat-loot-item">Nothing but the gold.</div>'}
         </div>
@@ -12013,7 +12777,15 @@ function renderCombatRoster() {
         </div>
         <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
       </div>
-      <div class="combat-card-stats"><span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span><span>HP ${escapeHtml(String(entry.hp))}${hpDiceNote}</span></div>
+      <div class="combat-card-stats">
+        <span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span>
+        <span class="combat-hp-row">
+          HP
+          <input type="range" class="combat-hp-slider" min="0" max="${entry.maxHp}" value="${entry.hp}"
+            oninput="updateBattleHp(${entry.uid}, this.value)" onclick="event.stopPropagation()">
+          <span id="combatHpNum${entry.uid}">${escapeHtml(String(entry.hp))}</span>/${entry.maxHp}${hpDiceNote}
+        </span>
+      </div>
       ${statLinesHtml}
       ${chaosLines}
       ${actionHtml}
@@ -12408,6 +13180,7 @@ function bountyCardHtml(bounty) {
 }
 
 function renderBountyPanel() {
+  if (typeof scheduleSave === 'function') scheduleSave();
   const wrap = document.getElementById('bountyBoard');
   if (!wrap) return;
   if (!monsterDatabase.length) {
@@ -12428,6 +13201,20 @@ function renderBountyPanel() {
 // currently lives (inventory, equipped, or just sitting in the Token Library).
 let manglerPartKey = null;
 let manglerItemKey = null;
+// Which drop slot is "focused" for the "Your Items" grid below — 'part' filters the grid down
+// to monster materials only, 'item' filters it to weapons/armor only, null shows everything.
+// Clicking a slot sets this directly; successfully dropping a token into a slot also advances
+// it to the other slot, so picking a part naturally guides you to filter-then-pick the item next.
+let manglerFocus = 'part';
+// The pending output of the last combine — sits here (not in inventory) until the player
+// explicitly retrieves or discards it. Persists across switching to other merchants and back;
+// only cleared by retrieveManglerFinishedWork/discardManglerFinishedWork.
+let manglerFinishedWork = null;
+function setManglerFocus(target) {
+  manglerFocus = (manglerFocus === target) ? null : target;
+  renderManglerSlots();
+  renderManglerTokenGrid();
+}
 const MANGLER_COST_BY_RARITY = { common:50, uncommon:150, rare:400, superrare:1000, legendary:3000, celestial:8000 };
 // Cost scales off whichever of the two (part or item) is the higher rarity — mangling a
 // common dagger with a celestial dragon claw costs celestial rates, not dagger rates.
@@ -12457,18 +13244,20 @@ function manglerPartDrop(evt) {
   if (!key) return;
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
-  if (!entry || entry.item.subcategory !== 'monsterpart') {
+  if (entry && !entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
+  if (!entry || !canInteract(entry.item, 'monster_material')) {
     flashManglerSlotInvalid('manglerPartSlot');
     flashManglerMessage('That has to be a monster part.', true);
     return;
   }
   manglerPartKey = key;
+  manglerFocus = 'item';
   renderManglerSlots();
+  renderManglerTokenGrid();
 }
-// Compatibility is gated on the item's own #weapon/#armor tags (see deriveItemTags()) rather
-// than a hardcoded type check — a real, if modest, example of the "certain items can only
-// interface with certain tagged mechanics" system: any future item that legitimately earns
-// a #weapon or #armor tag through classification works here automatically, without this
+// Compatibility is gated through canInteract() (see the INTERACTION SYSTEM above) rather
+// than a hardcoded type check — any future item that legitimately earns the #socket or
+// #enchant interaction through the central rule table works here automatically, without this
 // function needing to know about it.
 function manglerItemDrop(evt) {
   evt.preventDefault();
@@ -12477,15 +13266,16 @@ function manglerItemDrop(evt) {
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
   if (!entry) return;
-  if (!entry.item.tags) classifyItemFull(entry.item, entry.rarity);
-  const tags = entry.item.tags || [];
-  if (!tags.includes('weapon') && !tags.includes('armor')) {
+  if (!entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
+  if (!canInteract(entry.item, 'socket') && !canInteract(entry.item, 'enchant')) {
     flashManglerSlotInvalid('manglerItemSlot');
-    flashManglerMessage('Only items tagged #weapon or #armor can be modified.', true);
+    flashManglerMessage('Only weapons or armor can be modified.', true);
     return;
   }
   manglerItemKey = key;
+  manglerFocus = null;
   renderManglerSlots();
+  renderManglerTokenGrid();
 }
 function renderManglerSlots() {
   buildTokenIndex();
@@ -12498,6 +13288,10 @@ function renderManglerSlots() {
   const itemContent = document.getElementById('manglerItemContent');
   const preview = document.getElementById('manglerPreview');
   const btn = document.getElementById('manglerCombineBtn');
+  const partSlotEl = document.getElementById('manglerPartSlot');
+  const itemSlotEl = document.getElementById('manglerItemSlot');
+  if (partSlotEl) partSlotEl.classList.toggle('mangler-slot-focused', manglerFocus === 'part');
+  if (itemSlotEl) itemSlotEl.classList.toggle('mangler-slot-focused', manglerFocus === 'item');
   if (partContent) {
     partContent.innerHTML = partEntry
       ? `${itemPixelIcon(partEntry.item, 26, partEntry.rarity)}<span>${escapeHtml(partEntry.item.name)}</span>`
@@ -12510,8 +13304,12 @@ function renderManglerSlots() {
   }
   if (partEntry && itemEntry) {
     const cost = manglerCombineCost(partEntry.rarity, itemEntry.rarity);
-    const effectPreview = partEntry.item.modifier ? describeNamedModifier(partEntry.item.modifier) : 'no latent effect — purely cosmetic';
-    if (preview) preview.innerHTML = `<div class="mangler-preview-line">Result: <b>${escapeHtml(itemEntry.item.name)}</b> gains <b>${escapeHtml(effectPreview)}</b></div><div class="mangler-preview-cost">💰 Cost: ${cost} gp</div>`;
+    const partLabel = MONSTER_PART_TYPE_LABEL[partEntry.item.partType] || partEntry.item.name;
+    const rarityLabel = rarityNames[partEntry.rarity] || partEntry.rarity;
+    // The actual effect is rolled from a pool at combine time (see applyMonsterPartToItem),
+    // so the preview names the theme and power tier rather than pre-committing to a specific
+    // roll that might not match what combining actually produces.
+    if (preview) preview.innerHTML = `<div class="mangler-preview-line">Result: <b>${escapeHtml(itemEntry.item.name)}</b> will be reforged with a <b>${escapeHtml(partLabel)}</b>-themed effect (${escapeHtml(rarityLabel)} power).</div><div class="mangler-preview-cost">💰 Cost: ${cost} gp</div>`;
     if (btn) { btn.disabled = false; btn.textContent = `🔧 Combine (${cost} gp)`; }
   } else {
     if (preview) preview.innerHTML = '';
@@ -12521,73 +13319,447 @@ function renderManglerSlots() {
 function resetManglerSlots() {
   manglerPartKey = null;
   manglerItemKey = null;
+  manglerFocus = 'part';
 }
-// Bakes a monster part's latent modifier into a weapon/armor item — or just a flavor note
-// if the part had no modifier at all (see generateMonsterPart()'s MONSTER_PART_MOD_CHANCE) —
-// either way the part's origin gets folded into the item's own effect/description text so
-// it's clear where the change came from.
-function applyMonsterPartToItem(item, part) {
+// ===================== MONSTER MANGLER: PART-DRIVEN EFFECTS =====================
+// Every monster part type carries 2-3 thematic effect templates a weapon or armor piece can
+// be reforged with when combined in the Monster Mangler — a Claw always leans toward rending
+// damage or a grappling edge, a Hide toward AC or resistance, etc. Magnitude scales with the
+// PART's own rarity tier (not the base item's): a Common Claw barely nicks the blade harder,
+// a Celestial Claw fundamentally reforges it. This replaces the old "reroll the part's own
+// latent modifier" system, which had no relationship to what kind of part was used.
+const MANGLER_RARITY_MAGNITUDE = { common:1, uncommon:1, rare:2, superrare:2, legendary:3, celestial:4 };
+const MANGLER_BONUS_DIE_BY_MAGNITUDE = { 1:'1d4', 2:'1d6', 3:'1d8', 4:'1d10' };
+const DAMAGE_DIE_LADDER = [4, 6, 8, 10, 12, 20];
+const MONSTER_PART_TYPE_LABEL = {};
+MONSTER_PART_TYPES.forEach(p => { MONSTER_PART_TYPE_LABEL[p.key] = p.label; });
+// Each template: appliesTo says whether it can land on a weapon, armor, or either. One of
+// dmgAdd / dmgDieUp / acAdd / attackBonus / hpAdd / reachAdd / weightMult selects the
+// mechanical change (if any); text()/utilityText() produces the effect line shown to the
+// player. Every part type's list includes at least one purely descriptive utility effect so
+// even a "wrong" body part for the base item still does something interesting.
+const MONSTER_PART_EFFECT_POOL = {
+  eye: [
+    { id:'keeneye', label:'Keen Eye', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls — it sees the opening before you do.` },
+    { id:'watchful', label:'Watchful', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Perception checks (+${m} when contested).` },
+    { id:'nightsight', label:'Night Sight', appliesTo:['weapon','armor'], utilityText:() => `Grants Darkvision 60 ft. (or +60 ft. if you already have it).` },
+  ],
+  fang: [
+    { id:'venombite', label:'Venomous Bite', appliesTo:['weapon'], dmgAdd:true, dmgType:'poison', text:d => `+${d} poison damage on hit.` },
+    { id:'rending', label:'Rending Fang', appliesTo:['weapon'], dmgDieUp:true, text:() => `Reforged around the fang — damage die increased.` },
+    { id:'bloodscent', label:'Blood Scent', appliesTo:['weapon','armor'], utilityText:() => `Advantage on tracking a creature you've drawn blood from in the last hour.` },
+  ],
+  claw: [
+    { id:'rendingclaw', label:'Rending Claw', appliesTo:['weapon'], dmgAdd:true, dmgType:'slashing', text:d => `+${d} slashing damage on hit.` },
+    { id:'grappler', label:"Grappler's Grip", appliesTo:['weapon','armor'], utilityText:m => `Advantage on grapple checks (+${m}).` },
+    { id:'quickstrike', label:'Quick Strike', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls.` },
+  ],
+  hide: [
+    { id:'toughhide', label:'Tough Hide', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
+    { id:'insulated', label:'Insulated Hide', appliesTo:['armor','weapon'], utilityText:() => `Resistance to cold damage while worn/held.` },
+    { id:'sturdy', label:'Sturdy Hide', appliesTo:['armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn.` },
+  ],
+  horn: [
+    { id:'gore', label:'Goring Point', appliesTo:['weapon'], dmgAdd:true, dmgType:'piercing', text:d => `+${d} piercing damage on the first hit each combat.` },
+    { id:'reach', label:'Extended Reach', appliesTo:['weapon'], reachAdd:true, text:() => `Reach increased by 5 ft.` },
+    { id:'charge', label:'Charging Point', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls when you moved 10+ ft. before the attack.` },
+  ],
+  wing: [
+    { id:'featherlight', label:'Featherlight', appliesTo:['weapon','armor'], weightMult:0.7, utilityText:() => `Noticeably lighter than it should be.` },
+    { id:'windward', label:'Windward', appliesTo:['weapon','armor'], utilityText:m => `+${m * 5} ft. movement speed while wielded/worn.` },
+    { id:'gliding', label:'Gliding', appliesTo:['armor'], utilityText:() => `Falls affect you as if 20 ft. shorter for damage purposes.` },
+  ],
+  tail: [
+    { id:'sweep', label:'Sweeping Tail', appliesTo:['weapon'], utilityText:() => `On a hit, you may attempt to knock the target Prone (Strength save vs. your attack DC).` },
+    { id:'reachtail', label:'Whip-Tail', appliesTo:['weapon'], reachAdd:true, text:() => `Reach increased by 5 ft.` },
+    { id:'balance', label:'Balance', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Acrobatics checks (+${m} when contested).` },
+  ],
+  venomsac: [
+    { id:'poisoncoat', label:'Poison Coating', appliesTo:['weapon'], dmgAdd:true, dmgType:'poison', text:d => `+${d} poison damage on hit; target must save or be Poisoned for 1 minute.` },
+    { id:'toxicresist', label:'Toxin-Hardened', appliesTo:['weapon','armor'], utilityText:() => `Resistance to poison damage; advantage on saves vs. poison.` },
+    { id:'numbing', label:'Numbing Venom', appliesTo:['weapon'], utilityText:() => `On a critical hit, the target has disadvantage on its next attack roll.` },
+  ],
+  heart: [
+    { id:'vitality', label:'Beating Heart', appliesTo:['weapon','armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn/held.` },
+    { id:'lifedrink', label:'Lifedrinker', appliesTo:['weapon'], utilityText:m => `On a killing blow, regain ${m}d4 HP.` },
+    { id:'steadfast', label:'Steadfast Heart', appliesTo:['weapon','armor'], utilityText:() => `Advantage on saving throws against being Frightened.` },
+  ],
+  bone: [
+    { id:'boneplate', label:'Bone-Reinforced', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
+    { id:'unbreakable', label:'Unbreakable', appliesTo:['weapon','armor'], utilityText:() => `Cannot be broken or sundered by non-magical means.` },
+    { id:'heavyblow', label:'Heavy Blow', appliesTo:['weapon'], dmgDieUp:true, text:() => `Reforged around the bone — damage die increased.` },
+  ],
+  talon: [
+    { id:'piercingtalon', label:'Piercing Talon', appliesTo:['weapon'], dmgAdd:true, dmgType:'piercing', text:d => `+${d} piercing damage on hit.` },
+    { id:'snatch', label:'Snatching Grip', appliesTo:['weapon','armor'], utilityText:m => `Advantage on grapple checks (+${m}).` },
+    { id:'talonstrike', label:'Talon Strike', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls.` },
+  ],
+  tongue: [
+    { id:'silver', label:'Silver Tongue', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Persuasion and Deception checks (+${m} when contested).` },
+    { id:'tastepoison', label:'Taste for Poison', appliesTo:['weapon','armor'], utilityText:() => `You can identify poison or spoiled food/drink by taste, instantly and safely.` },
+    { id:'keeninsight', label:'Keen Insight', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Insight checks (+${m} when contested).` },
+  ],
+  shell: [
+    { id:'shellplate', label:'Shell-Plated', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
+    { id:'bracing', label:'Braced Shell', appliesTo:['armor'], utilityText:() => `Resistance to bludgeoning damage.` },
+    { id:'hardened', label:'Hardened Shell', appliesTo:['armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn.` },
+  ],
+  pelt: [
+    { id:'furlined', label:'Fur-Lined', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
+    { id:'coldward', label:'Cold-Warded', appliesTo:['weapon','armor'], utilityText:() => `Resistance to cold damage.` },
+    { id:'stalker', label:"Stalker's Pelt", appliesTo:['armor'], utilityText:m => `Advantage on Stealth checks (+${m} when contested).` },
+  ],
+  // Fallback for any part type not covered above (future part types, or a legacy/hand-authored
+  // "monster part" that never went through buildMonsterPartItem).
+  default: [
+    { id:'reinforced', label:'Reinforced', appliesTo:['weapon','armor'], utilityText:() => `Reinforced with monstrous remains — subtly tougher than it looks.` },
+  ],
+};
+// Bumps a "XdY" or "XdY+Z" damage formula's die size up the standard ladder by `steps`,
+// preserving dice count and any flat modifier suffix. Leaves the string untouched if it
+// doesn't match the expected shape, rather than risk mangling an unusual hand-authored format.
+function upgradeDamageDie(dmgStr, steps) {
+  if (!dmgStr || !steps) return dmgStr;
+  const m = /^(\d+)d(\d+)(.*)$/i.exec(dmgStr.trim());
+  if (!m) return dmgStr;
+  const count = m[1], suffix = m[3] || '';
+  const fromIdx = Math.max(0, DAMAGE_DIE_LADDER.indexOf(parseInt(m[2], 10)));
+  const toIdx = Math.min(DAMAGE_DIE_LADDER.length - 1, fromIdx + steps);
+  return `${count}d${DAMAGE_DIE_LADDER[toIdx]}${suffix}`;
+}
+// Adds `magnitude` to a leading numeric AC value ("13" -> "15", "+1" -> "+3"), preserving any
+// sign and trailing text ("13 + Dex modifier" -> "15 + Dex modifier"). Untouched if it doesn't
+// start with a recognizable number.
+function bumpAcValue(acStr, magnitude) {
+  if (!acStr) return acStr;
+  const m = /^([+-]?)(\d+)(.*)$/.exec(acStr.trim());
+  if (!m) return acStr;
+  const num = parseInt(m[2], 10) + magnitude;
+  return (m[1] === '-' ? '-' : (m[1] === '+' ? '+' : '')) + num + (m[3] || '');
+}
+// Picks one effect template for this part type, preferring ones that actually apply to the
+// base item's type (weapon vs. armor) — falls back to any dual-purpose ("either") template if
+// nothing in the pool targets this item type, so combining never silently no-ops.
+function pickMonsterPartEffect(partType, itemIsWeapon) {
+  const pool = MONSTER_PART_EFFECT_POOL[partType] || MONSTER_PART_EFFECT_POOL.default;
+  const wantKind = itemIsWeapon ? 'weapon' : 'armor';
+  const targeted = pool.filter(e => e.appliesTo.includes(wantKind));
+  const fallback = pool.filter(e => e.appliesTo.length > 1);
+  const usable = targeted.length ? targeted : (fallback.length ? fallback : pool);
+  return ri(usable);
+}
+// Strips any prior " of the <Monster>" epithet from an earlier mangling so repeated combining
+// swaps the name's epithet instead of stacking indefinitely across multiple combines.
+function nameAfterMangle(baseName, monsterName) {
+  const stripped = (baseName || '').replace(/ of the [^,]+$/i, '');
+  return monsterName ? `${stripped} of the ${monsterName}` : stripped;
+}
+// Rerolls a weapon/armor item with an effect drawn from the monster part's body-part type and
+// scaled by the part's own rarity tier — the core of the Monster Mangler. Renames the item
+// (preserving its base identity as a prefix) and, depending on the rolled effect, adjusts its
+// damage die, AC, or weight; every other change (desc/effect/mods) is additive so the item's
+// original flavor and stats are never lost, only built upon.
+function applyMonsterPartToItem(item, part, partRarity) {
   if (!item.mangledParts) item.mangledParts = [];
   item.mangledParts.push(part.name);
-  if (part.modifier) {
-    if (!item.mods) item.mods = [];
-    const mod = part.modifier;
-    const text = [...(mod.buffs || []).map(s => '+' + s), ...(mod.debuffs || []).map(s => '-' + s)].join(', ');
-    item.mods.push({ type: mod.name, text: `${mod.name}: ${text} (worked in from ${part.name})` });
-    item.effect = (item.effect ? item.effect + ' ' : '') + `Imbued with ${part.name}'s latent essence: ${text}.`;
+  const isWeapon = item.type === 'weapon';
+  const rarity = partRarity || part.rarity || 'common';
+  const magnitude = MANGLER_RARITY_MAGNITUDE[rarity] || 1;
+  const template = pickMonsterPartEffect(part.partType, isWeapon);
+  let mechText;
+  if (template.dmgAdd && isWeapon && item.dmg) {
+    const die = MANGLER_BONUS_DIE_BY_MAGNITUDE[magnitude] || '1d4';
+    item.dmg = item.dmg + ' +' + die + ' ' + template.dmgType;
+    mechText = template.text(die);
+  } else if (template.dmgDieUp && isWeapon && item.dmg) {
+    item.dmg = upgradeDamageDie(item.dmg, magnitude);
+    mechText = template.text(magnitude);
+  } else if (template.acAdd && !isWeapon && item.ac) {
+    item.ac = bumpAcValue(item.ac, magnitude);
+    mechText = template.text(magnitude);
+  } else if (template.attackBonus || template.hpAdd) {
+    mechText = template.text(magnitude);
+  } else if (template.reachAdd) {
+    mechText = template.text();
   } else {
-    item.effect = (item.effect ? item.effect + ' ' : '') + `Reinforced with ${part.name}.`;
+    mechText = (template.utilityText || template.text)(magnitude, part);
   }
-  item.desc = (item.desc || '') + ` Bears a trace of ${part.sourceMonster || 'something monstrous'}.`;
+  if (template.weightMult && item.weight != null) {
+    item.weight = Math.max(0.1, Math.round(item.weight * template.weightMult * 10) / 10);
+  }
+  if (!item.mods) item.mods = [];
+  item.mods.push({ type: template.label, text: `${template.label}: ${mechText} (worked in from ${part.name})` });
+  item.effect = (item.effect ? item.effect + ' ' : '') + `Infused with ${part.name}: ${mechText}`;
+  const partLabel = (MONSTER_PART_TYPE_LABEL[part.partType] || 'monstrous part').toLowerCase();
+  item.desc = (item.desc || '') + ` Bears a trace of ${part.sourceMonster || 'something monstrous'} — a ${partLabel} worked into its make.`;
+  item.name = nameAfterMangle(item.name, part.sourceMonster);
+  return { template, magnitude, mechText };
+}
+// Read-only preview of what a template's text would say at a given magnitude — mirrors
+// applyMonsterPartToItem's own dispatch exactly (dmgAdd needs a die string, not the raw
+// magnitude number; everything else takes the magnitude directly or nothing) so the Monster
+// Parts compendium tab shows the exact same wording combining would actually produce.
+function previewMonsterPartEffectText(template, magnitude) {
+  if (template.dmgAdd) return template.text(MANGLER_BONUS_DIE_BY_MAGNITUDE[magnitude] || '1d4');
+  if (template.dmgDieUp || template.acAdd || template.attackBonus || template.hpAdd) return template.text(magnitude);
+  if (template.reachAdd) return template.text();
+  return (template.utilityText || template.text)(magnitude);
+}
+// Read-only reference tab (Item Compendium > Monster Parts) — every part type the Mangler
+// recognizes, and the full spread of effects it can roll, shown at both ends of the rarity
+// scale (Common/Uncommon share magnitude 1; Celestial is the ceiling at magnitude 4) so the
+// player can see how dramatically a part's own rarity changes what it does without having to
+// actually own one and roll it. Purely descriptive — reads MONSTER_PART_EFFECT_POOL directly,
+// never mutates anything.
+function renderMonsterPartsCompendium() {
+  const wrap = document.getElementById('monsterPartsCompendiumWrap');
+  if (!wrap) return;
+  const partKeys = Object.keys(MONSTER_PART_EFFECT_POOL).filter(k => k !== 'default');
+  wrap.innerHTML = `<div class="monsterparts-grid">${partKeys.map(key => {
+    const label = MONSTER_PART_TYPE_LABEL[key] || key;
+    const templates = MONSTER_PART_EFFECT_POOL[key] || [];
+    const effectRows = templates.map(t => {
+      const appliesTo = t.appliesTo.length > 1 ? 'Weapon or Armor' : (t.appliesTo[0] === 'weapon' ? 'Weapon only' : 'Armor only');
+      const lowText = previewMonsterPartEffectText(t, 1);
+      const highText = previewMonsterPartEffectText(t, 4);
+      return `<div class="mp-effect-row">
+        <div class="mp-effect-label">${escapeHtml(t.label)} <span class="mp-effect-applies">(${appliesTo})</span></div>
+        <div class="mp-effect-text"><b>Common/Uncommon part:</b> ${escapeHtml(lowText)}</div>
+        ${highText !== lowText ? `<div class="mp-effect-text"><b>Celestial part:</b> ${escapeHtml(highText)}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="mp-parttype-card">
+      <div class="mp-parttype-title">${escapeHtml(label)}</div>
+      ${effectRows}
+    </div>`;
+  }).join('')}</div>`;
 }
 // Fully removes a token from every place it could be referenced — used to consume the
-// monster part once it's worked into an item. Only ever called on generated items (parts
-// always come from savedGeneratedItems, never the static lootData catalog, so this is safe
-// to delete outright rather than just hiding it somewhere).
+// monster part once it's worked into an item (also used on the base item now that combining
+// consumes it too — see combineMonsterPart). A 'gen:' key is a real owned instance, so it's
+// spliced out of savedGeneratedItems. A 'loot:' key is normally a shared, infinitely-reusable
+// catalog template (any other loot entry) and is left alone — EXCEPT a premade monster part,
+// which generatePremadeMonsterParts() pushes straight into lootData rather than
+// savedGeneratedItems, but which the Mangler's own documentation ("the part is used up")
+// always intended to be a finite, individually-obtainable resource, not an infinite template.
 function removeTokenEverywhere(key) {
+  const entry = TOKEN_INDEX[key];
   Object.keys(inventoryPlacements).forEach(pid => { if (inventoryPlacements[pid].key === key) removeFromInventory(pid); });
   Object.keys(playerSlots).forEach(slotId => { if (playerSlots[slotId] === key) playerSlots[slotId] = null; });
+  // Also sweep Recently Looted (a plain fill-order array, not a placement table like
+  // inventoryPlacements) so a token consumed elsewhere (e.g. worked into a Mangler combine,
+  // or deleted from the Token Library directly) never leaves a stale ghost card behind there.
+  if (typeof recentlyLooted !== 'undefined') {
+    for (let i = recentlyLooted.length - 1; i >= 0; i--) { if (recentlyLooted[i] === key) recentlyLooted.splice(i, 1); }
+  }
   if (key.indexOf('gen:') === 0) {
     const id = key.slice('gen:'.length);
     savedGeneratedItems = savedGeneratedItems.filter(it => String(it.id) !== id);
+  } else if (entry && entry.item && entry.item.type === 'craftable' && entry.item.subcategory === 'monsterpart' && lootData[entry.rarity]) {
+    const idx = lootData[entry.rarity].indexOf(entry.item);
+    if (idx !== -1) lootData[entry.rarity].splice(idx, 1);
   }
   delete TOKEN_INDEX[key];
 }
+// Combining no longer mutates the base item in place wherever it happened to be sitting
+// (equipped, in inventory, or just browsed from the catalog) — it consumes both inputs and
+// produces a brand-new item that lands in Finished Work, where the player has to actively
+// retrieve it (retrieveManglerFinishedWork) or discard it (discardManglerFinishedWork). Only
+// one piece of Finished Work can be pending at a time, so a forgotten result can't quietly
+// pile up — the workbench is occupied until it's collected or thrown out.
 function combineMonsterPart() {
   buildTokenIndex();
   const partEntry = manglerPartKey ? TOKEN_INDEX[manglerPartKey] : null;
   const itemEntry = manglerItemKey ? TOKEN_INDEX[manglerItemKey] : null;
   if (!partEntry || !itemEntry) { flashManglerMessage('Select a monster part and a weapon or armor piece first.', true); return; }
+  if (manglerFinishedWork) { flashManglerMessage('Retrieve or discard your current Finished Work first.', true); return; }
   const part = partEntry.item;
-  const item = itemEntry.item;
   const cost = manglerCombineCost(partEntry.rarity, itemEntry.rarity);
-  applyMonsterPartToItem(item, part);
+  // Deep-cloned so a base item dragged straight from the static catalog (source 'loot', a
+  // shared template rather than a unique possession) is never mutated — only the clone that
+  // becomes Finished Work is changed. Catalog items don't carry their own `rarity` field
+  // (it's normally implied by which lootData bucket they live in), but every downstream
+  // "saved item" view (Token Library, Retrieve) expects one directly on the object, so it's
+  // stamped on here from the slot's own rarity if the item didn't already have one.
+  const result = JSON.parse(JSON.stringify(itemEntry.item));
+  if (!result.rarity) result.rarity = itemEntry.rarity;
+  applyMonsterPartToItem(result, part, partEntry.rarity);
   removeTokenEverywhere(manglerPartKey);
-  flashManglerMessage(`${part.name} worked into ${item.name} for ${cost} gp.`);
+  // A shared catalog template isn't "used up" — only a real owned instance (equipped, in
+  // inventory, or sitting in the Token Library) is consumed by the combine.
+  if (itemEntry.source === 'gen') removeTokenEverywhere(manglerItemKey);
+  manglerFinishedWork = result;
+  flashManglerMessage(`${part.name} worked into ${result.name} for ${cost} gp — collect it from Finished Work below.`);
   manglerPartKey = null;
   manglerItemKey = null;
+  manglerFocus = 'part';
   renderManglerSlots();
+  renderManglerFinishedWork();
   renderManglerTokenGrid();
   renderInventoryGrid();
   renderPlayerSlots();
   renderActiveEffects();
   if (typeof renderSavedItems === 'function') renderSavedItems();
 }
+function renderManglerFinishedWork() {
+  if (typeof scheduleSave === 'function') scheduleSave();
+  const wrap = document.getElementById('manglerFinishedWork');
+  if (!wrap) return;
+  if (!manglerFinishedWork) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  const item = manglerFinishedWork;
+  const rarity = item.rarity || 'common';
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <div class="mangler-finished-label">✨ Finished Work</div>
+    <div class="mangler-finished-card">
+      ${itemPixelIcon(item, 32, rarity)}
+      <div>
+        <div class="mangler-finished-name">${escapeHtml(item.name)}</div>
+        <div class="mangler-finished-effect">${escapeHtml(getItemEffectText(item))}</div>
+      </div>
+    </div>
+    <div class="mangler-finished-actions">
+      <button class="action-btn" onclick="saveManglerFinishedWork()">💾 Save</button>
+      <button class="action-btn mangler-retrieve-btn" onclick="retrieveManglerFinishedWork()">🎒 Loot</button>
+      <button class="action-btn mangler-discard-btn" onclick="discardManglerFinishedWork()">🗑 Discard</button>
+    </div>
+  `;
+}
+function saveManglerFinishedWork() {
+  if (!manglerFinishedWork) return;
+  const item = manglerFinishedWork;
+  manglerFinishedWork = null;
+  saveLootResultItem(item, null);
+  flashManglerMessage(`${item.name} saved to your Token Library.`);
+  renderManglerFinishedWork();
+}
+function retrieveManglerFinishedWork() {
+  if (!manglerFinishedWork) return;
+  const item = manglerFinishedWork;
+  manglerFinishedWork = null;
+  lootItemToRecentlyLooted(item, null);
+  flashManglerMessage(`${item.name} sent to Recently Looted.`);
+  renderManglerFinishedWork();
+  renderManglerTokenGrid();
+}
+function discardManglerFinishedWork() {
+  if (!manglerFinishedWork) return;
+  const name = manglerFinishedWork.name;
+  manglerFinishedWork = null;
+  flashManglerMessage(`${name} discarded.`);
+  renderManglerFinishedWork();
+}
+// Filters "Your Items" down to whichever slot is currently focused (see setManglerFocus) —
+// 'part' shows only things canInteract() says are #monster_material, 'item' shows only
+// weapons/armor eligible for #socket or #enchant, null (both slots filled, or manually
+// toggled off) shows everything. This is what lets clicking a slot narrow the list to just
+// what actually fits there, instead of scrolling the whole inventory to find a match.
+function manglerFocusFilter(entry) {
+  if (!manglerFocus) return true;
+  if (!entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
+  if (manglerFocus === 'part') return canInteract(entry.item, 'monster_material');
+  return canInteract(entry.item, 'socket') || canInteract(entry.item, 'enchant');
+}
 function renderManglerTokenGrid() {
   buildTokenIndex();
   const searchEl = document.getElementById('manglerTokenSearch');
   const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search));
+  const entries = Object.values(TOKEN_INDEX)
+    .filter(e => !search || e.item.name.toLowerCase().includes(search))
+    .filter(manglerFocusFilter);
   const grid = document.getElementById('manglerTokenGrid');
   const countEl = document.getElementById('manglerTokenCount');
-  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
+  const plural = entries.length !== 1 ? 's' : '';
+  const noun = manglerFocus === 'part' ? 'monster part' + plural
+    : manglerFocus === 'item' ? 'weapon/armor item' + plural
+    : 'item' + plural;
+  if (countEl) countEl.textContent = entries.length + ' ' + noun;
   if (!grid) return;
   if (!entries.length) {
-    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">No items match your search.</div>';
+    const emptyNoun = manglerFocus === 'part' ? 'monster parts' : manglerFocus === 'item' ? 'weapons or armor' : 'items';
+    grid.innerHTML = `<div class="empty-results" style="grid-column:1/-1;">No ${emptyNoun} match your search.</div>`;
     return;
   }
-  grid.innerHTML = entries.map(tokenCardHtml).join('');
+  // Explicit arrow, not a bare `tokenCardHtml` reference — Array.map passes (item, index) to
+  // its callback, and index would otherwise land in tokenCardHtml's showSlotSelect parameter.
+  grid.innerHTML = entries.map(e => tokenCardHtml(e, true)).join('');
 }
+
+// ===================== SAVE / LOAD (persistence) =====================
+// Every piece of state above lived purely in memory — nothing was ever written to disk, so
+// refreshing the page, closing the tab, or the browser reclaiming it (e.g. switching away to
+// another tab for a while) silently wiped the entire inventory, token library, roster, and
+// every other bit of player progress. This persists the state that actually matters to
+// localStorage and restores it the moment the page loads.
+const SAVE_KEY = 'dungeonLootWheelSave';
+let _saveTimer = null;
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveAppState, 400);
+}
+function saveAppState() {
+  try {
+    const data = {
+      inventoryGrid, inventoryPlacements, inventoryPlacementCounter,
+      savedGeneratedItems, playerSlots, tokenSlotOverrides,
+      recentlyLooted, savedLoadouts,
+      activeTimedEffects, activeEffectCounter,
+      currentMerchant, storeDailyItems,
+      battleRoster, battleLog, battleUidCounter,
+      _battleActionTextMap, _battleActionCounter,
+      activeBounties, bountyCounter,
+      manglerFinishedWork, manglerPartKey, manglerItemKey, manglerFocus,
+      combatLootSettings, modWeights, fleshModWeights,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* storage full/unavailable — nothing more we can do about it */ }
+}
+function loadAppState() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { data = null; }
+  if (!data) return;
+  if (data.inventoryGrid) inventoryGrid = data.inventoryGrid;
+  if (data.inventoryPlacements) inventoryPlacements = data.inventoryPlacements;
+  if (typeof data.inventoryPlacementCounter === 'number') inventoryPlacementCounter = data.inventoryPlacementCounter;
+  if (data.savedGeneratedItems) savedGeneratedItems = data.savedGeneratedItems;
+  if (data.playerSlots) playerSlots = data.playerSlots;
+  if (data.tokenSlotOverrides) tokenSlotOverrides = data.tokenSlotOverrides;
+  if (data.recentlyLooted) recentlyLooted = data.recentlyLooted;
+  if (data.savedLoadouts) savedLoadouts = data.savedLoadouts;
+  if (data.activeTimedEffects) activeTimedEffects = data.activeTimedEffects;
+  if (typeof data.activeEffectCounter === 'number') activeEffectCounter = data.activeEffectCounter;
+  if (data.currentMerchant !== undefined) currentMerchant = data.currentMerchant;
+  if (data.storeDailyItems) storeDailyItems = data.storeDailyItems;
+  if (data.battleRoster) battleRoster = data.battleRoster;
+  if (data.battleLog) battleLog = data.battleLog;
+  if (typeof data.battleUidCounter === 'number') battleUidCounter = data.battleUidCounter;
+  if (data._battleActionTextMap) _battleActionTextMap = data._battleActionTextMap;
+  if (typeof data._battleActionCounter === 'number') _battleActionCounter = data._battleActionCounter;
+  if (data.activeBounties) activeBounties = data.activeBounties;
+  if (typeof data.bountyCounter === 'number') bountyCounter = data.bountyCounter;
+  if (data.manglerFinishedWork !== undefined) manglerFinishedWork = data.manglerFinishedWork;
+  if (data.manglerPartKey !== undefined) manglerPartKey = data.manglerPartKey;
+  if (data.manglerItemKey !== undefined) manglerItemKey = data.manglerItemKey;
+  if (data.manglerFocus) manglerFocus = data.manglerFocus;
+  if (data.combatLootSettings) combatLootSettings = data.combatLootSettings;
+  if (data.modWeights) modWeights = data.modWeights;
+  if (data.fleshModWeights) fleshModWeights = data.fleshModWeights;
+}
+loadAppState();
+buildTokenIndex();
+renderInventoryGrid();
+renderRecentlyLootedGrid();
+renderPlayerSlots();
+renderActiveEffects();
+renderSavedLoadouts();
+if (typeof renderSavedItems === 'function') renderSavedItems();
+// Belt-and-braces autosave: a periodic tick catches anything a crashed/killed tab would
+// otherwise lose, beforeunload catches refreshes/closes/navigations, and visibilitychange
+// catches the moment the user switches away to another browser tab — exactly the "moved
+// screens and it was gone" scenario this whole system exists to prevent.
+setInterval(saveAppState, 5000);
+window.addEventListener('beforeunload', saveAppState);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveAppState(); });
 
 </script>
 </body>
