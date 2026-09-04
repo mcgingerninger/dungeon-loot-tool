@@ -3990,6 +3990,14 @@ function dismissTimedEffect(id) {
   activeTimedEffects = activeTimedEffects.filter(e => e.id !== id);
   renderActiveEffects();
 }
+// Drops any running timed-effect entries tied to a specific item key — called wherever an
+// item leaves the character entirely (unequipped, sold, etc.) so its buff/timer doesn't keep
+// counting down in the Active Effects panel for an item that's no longer worn. Doesn't render
+// itself; every caller already re-renders the panel right after.
+function clearActiveEffectsForKey(key) {
+  if (!key) return;
+  activeTimedEffects = activeTimedEffects.filter(e => e.key !== key);
+}
 // Decrements just one power's own number within a shared multi-power charges string,
 // leaving every other power's count untouched (e.g. picking "Sunbeam" out of "Sunbeam
 // 1/day; Call the Dawn 1/day" only ever changes the Sunbeam half).
@@ -10969,7 +10977,9 @@ function flashSlotInvalid(slotId) {
 }
 
 function unequipSlot(slotId) {
+  const key = playerSlots[slotId];
   playerSlots[slotId] = null;
+  clearActiveEffectsForKey(key);
   renderPlayerSlots();
   renderActiveEffects();
 }
@@ -11036,13 +11046,29 @@ function slotContextMenu(evt, slotId) {
     showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
     return;
   }
-  // Nothing to use/expend — unequip instead, same "first open spot" placement clearAllSlots
-  // already uses, so it doesn't silently vanish if the grid happens to be full.
+  // Nothing to use/expend — unequip instead.
+  unequipSlotToStorage(slotId);
+}
+
+// Moves an equipped item back into the first open inventory spot that fits it, clearing any
+// of its running timed effects in the process — an item that has charges or an active buff is
+// still fully removable this way, it just isn't what a right-click's "use" action does. Unlike
+// unequipSlot (the dedicated remove-zone drop, which deletes outright), this never destroys
+// the item — if the inventory grid has no room, it stays equipped and its slot flashes red.
+// Used by both a plain left-click on an equipped item and slotContextMenu's non-activation
+// fallback above, so the two behave identically once there's nothing left to activate.
+function unequipSlotToStorage(slotId) {
+  const key = playerSlots[slotId];
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (!entry) return;
   const w = Math.min(3, Math.max(1, entry.item.slotSize || 1));
   const spot = findFirstOpenInventorySpot(w);
   if (!spot) { flashSlotInvalid(slotId); flashInvMessage(`No room in your inventory for ${entry.item.name}.`, true); return; }
   placeNewInventoryItem(key, spot.row, spot.col);
   playerSlots[slotId] = null;
+  clearActiveEffectsForKey(key);
   renderInventoryGrid();
   renderPlayerSlots();
   renderActiveEffects();
@@ -11065,6 +11091,7 @@ function clearAllSlots() {
     if (!spot) { stillEquipped.push(slotId); return; }
     placeNewInventoryItem(key, spot.row, spot.col);
     playerSlots[slotId] = null;
+    clearActiveEffectsForKey(key);
   });
   renderInventoryGrid();
   renderPlayerSlots();
@@ -11185,6 +11212,7 @@ function inventoryCellDrop(evt, row, col) {
     if (!key) return;
     if (!placeNewInventoryItem(key, row, col)) return;
     playerSlots[slotId] = null;
+    clearActiveEffectsForKey(key);
     renderInventoryGrid();
     renderPlayerSlots();
     renderActiveEffects();
@@ -11534,7 +11562,11 @@ function renderPlayerSlots() {
     // them, onto the remove zone to unequip, or onto another matching slot to move them.
     el.draggable = true;
     el.ondragstart = (evt) => slotItemDragStart(evt, slotId);
-    el.onclick = () => unequipSlot(slotId);
+    // A plain click always safely unequips back to the inventory grid (never destroys the
+    // item outright) — this works regardless of whether the item has charges or an active
+    // effect running; see unequipSlotToStorage. Deliberately not unequipSlot, which deletes
+    // the item outright and is reserved for the dedicated remove-zone drop.
+    el.onclick = () => unequipSlotToStorage(slotId);
     // Right-click expends one charge instead of opening the browser's menu — but only for
     // items that actually have a parseable charge count; anything else falls through to the
     // normal context menu untouched.
