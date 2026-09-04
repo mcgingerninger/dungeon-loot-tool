@@ -12917,14 +12917,39 @@ function rollCombatGoldForTier(tier) {
   if (amount >= 1000) return (amount / 1000).toFixed(1).replace('.0', '') + ',000 gp';
   return amount + ' gp';
 }
+// A monster stacked with more named traits (see rollMonsterTraitCount — a plain creature
+// rolls 0-2, an elite one reliably rolls several) reads as mechanically tougher, so its loot
+// should skew toward the tier above its own too, not just whatever its CR band or variant
+// already grants. Rather than inventing a whole second weight table to hand-tune, this blends
+// a monster's actual tier weights toward the NEXT tier's weights — the exact same preset the
+// DM can already edit in Combat Loot Settings — so raising a trait count never fights whatever
+// custom weights are configured there. Each trait blends in another 12% of the next tier's
+// distribution, capped at 60% (5+ traits) so even the most heavily-modified monster never
+// fully becomes "the next tier" outright, just meaningfully more likely to. No traits, or
+// already at the top tier (celestial has no "next" to blend toward), leaves the tier's own
+// weights completely untouched — existing behavior for a plain monster doesn't change at all.
+const LOOT_TRAIT_BOOST_PER_TRAIT = 0.12;
+const LOOT_TRAIT_BOOST_CAP = 0.6;
+function traitBoostedLootWeights(tier, traitCount) {
+  const order = BAL.rarityOrder;
+  const idx = order.indexOf(tier);
+  const base = (combatLootSettings[tier] || freshCombatLootSettings(tier)).weights;
+  if (idx === -1 || idx >= order.length - 1 || !traitCount) return base;
+  const blend = Math.min(LOOT_TRAIT_BOOST_CAP, traitCount * LOOT_TRAIT_BOOST_PER_TRAIT);
+  const next = (combatLootSettings[order[idx + 1]] || freshCombatLootSettings(order[idx + 1])).weights;
+  const blended = {};
+  order.forEach(r => { blended[r] = (base[r] || 0) * (1 - blend) + (next[r] || 0) * blend; });
+  return blended;
+}
 function rollMonsterCombatLoot(entry) {
   const tier = monsterRarityTier(entry.monster, entry.variant);
   const settings = combatLootSettings[tier] || freshCombatLootSettings(tier);
+  const weights = traitBoostedLootWeights(tier, (entry.traits || []).length);
   const itemCount = rn(settings.minItems, settings.maxItems);
   const items = [];
   const usedNames = new Set();
   for (let i = 0; i < itemCount; i++) {
-    const r = weightedPickFromObject(settings.weights);
+    const r = weightedPickFromObject(weights);
     // Excludes monster parts from the general pool — lootData[r] holds every creature's
     // premade parts mixed in with ordinary gear (see generatePremadeMonsterParts), so without
     // this an Owl kill could just as easily hand back a Water Elemental Tongue. Parts are
@@ -13134,7 +13159,24 @@ function renderCombatRoster() {
       ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
       : '';
     const chaosGearList = entry.chaosGearList || [];
-    const chaosBadges = chaosGearList.map(g => `<span class="combat-chaos-badge ${g.rarity}">${g.kind === 'weapon' ? '⚔' : g.kind === 'armor' ? '🛡' : '📖'} chaos</span>`).join('');
+    // A monster can roll up to 3 chaos-gear pieces (see buildBattleEntry), and two of the
+    // same kind+rarity (e.g. two rare weapons) render as literally identical badges — same
+    // icon, same border color, same "chaos" text — which just looks like a duplicate/glitch
+    // rather than two distinct items. Grouped by kind+rarity here so each visually-distinct
+    // badge appears once, with a "×N" count when more than one piece shares it. This only
+    // affects the badge display — every piece still exists in chaosGearList and still
+    // contributes its own damage dice / AC bonus / spell (see chaosLines below and the AC math
+    // in buildBattleEntry).
+    const chaosBadgeCounts = new Map();
+    chaosGearList.forEach(g => {
+      const key = g.kind + '|' + g.rarity;
+      chaosBadgeCounts.set(key, (chaosBadgeCounts.get(key) || 0) + 1);
+    });
+    const chaosBadges = [...chaosBadgeCounts.entries()].map(([key, count]) => {
+      const [kind, rarity] = key.split('|');
+      const icon = kind === 'weapon' ? '⚔' : kind === 'armor' ? '🛡' : '📖';
+      return `<span class="combat-chaos-badge ${rarity}">${icon} chaos${count > 1 ? ` ×${count}` : ''}</span>`;
+    }).join('');
     const chaosLines = chaosGearList.map(g => `<div class="combat-chaos-line">${g.label}</div>`).join('');
     // Bounty-saved creatures get their own tag/border here too — the roster is exactly
     // where you'd end up with both a real "Ancient Brass Dragon" and a bounty-derived one
