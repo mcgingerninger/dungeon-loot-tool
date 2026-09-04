@@ -229,7 +229,7 @@ function collectCurrentAppState() { return _latestLocalState; }
 // any array-of-arrays it finds in place (tagged so the reverse pass can find and undo exactly
 // those spots), so any other field with this same shape — now or added later — is covered too
 // without needing to be individually tracked down. Everything else in the tree is untouched.
-const NESTED_ARRAY_TAG = "__nestedArrayJSON__";
+const NESTED_ARRAY_TAG = "__nestedArrayJSON";
 function sanitizeNestedArrays(value) {
   if (Array.isArray(value)) {
     if (value.some((el) => Array.isArray(el))) return { [NESTED_ARRAY_TAG]: JSON.stringify(value) };
