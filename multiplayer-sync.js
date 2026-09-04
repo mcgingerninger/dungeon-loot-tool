@@ -185,7 +185,19 @@ async function connectAsRole(uid, role, roomCode, username) {
   // startPlayerListener()'s first snapshot handles pulling existing state down either way.
   const existing = await getDoc(playerDocRef(roomCode, uid));
   mp.connected = true;
-  if (!existing.exists()) await pushOwnState();
+  if (!existing.exists()) {
+    const created = await pushOwnState();
+    if (!created) {
+      // The very first write failed (permissions still propagating, a network blip, etc.) —
+      // do NOT proceed into startPlayerListener() in this state, since its first snapshot
+      // would see "no document" and could misread that as having been removed by the DM
+      // (see the comment on startPlayerListener for the full explanation of that bug and fix).
+      // Bail out to the gate with a real error instead of silently continuing broken.
+      mp.connected = false;
+      setGateStatus("Couldn't reach the campaign database — check your connection and Firestore rules, then try again.", true);
+      return;
+    }
+  }
   startPlayerListener();
   if (role === "dm") startRosterListener();
   hideGate();
@@ -216,26 +228,44 @@ window.onMultiplayerStateChange = function (data) {
   pushOwnState(data);
 };
 
+// Returns true/false so callers that actually need to know whether this specific write
+// landed (connectAsRole's first-ever push) can react to a failure instead of assuming
+// success. The routine background pushes from onMultiplayerStateChange don't check the
+// return value — a transient failure there just means the next save cycle retries with
+// fresher data anyway, same as before.
 async function pushOwnState(stateOverride) {
-  if (!mp.connected || !mp.roomCode || !mp.uid || mp.kicked) return;
+  if (!mp.connected || !mp.roomCode || !mp.uid || mp.kicked) return false;
   const data = stateOverride || collectCurrentAppState();
-  if (!data) return;
+  if (!data) return false;
   try {
     await setDoc(playerDocRef(mp.roomCode, mp.uid), {
       username: mp.username, role: mp.role, updatedAt: serverTimestamp(), state: data,
     }, { merge: true });
-  } catch (err) { /* transient network error — the next save cycle will retry */ }
+    return true;
+  } catch (err) {
+    console.error("[multiplayer-sync] pushOwnState failed:", err);
+    return false;
+  }
 }
 
 // Realtime listener on this account's own document — this is how a DM's edit, or loot pushed
 // to you (Phase 2/3), reaches your screen live. Also detects the DM removing you: the
 // document disappearing entirely (rather than just being empty) is the "you've been kicked"
-// signal, since a normal account always has a document once connected.
+// signal — but ONLY if it's a genuine exists -> gone transition, tracked via sawDocExist
+// below. Without that check, a fresh account whose very first write to Firestore failed (a
+// rules-propagation delay, a network blip, whatever) would show up here as "the document
+// doesn't exist," which looks identical to being removed but means something completely
+// different — this bug actually happened during testing and logged a brand-new account
+// straight back out with a misleading "removed by the DM" message. By the time this listener
+// starts, connectAsRole() has already confirmed the initial write succeeded (or bailed out
+// before ever getting here), so the only way this callback can legitimately see a missing
+// document is if it existed a moment ago and is now gone.
 function startPlayerListener() {
   if (mp.playerUnsub) mp.playerUnsub();
+  let sawDocExist = false;
   mp.playerUnsub = onSnapshot(playerDocRef(mp.roomCode, mp.uid), (snap) => {
     if (!snap.exists()) {
-      if (mp.connected && !mp.kicked) {
+      if (sawDocExist && mp.connected && !mp.kicked) {
         mp.kicked = true;
         logOut();
         showGate();
@@ -243,6 +273,7 @@ function startPlayerListener() {
       }
       return;
     }
+    sawDocExist = true;
     const remote = snap.data();
     if (!remote || !remote.state) return;
     mp.applyingRemote = true;
