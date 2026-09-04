@@ -119,6 +119,10 @@ const mp = {
   rosterUnsub: null,
   roster: new Map(), // uid -> { username, updatedAt } — DM-only, for the roster/remove list
   kicked: false, // set true if the DM removed us — blocks any further push attempts
+  // Monotonically increasing counter, stamped onto every write this client makes to its own
+  // player doc (see pushOwnState) and checked on every snapshot the realtime listener
+  // receives back (see startPlayerListener) — see the comment there for why this exists.
+  pushRev: 0,
 };
 
 // ---------- Sign up ----------
@@ -203,6 +207,23 @@ async function connectAsRole(uid, role, roomCode, username) {
   hideGate();
   enforceRoleRestrictions(role);
   renderAccountPanel();
+  updatePlayerNameDisplay();
+}
+
+// Fills in / shows the player-name span on the persistent inventory summary bar (see the
+// #invPlayerNameWrap markup in the main file, just above the tab content) — reaching directly
+// into that DOM element the same way enforceRoleRestrictions and the rest of this file already
+// do, rather than routing through a window.* bridge function on the main script's side.
+function updatePlayerNameDisplay() {
+  const wrap = document.getElementById("invPlayerNameWrap");
+  const val = document.getElementById("invPlayerName");
+  if (!wrap || !val) return;
+  if (mp.connected && mp.username) {
+    val.textContent = mp.username;
+    wrap.style.display = "";
+  } else {
+    wrap.style.display = "none";
+  }
 }
 
 function logOut() {
@@ -212,6 +233,7 @@ function logOut() {
   mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
   mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
   document.body.classList.remove("role-player");
+  updatePlayerNameDisplay();
   showGate();
 }
 
@@ -270,9 +292,14 @@ async function pushOwnState(stateOverride) {
   if (!mp.connected || !mp.roomCode || !mp.uid || mp.kicked) return false;
   const data = stateOverride || collectCurrentAppState();
   if (!data) return false;
+  // Bumped BEFORE the write goes out (not after it resolves) so that if this exact push is
+  // slow and a LATER push overtakes it, startPlayerListener already knows about the newer rev
+  // the moment that later push is issued — see the comment there for the full race this
+  // prevents (an equip-slot move visually "jumping back" to where it was).
+  const rev = ++mp.pushRev;
   try {
     await setDoc(playerDocRef(mp.roomCode, mp.uid), {
-      username: mp.username, role: mp.role, updatedAt: serverTimestamp(), state: sanitizeNestedArrays(data),
+      username: mp.username, role: mp.role, updatedAt: serverTimestamp(), rev, state: sanitizeNestedArrays(data),
     }, { merge: true });
     return true;
   } catch (err) {
@@ -309,6 +336,17 @@ function startPlayerListener() {
     sawDocExist = true;
     const remote = snap.data();
     if (!remote || !remote.state) return;
+    // Guards against a specific out-of-order-network race: every push carries an
+    // ever-increasing `rev` (see pushOwnState), and this document has exactly one writer —
+    // this account's own client, via pushOwnState — nothing else writes to a player's own
+    // room doc today. Rapid successive local changes (e.g. dragging one item right after
+    // another) each schedule their own debounced push; if an OLDER push's network round-trip
+    // happens to finish after a NEWER one's, this listener would otherwise see the older
+    // snapshot last and hand it to applyRemoteMultiplayerState, visibly reverting whatever
+    // was just moved back to where it used to be (or undoing the move before it's ever seen).
+    // Since mp.pushRev already reflects the newest rev THIS client has sent as of right now,
+    // any snapshot behind that is guaranteed stale and is dropped rather than applied.
+    if (typeof remote.rev === "number" && remote.rev < mp.pushRev) return;
     mp.applyingRemote = true;
     try {
       if (typeof window.applyRemoteMultiplayerState === "function") {

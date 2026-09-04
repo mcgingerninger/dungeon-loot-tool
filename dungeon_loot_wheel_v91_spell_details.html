@@ -333,6 +333,10 @@
   }
   .spin-btn:hover:not(:disabled) { box-shadow: 0 0 20px rgba(201,168,76,0.5); transform: translateY(-1px); }
   .spin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Same dimmed look as :disabled, but the button stays enabled underneath — used while the
+     battle animation is running (see spinWheel) so a double-click can still reach the button
+     to skip it at any point, instead of only in the instant before it visually disables. */
+  .spin-btn.spin-busy { opacity: 0.5; cursor: not-allowed; }
   .spin-btn-hint { font-size: 0.72rem; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; text-align: center; letter-spacing: 0.05em; }
 
   .action-btn {
@@ -1852,13 +1856,21 @@
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
 </div>
 
+<!-- Persistent inventory summary — deliberately OUTSIDE every .tab-content div (a sibling of
+     the tabs themselves, not nested in any one of them) so it stays visible no matter which
+     tab is active, instead of only showing up on the Loot and Inventory tabs. The player-name
+     span is hidden by default (no multiplayer session) and filled in / shown by
+     multiplayer-sync.js's connectAsRole/logOut once an account is connected — see
+     updatePlayerNameDisplay() there. -->
+<div class="inv-summary-bar" id="globalInvSummaryBar" style="margin-bottom:1rem;">
+  <span id="invPlayerNameWrap" style="display:none;">🧑 <strong id="invPlayerName"></strong></span>
+  <span>💰 Inventory Value: <strong id="rollInvGp">0 gp</strong></span>
+  <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
+  <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
+</div>
+
 <!-- LOOT ROLL TAB -->
 <div id="tab-spin" class="tab-content active">
-  <div class="inv-summary-bar" style="margin-bottom:1rem;">
-    <span>💰 Inventory Value: <strong id="rollInvGp">0 gp</strong></span>
-    <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
-    <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
-  </div>
 
   <!-- Loot source: two modes of the same tab. "Random Loot" is the wheel-spin below,
        untouched. "Treasure Chest" is the chest-opening flow that used to be its own tab —
@@ -3659,6 +3671,11 @@ const lootData = {
 
 let spinResults = [];
 let isSpinning = false;
+// The requestAnimationFrame handle for the currently-running spin animation's next queued
+// frame, if any — see spinWheel's instant/skip path, which cancels this to prevent a
+// double-click mid-animation from resolving the loot roll twice (once synchronously right
+// there, and again a moment later when the already-queued frame would otherwise have fired).
+let _spinRafId = null;
 let printFilter = 'all';
 
 const rarityColors = { common:'#a0a8b0', uncommon:'#4caf7d', rare:'#5b9cf6', superrare:'#c47cf5', legendary:'#ff9f43', celestial:'#7de7ff' };
@@ -4990,9 +5007,14 @@ function resolveRoll(numEnemies, minItems, maxItems) {
 }
 
 function spinWheel(instant=false) {
-  // If already mid-animation and instant requested, abort animation and resolve now
+  // If already mid-animation and instant requested, abort animation and resolve now. Cancels
+  // the already-queued next animation frame outright (rather than just flipping isSpinning
+  // and letting that queued tick() notice) — the instant path below resolves the roll
+  // synchronously in a moment, and without this cancel, that already-scheduled frame would
+  // still fire right after and resolve it AGAIN, rolling the loot twice for one skip.
   if (isSpinning && instant) {
-    isSpinning = false; // signal tick() to stop
+    isSpinning = false;
+    if (_spinRafId !== null) { cancelAnimationFrame(_spinRafId); _spinRafId = null; }
   } else if (isSpinning) {
     return; // single click while animating — ignore
   }
@@ -5007,36 +5029,42 @@ function spinWheel(instant=false) {
     btn.disabled = true;
     isSpinning = false;
     setBattleState(false);
+    btn.classList.remove('spin-busy'); // in case this is a mid-animation skip (see above)
     resolveRoll(numEnemies, minItems, maxItems);
     btn.disabled = false;
     return;
   }
 
   isSpinning = true;
-  btn.disabled = true;
+  // Deliberately NOT btn.disabled — a real disabled button stops receiving click/dblclick
+  // events entirely, which is exactly what made the double-click-to-skip only ever reachable
+  // in the narrow instant before this line ran. spin-busy gives the same dimmed look via CSS
+  // without blocking pointer events, so a double-click lands (and skips the animation) at any
+  // point while it's running, not just right at the start. Both click-handlers below already
+  // no-op safely while isSpinning is true, so leaving the button live is safe either way.
+  btn.classList.add('spin-busy');
   setBattleState(true);
-  const duration = 2400 + Math.random()*1400;
+  // Shortened from the original 2400-3800ms range — still varies per roll, just faster.
+  const duration = 1600 + Math.random()*1000;
   const startTime = performance.now();
 
   function tick(now) {
-    // If isSpinning was cleared (by a dblclick mid-animation), stop
-    if (!isSpinning) {
-      setBattleState(false);
-      btn.disabled = false;
-      resolveRoll(numEnemies, minItems, maxItems);
-      return;
-    }
+    // Shouldn't normally be reachable — the instant/skip path above cancels this frame
+    // outright rather than relying on tick() to notice isSpinning went false — but kept as a
+    // safety net that does nothing rather than risk resolving the roll a second time.
+    if (!isSpinning) return;
     const progress = Math.min((now-startTime)/duration, 1);
     if (progress < 1) {
-      requestAnimationFrame(tick);
+      _spinRafId = requestAnimationFrame(tick);
     } else {
       setBattleState(false);
       isSpinning = false;
-      btn.disabled = false;
+      _spinRafId = null;
+      btn.classList.remove('spin-busy');
       resolveRoll(numEnemies, minItems, maxItems);
     }
   }
-  requestAnimationFrame(tick);
+  _spinRafId = requestAnimationFrame(tick);
 }
 
 function renderUnlocks(item, rarity) {
