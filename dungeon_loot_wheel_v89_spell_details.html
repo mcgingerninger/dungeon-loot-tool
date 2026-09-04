@@ -2742,7 +2742,7 @@
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleRoster()">Clear Battle</button>
       <button class="action-btn" style="width:auto;max-width:none" onclick="clearBattleLog()">Clear Log</button>
     </div>
-    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice — drag a roster card's HP slider down as it takes damage, and it's automatically marked defeated the moment it hits 0. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon).</p>
+    <p class="combat-variant-note">Every creature added rolls real HP from its hit dice — drag a roster card's HP slider down as it takes damage, and it's automatically marked defeated the moment it hits 0. "Variant chance" is rolled independently for a shape variant (anywhere from a weakened Runt to a fully Legendary reskin) and for whether it gets any named personality traits at all — the same traits players can roll on gear. Each monster also leans buffed or weakened overall, so its traits mostly follow that lean (occasionally a genuine mix of both) instead of feeling random trait-to-trait, and traits now swing much harder at high tiers (up to ±10 on a stat for a Legendary, not a token +1). "Chaos" is the separate odds a creature spawns with equipment it normally wouldn't have — a weapon (bonus damage added to its attacks), armor (a flat AC bonus), or a spell it's somehow learned to cast — with the slider raising both the ceiling on how good that gear can roll AND the odds of it turning up with more than one piece at once (each extra item beyond the first gets progressively less likely, so multi-item monsters are mostly a high-chaos phenomenon). Gear rarity also always tracks the creature's own CR — a legendary or celestial monster's chaos gear reliably lands in that same neighborhood even with the slider set low, rather than being just as likely to roll something as feeble as a rusty dagger.</p>
 
     <p class="combat-variant-note">Right-click a roster card to defeat it (or just drag its HP slider to 0), then right-click the defeated card again to roll its loot — rarity is driven by the monster's own tier (its rolled variant tier if it has one, otherwise its CR), and there's a chance of a monster part instead of (or alongside) normal gear. Hover a rolled loot item for its full details. Each tier's loot preset — item count, monster part odds, and the rarity weights it draws from — is adjustable under the Loot Presets sub-tab.</p>
 
@@ -2898,8 +2898,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v88).
-const APP_VERSION = 'v88';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v89).
+const APP_VERSION = 'v89';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 const lootData = {
@@ -12366,9 +12366,12 @@ function buildTraitLines(mod, tier) {
 // ===================== CHAOS GEAR =====================
 // The "Chaos" slider grants a monster equipment it normally wouldn't have — a weapon
 // (bonus damage dice added to its attacks), armor (an AC bonus), or a spell-like attack it
-// can cast. Rolled independently of the variant/trait system. The higher the slider, the
-// better the gear that CAN come up — it raises the ceiling on the rarity roll, not a
-// guarantee, so low rolls are still possible even at a high slider setting.
+// can cast. Rolled independently of the variant/trait system. The rarity of each piece is
+// driven by TWO things, not just the slider: the slider still raises the ceiling (a maxed-
+// out slider can hand any monster wild, over-the-top gear), but the monster's own CR-derived
+// tier also sets both a floor and a minimum ceiling — a legendary/celestial creature's chaos
+// gear reliably lands in that neighborhood even at a low slider, instead of being just as
+// likely to roll a common rusty dagger as an ancient dragon. See rollChaosGearRarity.
 const CHAOS_WEAPON_DICE = { common:'1d6', uncommon:'1d8', rare:'2d6', superrare:'2d8', legendary:'3d8', celestial:'4d10' };
 const CHAOS_WEAPON_NAMES = ['a rusted blade','a jagged cleaver','a stolen shortsword','a wicked dagger','a heavy warhammer','a serrated axe','a bone spear','a crude morningstar','a notched battleaxe','a barbed trident'];
 // A flat AC bonus rather than the full "replacement" AC values used for generated armor
@@ -12379,13 +12382,25 @@ const CHAOS_ARMOR_NAMES = ['a patchwork hide vest','a dented breastplate','a sca
 // The same rarity-gated spell pools used for the Power/Spell item modifier, so a chaos-gear
 // spell is exactly as strong as a spell a player could find on a matching-rarity item.
 const CHAOS_SPELL_DAMAGE_DICE = ['1d6','2d6','2d8','3d8','4d8','6d8'];
-function rollChaosGearRarity(chaosChance) {
-  const ceilIdx = Math.min(5, Math.floor((chaosChance / 100) * 6));
-  return BAL.rarityOrder[rn(0, ceilIdx)];
+// monsterTierIdx is this creature's own CR-derived rarity (see monsterRarityTier), as an
+// index into BAL.rarityOrder — previously this function only looked at the slider, so a
+// CR 1/8 rat and an ancient dragon had identical odds at the same slider setting, and a
+// legendary/celestial monster could easily roll all the way down to a common rusty dagger
+// even at a high slider (a uniform 0..ceilIdx roll has no bias toward the top of its range).
+// Now the ceiling is whichever is higher — the slider or the monster's own tier — so a
+// maxed-out slider can still hand ANY monster wild, over-the-top gear, but a strong monster
+// is never capped below its own tier just because the slider happens to be set low. The
+// floor is one tier below the monster's own tier, so its gear stays in the right
+// neighborhood instead of being uniformly likely to land anywhere from common to the ceiling.
+function rollChaosGearRarity(chaosChance, monsterTierIdx = 0) {
+  const sliderCeilIdx = Math.min(5, Math.floor((chaosChance / 100) * 6));
+  const ceilIdx = Math.max(sliderCeilIdx, monsterTierIdx);
+  const floorIdx = Math.min(ceilIdx, Math.max(0, monsterTierIdx - 1));
+  return BAL.rarityOrder[rn(floorIdx, ceilIdx)];
 }
-function rollChaosGear(chaosChance) {
+function rollChaosGear(chaosChance, monsterTierIdx = 0) {
   const kind = ri(['weapon', 'armor', 'spell']);
-  const rarity = rollChaosGearRarity(chaosChance);
+  const rarity = rollChaosGearRarity(chaosChance, monsterTierIdx);
   const idx = Math.max(0, BAL.rarityOrder.indexOf(rarity));
   if (kind === 'weapon') {
     const name = ri(CHAOS_WEAPON_NAMES);
@@ -12501,15 +12516,19 @@ function buildBattleEntry(monster) {
   // itself gated by how high the slider is: the first item uses the full chaos chance,
   // each additional item after that is progressively less likely (half the previous odds),
   // capped at 3 total, so multi-item monsters only really show up once chaos is cranked up.
+  // Each piece's rarity is also anchored to this specific monster's own CR-derived tier (see
+  // rollChaosGearRarity) so a legendary/celestial creature's gear reliably reads as strong,
+  // not just whatever the slider happened to allow.
+  const monsterTierIdx = Math.max(0, BAL.rarityOrder.indexOf(monsterRarityTier(monster, variant)));
   const chaosGearList = [];
   if (Math.random() * 100 < chaosChance) {
-    let piece = rollChaosGear(chaosChance);
+    let piece = rollChaosGear(chaosChance, monsterTierIdx);
     let extraChance = chaosChance;
     while (piece && chaosGearList.length < 3) {
       chaosGearList.push(piece);
       if (piece.kind === 'armor' && ac !== null) ac += piece.acBonus;
       extraChance *= 0.5;
-      piece = Math.random() * 100 < extraChance ? rollChaosGear(chaosChance) : null;
+      piece = Math.random() * 100 < extraChance ? rollChaosGear(chaosChance, monsterTierIdx) : null;
     }
   }
 
