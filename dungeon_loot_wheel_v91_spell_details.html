@@ -2904,8 +2904,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v90).
-const APP_VERSION = 'v90';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v91).
+const APP_VERSION = 'v91';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 const lootData = {
@@ -14084,11 +14084,17 @@ function saveAppState() {
       combatLootSettings, modWeights, fleshModWeights,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
+    // session is active. Reuses this exact same save trigger (scheduleSave's debounce, the
+    // periodic tick, beforeunload, visibilitychange) rather than needing its own scattered
+    // "sync now" calls throughout the rest of the app.
+    if (typeof window.onMultiplayerStateChange === 'function') window.onMultiplayerStateChange(data);
   } catch (e) { /* storage full/unavailable — nothing more we can do about it */ }
 }
-function loadAppState() {
-  let data = null;
-  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { data = null; }
+// Applies a full state blob (from localStorage OR a remote multiplayer sync — same shape
+// either way) onto the live app state. Field-by-field and defensive (only overwrites a field
+// if the blob actually has it) so a partial/corrupt blob can't wipe things clean.
+function applyStateBlob(data) {
   if (!data) return;
   if (data.inventoryGrid) inventoryGrid = data.inventoryGrid;
   if (data.inventoryPlacements) inventoryPlacements = data.inventoryPlacements;
@@ -14120,15 +14126,38 @@ function loadAppState() {
   if (data.modWeights) modWeights = data.modWeights;
   if (data.fleshModWeights) fleshModWeights = data.fleshModWeights;
 }
+function loadAppState() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { data = null; }
+  applyStateBlob(data);
+}
+// The full "re-render everything that could have changed" batch — run once at page load
+// (after loadAppState) and again any time a multiplayer sync hands the app a fresh remote
+// state blob (see applyRemoteMultiplayerState below), so a DM's edit or a pushed gift shows
+// up on screen immediately instead of waiting for the player to switch tabs.
+function refreshAllViewsAfterStateApply() {
+  buildTokenIndex();
+  renderInventoryGrid();
+  renderRecentlyLootedGrid();
+  renderPlayerSlots();
+  renderActiveEffects();
+  renderSavedLoadouts();
+  refreshGoldDisplays();
+  if (typeof renderSavedItems === 'function') renderSavedItems();
+}
+// Multiplayer hook, called FROM multiplayer-sync.js (window.applyRemoteMultiplayerState)
+// whenever a realtime update arrives — a DM editing your inventory, loot being pushed to
+// you, or just the initial state landing right after you join a session. Kept as a named
+// global function (rather than multiplayer-sync.js reaching into this script's variables
+// directly) since a <script type="module"> can't see another script's top-level let/const
+// bindings — this is the deliberate, explicit bridge between the two files.
+function applyRemoteMultiplayerState(data) {
+  applyStateBlob(data);
+  refreshAllViewsAfterStateApply();
+}
+window.applyRemoteMultiplayerState = applyRemoteMultiplayerState;
 loadAppState();
-buildTokenIndex();
-renderInventoryGrid();
-renderRecentlyLootedGrid();
-renderPlayerSlots();
-renderActiveEffects();
-renderSavedLoadouts();
-refreshGoldDisplays();
-if (typeof renderSavedItems === 'function') renderSavedItems();
+refreshAllViewsAfterStateApply();
 // Belt-and-braces autosave: a periodic tick catches anything a crashed/killed tab would
 // otherwise lose, beforeunload catches refreshes/closes/navigations, and visibilitychange
 // catches the moment the user switches away to another browser tab — exactly the "moved
@@ -14138,5 +14167,13 @@ window.addEventListener('beforeunload', saveAppState);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveAppState(); });
 
 </script>
+
+<!-- Multiplayer (Firebase) is entirely self-contained in this one file — see the header
+     comment at the top of multiplayer-sync.js for what it does and how it talks to the rest
+     of the app. Delete this one line and that one file to remove multiplayer entirely; the
+     app behaves exactly as it does today with neither present, since the hook functions it
+     calls (window.onMultiplayerStateChange, window.applyRemoteMultiplayerState) are always
+     checked for existence before being called. -->
+<script type="module" src="multiplayer-sync.js"></script>
 </body>
 </html>
