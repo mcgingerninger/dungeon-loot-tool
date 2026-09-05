@@ -32,8 +32,9 @@
 //
 // ---- One-time setup you still need to do in the Firebase console ----
 // Test mode (from initial setup) allows any signed-in user to read/write everything for ~30
-// days and then locks down to deny-everything. Before that expires, paste this into
-// Firestore Database → Rules, replacing whatever's there, then click Publish:
+// days and then locks down to deny-everything. Before that expires (or if you've updated this
+// file and need to re-paste), paste this into Firestore Database → Rules, replacing whatever's
+// there, then click Publish:
 //
 //   rules_version = '2';
 //   service cloud.firestore {
@@ -54,6 +55,20 @@
 //             get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid
 //           );
 //         }
+//         // DM-only shared combat view — a player never writes here, only reads it live.
+//         match /battlefield/{doc} {
+//           allow read: if request.auth != null;
+//           allow write: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
+//         }
+//         // Real-time looting: any authenticated user (a player looting for themselves, or the
+//         // DM giving an item to someone) can CREATE a claim, but nobody can ever update or
+//         // delete one — this immutability is what gives true first-write-wins for a specific
+//         // corpse-drop item with zero server-side code and zero DM-online dependency.
+//         match /lootClaims/{claimId} {
+//           allow read: if request.auth != null;
+//           allow create: if request.auth != null;
+//           allow update, delete: if false;
+//         }
 //       }
 //     }
 //   }
@@ -68,6 +83,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
   initializeFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
+  updateDoc, increment, arrayUnion,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -111,6 +127,14 @@ function generateRoomCode(len = 5) {
 function userDocRef(uid) { return doc(db, "users", uid); }
 function roomDocRef(roomCode) { return doc(db, "rooms", roomCode); }
 function playerDocRef(roomCode, uid) { return doc(db, "rooms", roomCode, "players", uid); }
+// One doc per room, written only by the DM, holding just the combat roster/log — deliberately
+// separate from the DM's own players/{dmUid} doc (which holds their ENTIRE app state) so a
+// player's battlefield listener only ever re-fires on actual combat activity, not on every
+// unrelated thing the DM does elsewhere in the app (restocking the Store, editing their own
+// inventory, etc.).
+function battlefieldDocRef(roomCode) { return doc(db, "rooms", roomCode, "battlefield", "state"); }
+function lootClaimDocRef(roomCode, claimId) { return doc(db, "rooms", roomCode, "lootClaims", claimId); }
+function lootClaimsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "lootClaims"); }
 
 // All multiplayer session state lives here, not scattered across module-level variables.
 const mp = {
@@ -220,6 +244,8 @@ async function connectAsRole(uid, role, roomCode, username) {
   }
   startPlayerListener();
   if (role === "dm") startRosterListener();
+  else startBattlefieldListener(roomCode);
+  startLootClaimListener(roomCode);
   hideGate();
   enforceRoleRestrictions(role);
   renderAccountPanel();
@@ -250,8 +276,11 @@ function updatePlayerNameDisplay() {
 function resetLocalSessionState() {
   if (mp.playerUnsub) mp.playerUnsub();
   if (mp.rosterUnsub) mp.rosterUnsub();
+  if (mpBattlefieldUnsub) mpBattlefieldUnsub();
+  if (mpLootClaimsUnsub) mpLootClaimsUnsub();
   mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
   mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
+  mpBattlefieldUnsub = null; mpLootClaimsUnsub = null;
   document.body.classList.remove("role-player");
   updatePlayerNameDisplay();
 }
@@ -333,6 +362,145 @@ async function pushOwnState(stateOverride) {
   }
 }
 
+// ---------- Cross-player writes (DM -> any player in their room) ----------
+// The security rules (see the comment block above) already let the DM write into ANY
+// player's doc in their own room — this is what that permission was left in place for. Two
+// narrow, atomic Firestore transforms rather than one generic "merge a patch object" helper:
+// setDoc({merge:true}) replaces array fields wholesale, and the writer here never has (and
+// shouldn't need to cache) the target player's current array contents. increment()/arrayUnion()
+// are safe under concurrent writers with zero stale-read risk — e.g. two monsters hitting the
+// same player in one rollAllBattleAttacks() pass. Both omit `rev` entirely, so the target's own
+// staleness guard (startPlayerListener below) never mistakes an authoritative external push for
+// a stale echo of one of ITS OWN writes.
+function applyHpDelta(roomCode, targetUid, delta) {
+  return updateDoc(playerDocRef(roomCode, targetUid), { "state.characterCurrentHp": increment(delta) }).catch((err) => {
+    console.error("[multiplayer-sync] applyHpDelta failed:", err);
+  });
+}
+// Delivers a FULL item object into a player's own account, not just a "gen:<id>" key into
+// recentlyLooted — a bare key would only resolve through TOKEN_INDEX on whichever account
+// registered it into savedGeneratedItems, and the DM's own client is the one holding the
+// authoritative item data here, not the recipient's. Writing the complete item into the
+// recipient's OWN savedGeneratedItems (their own "gen:<id>" key becomes resolvable purely
+// from their own synced state, the same as anything they loot themselves) and the resulting
+// key into their recentlyLooted, in one atomic multi-field update. Both are flat-array
+// appends — safe with arrayUnion under concurrent writers — never inventoryGrid, which is an
+// opaque JSON-string blob (see sanitizeNestedArrays below) Firestore can't field-path into.
+function giftItemToPlayer(roomCode, targetUid, item) {
+  const saved = { ...item, id: Date.now() + "_" + Math.random().toString(36).slice(2) };
+  const key = "gen:" + saved.id;
+  return updateDoc(playerDocRef(roomCode, targetUid), {
+    "state.savedGeneratedItems": arrayUnion(saved),
+    "state.recentlyLooted": arrayUnion(key),
+  }).catch((err) => {
+    console.error("[multiplayer-sync] giftItemToPlayer failed:", err);
+  });
+}
+// Bridge for the main file's combat code (see resolveBattleAttack) — fire-and-forget by design,
+// matching pushOwnState's own background-push convention; the caller doesn't await this.
+window.applyHpDeltaToPlayer = function (targetUid, delta) {
+  if (!mp.connected || !mp.roomCode) return;
+  applyHpDelta(mp.roomCode, targetUid, delta);
+};
+
+// ---------- Real-time looting: lootClaims (immutable, first-write-wins) ----------
+// Every corpse-drop item gets a claim doc at a deterministic id (monsterUid_itemId — both
+// already unique and stable, see rollMonsterCombatLoot/buildMonsterPartItem in the main file).
+// The security rule allows CREATE by any authenticated user but denies update/delete outright
+// — Firestore's own create-vs-update rule evaluation is what gives true first-write-wins with
+// zero arbitration and zero dependency on the DM's tab being open to referee: whichever write
+// reaches the server first is a "create" (allowed), and it makes the SAME doc id's write from
+// anyone else evaluate as an "update" (denied) from that instant on.
+function createLootClaim(roomCode, claimId, claimedByUid, claimedByUsername) {
+  return setDoc(lootClaimDocRef(roomCode, claimId), { claimedBy: claimedByUid, claimedByUsername, createdAt: serverTimestamp() });
+}
+// Player's own self-loot button: create the claim FIRST and only report success once that
+// write is actually confirmed — the reactive listener below (not this function) is what
+// actually places the item, so a tab closing in the gap between "claim confirmed" and "item
+// applied" can't silently lose it (the listener re-checks on every reload).
+window.createSelfLootClaim = function (monsterUid, itemId) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return createLootClaim(mp.roomCode, `${monsterUid}_${itemId}`, mp.uid, mp.username);
+};
+// DM's "give to..." action: claims on the chosen player's behalf (so a self-loot race against
+// the same item still resolves correctly — whichever create wins), then, since the DM already
+// has the authoritative item data AND cross-player write permission, delivers it directly
+// rather than waiting on the target's own client/listener to be online at all.
+window.dmGiveLootItem = function (monsterUid, itemId, targetUid, targetUsername, itemData) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return createLootClaim(mp.roomCode, `${monsterUid}_${itemId}`, targetUid, targetUsername)
+    .then(() => giftItemToPlayer(mp.roomCode, targetUid, itemData));
+};
+// Player-only: reactively applies any claim this account has WON, exactly once each (guarded
+// by a persisted appliedLootClaimIds list so a reload/listener-replay never re-grants an
+// already-applied claim). Fires on every change to the whole claims collection rather than a
+// one-shot per-click handler, so it's self-healing across refreshes/reconnects.
+// Started for BOTH roles: a player applies any claim addressed to them (as above); the DM
+// instead marks the matching item claimed on their own roster (so it stops looking available
+// on the card, and — since pushBattlefieldState already excludes reserved items — the DM
+// marking it claimed rather than deleting it keeps the item visible in their own history
+// without it ever being re-offered to other players once someone's already won it).
+let mpLootClaimsUnsub = null;
+function startLootClaimListener(roomCode) {
+  if (mpLootClaimsUnsub) mpLootClaimsUnsub();
+  mpLootClaimsUnsub = onSnapshot(lootClaimsCollectionRef(roomCode), (snap) => {
+    snap.forEach((docSnap) => {
+      const claim = docSnap.data();
+      if (mp.role === "dm") {
+        if (typeof window.markLootClaimOnRoster === "function") window.markLootClaimOnRoster(docSnap.id, claim);
+        return;
+      }
+      if (claim.claimedBy !== mp.uid) return;
+      if (typeof window.applyWonLootClaim === "function") window.applyWonLootClaim(docSnap.id);
+    });
+  });
+}
+
+// ---------- Battlefield (DM-only write, shared read) ----------
+// Debounced the same way the main app's own saveAppState is — renderCombatRoster() (which can
+// fire many times in a burst: rollAllBattleAttacks re-rendering, HP slider drags, etc.) calls
+// this every time, but only the last call in any 400ms window actually reaches Firestore.
+let _battlefieldPushTimer = null;
+function pushBattlefieldState(battleRoster, battleLog) {
+  if (!mp.connected || !mp.roomCode || mp.role !== "dm") return;
+  clearTimeout(_battlefieldPushTimer);
+  _battlefieldPushTimer = setTimeout(() => {
+    // Loot visibility is enforced HERE, in what actually gets written to the doc players can
+    // read — not by the player-mode card renderer choosing not to show it. An entry's loot is
+    // entirely absent until lootRevealed is set (see revealEntryLoot in the main file), and
+    // reserved items are stripped individually even after reveal — there is nothing for a
+    // player to find via devtools that the DM hasn't chosen to share.
+    const payload = (battleRoster || []).map((entry) => {
+      const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed } = entry;
+      const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated };
+      if (loot && lootRevealed) out.loot = { tier: loot.tier, gold: loot.gold, items: loot.items.filter((it) => !it.reserved) };
+      return out;
+    });
+    setDoc(battlefieldDocRef(mp.roomCode), {
+      battleRoster: sanitizeNestedArrays(payload), battleLog: (battleLog || []).slice(-50), updatedAt: serverTimestamp(),
+    }).catch((err) => console.error("[multiplayer-sync] pushBattlefieldState failed:", err));
+  }, 400);
+}
+window.pushBattlefieldState = pushBattlefieldState;
+
+// Player-only: learns the DM's uid from the room doc (readable by any authenticated user —
+// see the rules comment above) rather than pointing players at the DM's own players/{dmUid}
+// doc, which would make every player's listener re-download the DM's ENTIRE inventory/
+// merchant/generator state on any unrelated DM action, not just combat.
+let mpBattlefieldUnsub = null;
+async function startBattlefieldListener(roomCode) {
+  if (mpBattlefieldUnsub) mpBattlefieldUnsub();
+  const roomSnap = await getDoc(roomDocRef(roomCode));
+  if (!roomSnap.exists()) return;
+  mpBattlefieldUnsub = onSnapshot(battlefieldDocRef(roomCode), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (typeof window.applyRemoteBattlefieldState === "function") {
+      window.applyRemoteBattlefieldState(unsanitizeNestedArrays(data.battleRoster || []), data.battleLog || []);
+    }
+  });
+}
+
 // Realtime listener on this account's own document — this is how a DM's edit, or loot pushed
 // to you (Phase 2/3), reaches your screen live. Also detects the DM removing you: the
 // document disappearing entirely (rather than just being empty) is the "you've been kicked"
@@ -384,15 +552,28 @@ function startPlayerListener() {
 }
 
 // DM-only: listens to every player document in the room to keep a live, removable roster.
+// Also captures each player's character-sheet HP/AC totals (computed by the main file, stored
+// flat on their synced state) so the Combat tab's targeting UI can show live numbers and roll
+// against a real player's real AC — see window.onConnectedPlayersChanged below.
 function startRosterListener() {
   if (mp.rosterUnsub) mp.rosterUnsub();
   mp.rosterUnsub = onSnapshot(collection(db, "rooms", mp.roomCode, "players"), (snap) => {
     mp.roster.clear();
     snap.forEach((docSnap) => {
       const d = docSnap.data();
-      mp.roster.set(docSnap.id, { username: d.username || "Unnamed", role: d.role, updatedAt: d.updatedAt });
+      const s = d.state || {};
+      mp.roster.set(docSnap.id, {
+        username: d.username || "Unnamed", role: d.role, updatedAt: d.updatedAt,
+        currentHp: s.characterCurrentHp, maxHp: s.characterMaxHp, ac: s.characterAc,
+      });
     });
     renderAccountPanel();
+    // Explicit bridge (matching applyRemoteMultiplayerState's pattern) rather than the main
+    // file reaching into mp.roster directly — the Combat tab's targeting UI (a separate,
+    // later addition) reads player HP/AC/connection state through this hook only.
+    if (typeof window.onConnectedPlayersChanged === "function") {
+      window.onConnectedPlayersChanged([...mp.roster.entries()].map(([uid, p]) => ({ uid, ...p })));
+    }
   });
 }
 
@@ -422,6 +603,11 @@ async function removePlayer(uid) {
 // a player logging in would briefly see its content before ever clicking anything.
 function enforceRoleRestrictions(role) {
   document.body.classList.toggle("role-player", role === "player");
+  // The Battlefield tab is the opposite direction from everything else here — shown only FOR
+  // players rather than hidden from them — so it isn't part of the body.role-player CSS block
+  // (which only ever hides things) and needs this explicit toggle instead.
+  const battlefieldBtn = document.getElementById("battlefieldTabBtn");
+  if (battlefieldBtn) battlefieldBtn.style.display = role === "player" ? "" : "none";
   if (role !== "player") return;
   // If the page's default active tab is one now hidden for players, move them to Inventory
   // instead of leaving them looking at a blank content area.
@@ -657,7 +843,7 @@ function renderAccountPanel() {
       <label style="margin-top:0;">Connected players</label>
       ${[...mp.roster.entries()].filter(([uid]) => uid !== mp.uid).map(([uid, p]) => `
         <div class="mp-roster-row">
-          <span>${escapeHtmlLocal(p.username)}</span>
+          <span>${escapeHtmlLocal(p.username)}${p.currentHp != null ? ` <span style="color:var(--text-dim,#a89f8a);">(HP ${escapeHtmlLocal(String(p.currentHp))}/${escapeHtmlLocal(String(p.maxHp))}, AC ${escapeHtmlLocal(String(p.ac))})</span>` : ""}</span>
           <button class="mp-remove-btn" data-uid="${uid}">Remove</button>
         </div>
       `).join("") || '<div style="color:var(--text-dim,#a89f8a);font-size:0.85rem;">No players have joined yet.</div>'}

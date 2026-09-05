@@ -1793,6 +1793,17 @@
   .combat-chaos-badge.legendary{border-color:var(--legendary);color:var(--legendary)}
   .combat-chaos-badge.celestial{border-color:var(--celestial);color:var(--celestial)}
   .combat-chaos-line{font-size:.78rem;line-height:1.5;color:var(--superrare);font-style:italic}
+  /* ---- Targeting, player-mode HP bar, loot reserve/reveal/claim/give (DM-vs-players combat) ---- */
+  .combat-targeting-row{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text-dim);margin:.3rem 0}
+  .combat-targeting-row select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.8rem;padding:.15rem .3rem}
+  .combat-hp-bar-outer{display:inline-block;width:90px;height:8px;background:var(--bg);border:1px solid var(--border);vertical-align:middle}
+  .combat-hp-bar-inner{display:block;height:100%;background:var(--uncommon)}
+  .combat-loot-revealed{display:inline-block;margin-top:.4rem;color:var(--uncommon);font-size:.8rem;font-style:italic}
+  .loot-reserved{opacity:.85}
+  .loot-reserved-tag{color:var(--superrare);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+  .loot-claimed-tag{color:var(--text-dim);font-size:.72rem;font-style:italic}
+  .loot-reserve-toggle{display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;color:var(--text-dim);cursor:pointer}
+  .loot-give-select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.72rem;padding:.1rem .2rem;max-width:90px}
   /* Bounty-saved creatures — flags a saved bounty target so it's never confused with a
      same-named stock bestiary entry (e.g. a bounty that happened to roll the "Ancient"
      variant on a Brass Dragon looks, by name, identical to the real Ancient Brass Dragon
@@ -1875,6 +1886,10 @@
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
+  <!-- Player-only — the opposite direction from multiplayer-sync.js's body.role-player hide
+       list (which hides DM-only things): this stays hidden by default and is revealed only
+       for players by enforceRoleRestrictions there. -->
+  <button class="tab-btn" id="battlefieldTabBtn" style="display:none;" onclick="showTab('battlefield',this)">🗺 Battlefield</button>
 </div>
 
 <!-- Persistent inventory summary — deliberately OUTSIDE every .tab-content div (a sibling of
@@ -2809,6 +2824,16 @@
       <div class="combat-log" id="combatLog"><div class="combat-log-empty">No attacks rolled yet.</div></div>
     </div>
   </div>
+</div>
+
+<!-- BATTLEFIELD TAB — player-only, read-only live view of the DM's combat roster. Populated
+     entirely from multiplayer-sync.js's window.applyRemoteBattlefieldState bridge; nothing
+     here does anything if that never fires (e.g. no DM connected yet). -->
+<div id="tab-battlefield" class="tab-content">
+  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
+    A live view of what your DM has put in front of you. Defeated creatures show their loot once your DM reveals it — right-click nothing here, there's nothing to control; just watch the fight and loot a corpse once it's shown.
+  </p>
+  <div class="combat-roster" id="battlefieldRosterEl"><div class="combat-empty-roster">Nothing happening yet.</div></div>
 </div>
 
 <!-- INVENTORY TAB (single view so drag-and-drop works — dragging between separate tabs
@@ -12915,6 +12940,15 @@ function buildBattleEntry(monster) {
   return {
     uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGearList,
     hp, maxHp: hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
+    // Targeting: which connected player this monster attacks. 'random' picks any connected
+    // player fresh each attack; 'lowestHp'/'lowestAc' pick whoever currently has the lowest
+    // value; 'fixed' always attacks targetPlayerUid specifically. See resolveEntryTarget.
+    targetMode: 'random', targetPlayerUid: null,
+    // Loot visibility staging (see combatCardContextMenu/rollMonsterCombatLoot): loot exists
+    // on `loot` the moment it's rolled but stays DM-only until lootRevealed is explicitly set,
+    // and even after that, any individual item flagged reserved on `loot.items[i].reserved`
+    // never appears in what's shared with players (see pushBattlefieldPayload).
+    lootRevealed: false,
   };
 }
 
@@ -12931,6 +12965,7 @@ function buildFrozenBattleEntry(monster) {
     traits: f.traits, leaning: f.leaning, chaosGearList: f.chaosGearList || [],
     hp: f.hp, maxHp: f.hp, hpRoll: f.hpRoll, ac: f.ac, atkMod: f.atkMod, dmgMult: f.dmgMult,
     statLines: f.statLines || [], lastResult: null,
+    targetMode: 'random', targetPlayerUid: null, lootRevealed: false,
   };
 }
 function addMonsterToBattle(idx) {
@@ -13300,16 +13335,20 @@ function rollMonsterCombatLoot(entry) {
     if (!pool.length) continue;
     const raw = ri(pool);
     usedNames.add(raw.name);
-    items.push({ ...resolveScrollSpell(raw), rarity: r, id: 'cloot' + (++monsterPartCounter) });
+    items.push({ ...resolveScrollSpell(raw), rarity: r, id: 'cloot' + (++monsterPartCounter), reserved: false });
   }
   if (Math.random() * 100 < settings.partChance) {
-    items.push(generateMonsterPart(entry.monster, tier));
+    items.push({ ...generateMonsterPart(entry.monster, tier), reserved: false });
   }
   return { tier, gold: rollCombatGoldForTier(tier), items };
 }
 // Right-click handler shared by every roster card: first click defeats, second click (once
 // defeated) rolls loot. Anything after that is a no-op — loot doesn't reroll on a third
-// click, so the result stays put once it's shown.
+// click, so the result stays put once it's shown. Rolling loot does NOT make it visible to
+// players — it lands on entry.loot for the DM's own eyes only, exactly like every other combat
+// state here, until the DM explicitly reveals it (see revealEntryLoot) via its own button
+// on the card, which is a deliberate separate action rather than a third right-click so it
+// can't happen by accident.
 function combatCardContextMenu(evt, uid) {
   const entry = battleRoster.find(e => e.uid === uid);
   if (!entry) return;
@@ -13322,6 +13361,28 @@ function combatCardContextMenu(evt, uid) {
   if (entry.loot) return;
   entry.loot = rollMonsterCombatLoot(entry);
   renderCombatRoster();
+}
+// Explicit DM action: makes this monster's already-rolled loot visible to players on the
+// shared Battlefield view. Separate from rolling the loot itself so the DM gets a chance to
+// look it over — and mark specific items Reserved (see toggleLootItemReserved) to keep for
+// themselves to hand out manually — before anyone else can see the drop at all.
+function revealEntryLoot(uid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry || !entry.loot) return;
+  entry.lootRevealed = true;
+  renderCombatRoster();
+  if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
+}
+// Reserved items never appear in what's pushed to the shared Battlefield doc (see
+// buildBattlefieldPayload), even after the drop is otherwise revealed — only the DM's own
+// "give to..." action (added with the looting system) can place a reserved item with a player.
+function toggleLootItemReserved(uid, itemId) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item) return;
+  item.reserved = !item.reserved;
+  renderCombatRoster();
+  if (entry.lootRevealed && typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
 }
 // Dragging the HP slider updates the live number in place (no full re-render, so the drag
 // stays smooth) unless it just crossed to 0 — at that point the creature is automatically
@@ -13403,6 +13464,62 @@ function pickBattleAction(monster, entry) {
   return { name: 'Improvised Strike', text: 'The creature lashes out with whatever is within reach.' };
 }
 
+// Resolves which connected player a monster's attack actually targets, per its own
+// targetMode (see buildBattleEntry / combatTargetingHtml): 'fixed' always goes after
+// targetPlayerUid (falling back to random if that player's no longer connected), 'lowestHp'/
+// 'lowestAc' pick whoever currently has the lowest value (falling back to random for any
+// player missing that stat), and 'random' (the default) just picks any connected player fresh
+// every time. Returns null with nobody connected, so callers can fall back to the manual
+// #battleTargetAC field — solo DM testing still works exactly as before.
+function resolveEntryTarget(entry) {
+  const players = (connectedPlayers || []).filter(p => p.role === 'player');
+  if (!players.length) return null;
+  if (entry.targetMode === 'fixed' && entry.targetPlayerUid) {
+    const found = players.find(p => p.uid === entry.targetPlayerUid);
+    if (found) return found;
+  }
+  if (entry.targetMode === 'lowestHp') {
+    const withHp = players.filter(p => p.currentHp != null);
+    if (withHp.length) return withHp.reduce((best, p) => p.currentHp < best.currentHp ? p : best);
+  }
+  if (entry.targetMode === 'lowestAc') {
+    const withAc = players.filter(p => p.ac != null);
+    if (withAc.length) return withAc.reduce((best, p) => p.ac < best.ac ? p : best);
+  }
+  return ri(players);
+}
+// The DM's per-monster targeting picker — mode select plus a player dropdown that only
+// appears for 'fixed'. connectedPlayers comes from window.onConnectedPlayersChanged
+// (multiplayer-sync.js's extended startRosterListener); empty/absent when not running
+// multiplayer at all, in which case this renders nothing and combat behaves exactly as before.
+function combatTargetingHtml(entry) {
+  const players = (connectedPlayers || []).filter(p => p.role === 'player');
+  if (!players.length) return '';
+  const mode = entry.targetMode || 'random';
+  const options = ['random', 'lowestHp', 'lowestAc', 'fixed'].map(mval => {
+    const label = { random: 'Random', lowestHp: 'Lowest HP', lowestAc: 'Lowest AC', fixed: 'Specific player' }[mval];
+    return `<option value="${mval}" ${mode === mval ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+  const playerOptions = players.map(p => `<option value="${p.uid}" ${entry.targetPlayerUid === p.uid ? 'selected' : ''}>${escapeHtml(p.username)}${p.currentHp != null ? ` (HP ${escapeHtml(String(p.currentHp))}/${escapeHtml(String(p.maxHp))})` : ''}</option>`).join('');
+  return `<div class="combat-targeting-row">
+    <label>Targets:</label>
+    <select onchange="setEntryTargetMode(${entry.uid}, this.value)">${options}</select>
+    ${mode === 'fixed' ? `<select onchange="setEntryTargetPlayer(${entry.uid}, this.value)"><option value="">Choose…</option>${playerOptions}</select>` : ''}
+  </div>`;
+}
+function setEntryTargetMode(uid, mode) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  entry.targetMode = mode;
+  renderCombatRoster();
+}
+function setEntryTargetPlayer(uid, targetUid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  entry.targetPlayerUid = targetUid || null;
+  renderCombatRoster();
+}
+
 // Computes one attack-and-effectiveness roll for a roster entry and records it onto both
 // the entry (for its card) and the shared battle log — but does NOT render, so callers
 // that roll several creatures in a row (rollAllBattleAttacks) can batch the re-render.
@@ -13410,7 +13527,9 @@ function resolveBattleAttack(entry) {
   const monster = entry.monster;
   const name = entry.displayName || monster.name;
   const action = pickBattleAction(monster, entry);
-  const targetAC = parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15;
+  const target = resolveEntryTarget(entry);
+  const targetAC = target && target.ac != null ? target.ac : (parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15);
+  const targetDesc = target ? `<strong>${escapeHtml(target.username)}</strong>'s AC ${targetAC}` : `AC ${targetAC}`;
   const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
   const atkMod = entry.atkMod || 0;
   const dmgMult = entry.dmgMult || 1;
@@ -13440,13 +13559,20 @@ function resolveBattleAttack(entry) {
           }
         });
         dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote}${weaponNote})`;
+        // Fire-and-forget: rollAllBattleAttacks() resolves a whole roster in one tight loop
+        // before a single render, so awaiting this per-creature would serialize N network
+        // round-trips. The exact resulting HP isn't authoritative until the live roster
+        // listener's own snapshot confirms it — hence not claiming a precise total here.
+        if (target && typeof window.applyHpDeltaToPlayer === 'function') {
+          window.applyHpDeltaToPlayer(target.uid, -scaledTotal);
+        }
       }
     }
     const cls = isFumble ? 'miss' : isCrit ? 'crit' : hit ? 'hit' : 'miss';
     const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
     result = {
       cls, title,
-      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs AC ${targetAC}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs ${targetDesc}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
     };
   } else {
     const eff = battleEffectivenessLabel(d20);
@@ -13479,107 +13605,141 @@ function rollAllBattleAttacks() {
   renderCombatLog();
 }
 
-function renderCombatRoster() {
-  if (typeof scheduleSave === 'function') scheduleSave();
-  const wrap = document.getElementById('combatRoster'); if (!wrap) return;
-  if (!battleRoster.length) {
-    wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
-    return;
-  }
-  wrap.innerHTML = battleRoster.map(entry => {
-    const m = entry.monster;
-    const r = entry.lastResult;
-    const v = entry.variant;
-    const variantBadge = v ? `<span class="combat-variant-badge ${v.tier}">${escapeHtml(v.label)}</span>` : '';
-    const traits = entry.traits || [];
-    const traitBadges = traits.map(t => `<span class="combat-trait-badge">${escapeHtml(t.name)}</span>`).join('');
-    const hpDiceNote = entry.hpRoll && entry.hpRoll.dice ? ` <span class="combat-hp-dice">(rolled ${escapeHtml(entry.hpRoll.dice)})</span>` : '';
-    // Colored from the monster's own perspective (green = this stat got stronger, red =
-    // this stat got weaker) rather than colorizeModifierText's player-item "net effect on
-    // wearer" framing, which doesn't apply to a monster's own inherent stat swings.
-    const statLinesHtml = (entry.statLines && entry.statLines.length)
-      ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
-      : '';
-    const chaosGearList = entry.chaosGearList || [];
-    // A monster can roll up to 3 chaos-gear pieces (see buildBattleEntry), and two of the
-    // same kind+rarity (e.g. two rare weapons) render as literally identical badges — same
-    // icon, same border color, same "chaos" text — which just looks like a duplicate/glitch
-    // rather than two distinct items. Grouped by kind+rarity here so each visually-distinct
-    // badge appears once, with a "×N" count when more than one piece shares it. This only
-    // affects the badge display — every piece still exists in chaosGearList and still
-    // contributes its own damage dice / AC bonus / spell (see chaosLines below and the AC math
-    // in buildBattleEntry).
-    const chaosBadgeCounts = new Map();
-    chaosGearList.forEach(g => {
-      const key = g.kind + '|' + g.rarity;
-      chaosBadgeCounts.set(key, (chaosBadgeCounts.get(key) || 0) + 1);
-    });
-    const chaosBadges = [...chaosBadgeCounts.entries()].map(([key, count]) => {
-      const [kind, rarity] = key.split('|');
-      const icon = kind === 'weapon' ? '⚔' : kind === 'armor' ? '🛡' : '📖';
-      return `<span class="combat-chaos-badge ${rarity}">${icon} chaos${count > 1 ? ` ×${count}` : ''}</span>`;
-    }).join('');
-    const chaosLines = chaosGearList.map(g => `<div class="combat-chaos-line">${g.label}</div>`).join('');
-    // Bounty-saved creatures get their own tag/border here too — the roster is exactly
-    // where you'd end up with both a real "Ancient Brass Dragon" and a bounty-derived one
-    // side by side, so the same rarity highlight from the search results carries over.
-    const bountyTag = m.bountyRarity ? ` bounty-tagged ${m.bountyRarity}` : '';
-    const bountyBadge = m.bountyRarity ? `<span class="combat-bounty-badge ${m.bountyRarity}">🎯 Bounty</span>` : '';
-    // Right-click once to defeat, right-click the defeated card again to roll its loot —
-    // see combatCardContextMenu(). Once defeated, attacking no longer makes sense, so the
-    // "Roll Attack" button is replaced by the defeat/loot state instead.
-    const defeatedTag = entry.defeated ? ' combat-card-defeated' : '';
-    const defeatedBadge = entry.defeated ? '<span class="combat-defeated-badge">☠ Defeated</span>' : '';
-    let actionHtml;
+// Shared by the DM's own roster (renderCombatRoster) and the read-only player Battlefield
+// view (renderBattlefieldForPlayer) so the two never drift out of sync with each other.
+// mode 'dm' gets every control (defeat/loot right-click, HP slider, remove, Roll Attack,
+// targeting picker, Save/Loot/Discard/Reserve/Reveal); mode 'player' gets a static HP bar, no
+// remove/attack/defeat/targeting/reveal controls, and a single Loot button per item that's
+// both revealed and not DM-reserved. `entry` in player mode is whatever already survived the
+// visibility filtering in buildBattlefieldPayload — loot the player isn't meant to see yet
+// simply isn't present on the object at all by the time it gets here.
+function combatCardHtml(entry, mode) {
+  const isDm = mode === 'dm';
+  const m = entry.monster;
+  const r = entry.lastResult;
+  const v = entry.variant;
+  const variantBadge = v ? `<span class="combat-variant-badge ${v.tier}">${escapeHtml(v.label)}</span>` : '';
+  const traits = entry.traits || [];
+  const traitBadges = traits.map(t => `<span class="combat-trait-badge">${escapeHtml(t.name)}</span>`).join('');
+  const hpDiceNote = entry.hpRoll && entry.hpRoll.dice ? ` <span class="combat-hp-dice">(rolled ${escapeHtml(entry.hpRoll.dice)})</span>` : '';
+  const statLinesHtml = (entry.statLines && entry.statLines.length)
+    ? `<div class="combat-card-mods">${entry.statLines.map(line => `<span style="color:${line.positive ? 'var(--uncommon)' : 'var(--danger)'}">${escapeHtml(line.text)}</span>`).join(', ')}</div>`
+    : '';
+  const chaosGearList = entry.chaosGearList || [];
+  const chaosBadgeCounts = new Map();
+  chaosGearList.forEach(g => {
+    const key = g.kind + '|' + g.rarity;
+    chaosBadgeCounts.set(key, (chaosBadgeCounts.get(key) || 0) + 1);
+  });
+  const chaosBadges = [...chaosBadgeCounts.entries()].map(([key, count]) => {
+    const [kind, rarity] = key.split('|');
+    const icon = kind === 'weapon' ? '⚔' : kind === 'armor' ? '🛡' : '📖';
+    return `<span class="combat-chaos-badge ${rarity}">${icon} chaos${count > 1 ? ` ×${count}` : ''}</span>`;
+  }).join('');
+  const chaosLines = chaosGearList.map(g => `<div class="combat-chaos-line">${g.label}</div>`).join('');
+  const bountyTag = m.bountyRarity ? ` bounty-tagged ${m.bountyRarity}` : '';
+  const bountyBadge = m.bountyRarity ? `<span class="combat-bounty-badge ${m.bountyRarity}">🎯 Bounty</span>` : '';
+  const defeatedTag = entry.defeated ? ' combat-card-defeated' : '';
+  const defeatedBadge = entry.defeated ? '<span class="combat-defeated-badge">☠ Defeated</span>' : '';
+
+  const targetingHtml = isDm ? combatTargetingHtml(entry) : '';
+
+  let actionHtml;
+  if (isDm) {
     if (!entry.loot) {
       actionHtml = entry.defeated
         ? '<div class="combat-loot-hint">☠ Defeated — right-click again to roll its loot.</div>'
         : `<button class="combat-roll-btn" onclick="rollBattleAttack(${entry.uid})">🎲 Roll Attack</button>`;
     } else {
       const lootTier = entry.loot.tier;
+      const revealBtn = entry.lootRevealed
+        ? '<span class="combat-loot-revealed">✓ Revealed to players</span>'
+        : `<button class="combat-roll-btn" onclick="revealEntryLoot(${entry.uid})">📢 Reveal to Players</button>`;
       actionHtml = `
         <div class="combat-loot-block ${lootTier}">
           <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[lootTier]}">(${rarityNames[lootTier]} tier)</span></div>
           <div class="combat-loot-gold">💰 ${escapeHtml(entry.loot.gold)}</div>
           ${entry.loot.items.length ? entry.loot.items.map((it, idx) => `
-            <div class="combat-loot-item ${it.rarity}"
+            <div class="combat-loot-item ${it.rarity}${it.reserved ? ' loot-reserved' : ''}"
               onmouseenter="showCombatLootTooltip(event, ${entry.uid}, ${idx})"
               onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
-              <span>${escapeHtml(it.name)}</span>
+              <span>${escapeHtml(it.name)}${it.reserved ? ' <span class="loot-reserved-tag">Reserved</span>' : ''}${it.claimedBy ? ` <span class="loot-claimed-tag">→ ${escapeHtml(it.claimedByUsername || 'claimed')}</span>` : ''}</span>
               <span class="loot-item-actions">
+                ${it.claimedBy ? '' : `<label class="loot-reserve-toggle"><input type="checkbox" ${it.reserved ? 'checked' : ''} onchange="toggleLootItemReserved(${entry.uid}, '${it.id}')"> Reserve</label>
                 <button class="loot-save-btn" onclick="saveCombatItem(${entry.uid}, ${idx}, this)">💾 Save</button>
                 <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
                 <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
+                ${(connectedPlayers || []).some(p => p.role === 'player') ? `
+                  <select class="loot-give-select" onclick="event.stopPropagation()">
+                    <option value="">Give to…</option>
+                    ${(connectedPlayers || []).filter(p => p.role === 'player').map(p => `<option value="${p.uid}">${escapeHtml(p.username)}</option>`).join('')}
+                  </select>
+                  <button class="loot-save-btn" onclick="giveLootItemToPlayer(${entry.uid}, '${it.id}', this.previousElementSibling)">🎁 Give</button>
+                ` : ''}`}
               </span>
             </div>
           `).join('') : '<div class="combat-loot-item">Nothing but the gold.</div>'}
+          ${revealBtn}
         </div>
       `;
     }
-    return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}${defeatedTag}"
-      oncontextmenu="combatCardContextMenu(event, ${entry.uid})">
-      <div class="combat-card-head">
-        <div>
-          <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}${defeatedBadge}</div>
-          <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
-        </div>
-        <button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>
+  } else {
+    // Player mode: only ever reaches here once loot exists and has been revealed — the
+    // visibility filtering already happened before this data ever left the DM's client (see
+    // buildBattlefieldPayload) — reserved items are simply absent from entry.loot.items here,
+    // not hidden by CSS, so there's nothing to inspect via devtools to see them early.
+    actionHtml = !entry.defeated
+      ? ''
+      : !entry.loot
+        ? '<div class="combat-loot-hint">☠ Defeated — loot not revealed yet.</div>'
+        : `<div class="combat-loot-block ${entry.loot.tier}">
+            <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[entry.loot.tier]}">(${rarityNames[entry.loot.tier]} tier)</span></div>
+            ${entry.loot.items.length ? entry.loot.items.map(it => `
+              <div class="combat-loot-item ${it.rarity}">
+                <span>${escapeHtml(it.name)}</span>
+                <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}')">🎒 Loot</button></span>
+              </div>
+            `).join('') : '<div class="combat-loot-item">Nothing left to loot.</div>'}
+          </div>`;
+  }
+
+  const hpHtml = isDm
+    ? `<input type="range" class="combat-hp-slider" min="0" max="${entry.maxHp}" value="${entry.hp}"
+        oninput="updateBattleHp(${entry.uid}, this.value)" onclick="event.stopPropagation()">
+       <span id="combatHpNum${entry.uid}">${escapeHtml(String(entry.hp))}</span>/${entry.maxHp}${hpDiceNote}`
+    : `<span class="combat-hp-bar-outer"><span class="combat-hp-bar-inner" style="width:${entry.maxHp ? Math.max(0, Math.min(100, entry.hp / entry.maxHp * 100)) : 0}%"></span></span>
+       <span>${escapeHtml(String(entry.hp))}/${entry.maxHp}</span>`;
+
+  return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}${defeatedTag}"
+    ${isDm ? `oncontextmenu="combatCardContextMenu(event, ${entry.uid})"` : ''}>
+    <div class="combat-card-head">
+      <div>
+        <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}${defeatedBadge}</div>
+        <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
       </div>
-      <div class="combat-card-stats">
-        <span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span>
-        <span class="combat-hp-row">
-          HP
-          <input type="range" class="combat-hp-slider" min="0" max="${entry.maxHp}" value="${entry.hp}"
-            oninput="updateBattleHp(${entry.uid}, this.value)" onclick="event.stopPropagation()">
-          <span id="combatHpNum${entry.uid}">${escapeHtml(String(entry.hp))}</span>/${entry.maxHp}${hpDiceNote}
-        </span>
-      </div>
-      ${statLinesHtml}
-      ${chaosLines}
-      ${actionHtml}
-      ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
-    </div>`;
-  }).join('');
+      ${isDm ? `<button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>` : ''}
+    </div>
+    <div class="combat-card-stats">
+      <span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span>
+      <span class="combat-hp-row">HP ${hpHtml}</span>
+    </div>
+    ${targetingHtml}
+    ${statLinesHtml}
+    ${chaosLines}
+    ${actionHtml}
+    ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
+  </div>`;
+}
+
+function renderCombatRoster() {
+  if (typeof scheduleSave === 'function') scheduleSave();
+  if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
+  const wrap = document.getElementById('combatRoster'); if (!wrap) return;
+  if (!battleRoster.length) {
+    wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
+    return;
+  }
+  wrap.innerHTML = battleRoster.map(entry => combatCardHtml(entry, 'dm')).join('');
 }
 
 function renderCombatLog() {
@@ -13587,6 +13747,91 @@ function renderCombatLog() {
   if (!battleLog.length) { wrap.innerHTML = '<div class="combat-log-empty">No attacks rolled yet.</div>'; return; }
   // Container is column-reverse, so entries in chronological array order render newest-on-top.
   wrap.innerHTML = battleLog.map(r => `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>`).join('');
+}
+
+// ===================== PLAYER BATTLEFIELD (read-only) =====================
+// Populated entirely from multiplayer-sync.js's window.applyRemoteBattlefieldState bridge —
+// this is a player-only view, so battlefieldRoster stays empty (and the tab stays hidden,
+// see enforceRoleRestrictions in multiplayer-sync.js) for a DM account.
+let battlefieldRoster = [];
+let battlefieldLog = [];
+// Persisted so a reload never re-grants a loot claim this account already won and applied —
+// see applyWonLootClaim. Plain array of "monsterUid_itemId" claim ids.
+let appliedLootClaimIds = [];
+window.applyRemoteBattlefieldState = function (roster, log) {
+  battlefieldRoster = roster || [];
+  battlefieldLog = log || [];
+  renderBattlefieldForPlayer();
+};
+function renderBattlefieldForPlayer() {
+  const wrap = document.getElementById('battlefieldRosterEl');
+  if (!wrap) return;
+  if (!battlefieldRoster.length) {
+    wrap.innerHTML = '<div class="combat-empty-roster">Nothing happening yet.</div>';
+    return;
+  }
+  wrap.innerHTML = battlefieldRoster.map(entry => combatCardHtml(entry, 'player')).join('');
+}
+// Player's own Loot button (see combatCardHtml's player mode). Only creates the claim — the
+// claims listener in multiplayer-sync.js (started for every account) is what actually applies
+// a WON claim via applyWonLootClaim below, so a tab closing right after this resolves can't
+// lose the item; the listener re-checks on the next load.
+function playerLootItem(entryUid, itemId) {
+  if (typeof window.createSelfLootClaim !== 'function') return;
+  window.createSelfLootClaim(entryUid, itemId).catch(() => {
+    flashInvMessage('Someone already looted that.', true);
+  });
+}
+// Fires once per claim this account has won, every time the claims collection changes
+// (including on reconnect/reload, when Firestore replays every existing doc) — guarded by
+// appliedLootClaimIds so a claim already applied is never granted a second time.
+window.applyWonLootClaim = function (claimId) {
+  if (appliedLootClaimIds.includes(claimId)) return;
+  const sep = claimId.indexOf('_');
+  const monsterUid = parseInt(claimId.slice(0, sep), 10);
+  const itemId = claimId.slice(sep + 1);
+  const entry = battlefieldRoster.find(e => e.uid === monsterUid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item) return; // not visible in our own cached battlefield snapshot yet — the listener will retry as new snapshots arrive
+  appliedLootClaimIds.push(claimId);
+  lootItemToRecentlyLooted(item, null);
+  flashInvMessage(`${item.name} looted!`);
+  if (typeof scheduleSave === 'function') scheduleSave();
+};
+// DM-only bookkeeping: reflects a claim (self-looted by a player, or the DM's own "give to...")
+// onto the matching item in the DM's own roster, purely for display — pushBattlefieldState
+// already keeps a claimed-but-unreserved item from being re-offered to other players simply by
+// virtue of the claim doc itself being immutable (a second create attempt fails), this just
+// makes it visibly obvious on the DM's own card who ended up with it.
+window.markLootClaimOnRoster = function (claimId, claim) {
+  const sep = claimId.indexOf('_');
+  const monsterUid = parseInt(claimId.slice(0, sep), 10);
+  const itemId = claimId.slice(sep + 1);
+  const entry = battleRoster.find(e => e.uid === monsterUid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item || item.claimedBy) return;
+  item.claimedBy = claim.claimedBy;
+  item.claimedByUsername = claim.claimedByUsername;
+  renderCombatRoster();
+};
+// DM's "give to..." action (see the loot item row in combatCardHtml's dm mode) — claims the
+// item on the chosen player's behalf first (so it still resolves correctly if a player
+// self-looted the same item a moment earlier) and only proceeds to deliver it if that succeeds.
+function giveLootItemToPlayer(entryUid, itemId, selectEl) {
+  const targetUid = selectEl.value;
+  if (!targetUid) return;
+  const targetUsername = selectEl.options[selectEl.selectedIndex].textContent;
+  const entry = battleRoster.find(e => e.uid === entryUid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item || typeof window.dmGiveLootItem !== 'function') return;
+  window.dmGiveLootItem(entryUid, itemId, targetUid, targetUsername, item).then(() => {
+    item.claimedBy = targetUid;
+    item.claimedByUsername = targetUsername;
+    renderCombatRoster();
+    flashInvMessage(`${item.name} given to ${targetUsername}.`);
+  }).catch(() => {
+    flashInvMessage('That item was already claimed by someone else.', true);
+  });
 }
 
 // ===================== BOUNTY HUNTER =====================
@@ -14500,6 +14745,7 @@ function saveAppState() {
       combatLootSettings, modWeights, fleshModWeights,
       characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies,
       characterCurrentHp, characterMaxHp, characterHitDice, characterAc, characterClass,
+      appliedLootClaimIds,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
@@ -14552,6 +14798,7 @@ function applyStateBlob(data) {
   if (data.characterHitDice !== undefined) characterHitDice = data.characterHitDice;
   if (typeof data.characterAc === 'number') characterAc = data.characterAc;
   if (data.characterClass !== undefined) characterClass = data.characterClass;
+  if (data.appliedLootClaimIds) appliedLootClaimIds = data.appliedLootClaimIds;
 }
 function loadAppState() {
   let data = null;
@@ -14584,6 +14831,16 @@ function applyRemoteMultiplayerState(data) {
   refreshAllViewsAfterStateApply();
 }
 window.applyRemoteMultiplayerState = applyRemoteMultiplayerState;
+// DM-only: live roster of every connected player (uid, username, role, currentHp/maxHp/ac
+// from their character sheet), pushed from multiplayer-sync.js's startRosterListener whenever
+// any player's doc changes. Feeds the Combat tab's targeting UI — kept as its own array
+// rather than reaching into multiplayer-sync.js's module-scoped `mp` object, matching this
+// project's existing explicit-bridge convention.
+let connectedPlayers = [];
+window.onConnectedPlayersChanged = function (players) {
+  connectedPlayers = players;
+  if (typeof renderCombatRoster === 'function' && document.getElementById('combatRoster')) renderCombatRoster();
+};
 loadAppState();
 refreshAllViewsAfterStateApply();
 // Belt-and-braces autosave: a periodic tick catches anything a crashed/killed tab would
