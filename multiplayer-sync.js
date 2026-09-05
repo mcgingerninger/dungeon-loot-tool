@@ -305,6 +305,18 @@ function collectCurrentAppState() { return _latestLocalState; }
 // any array-of-arrays it finds in place (tagged so the reverse pass can find and undo exactly
 // those spots), so any other field with this same shape — now or added later — is covered too
 // without needing to be individually tracked down. Everything else in the tree is untouched.
+//
+// While walking the tree anyway, this also drops any `undefined` object property outright
+// (rather than copying it through as `undefined`) — Firestore's setDoc rejects a field value
+// of `undefined` completely, throwing synchronously before the write ever reaches the network.
+// This is what a freshly-added, not-yet-defeated battle roster entry hit in practice: its
+// `defeated` field simply wasn't initialized anywhere until it was actually set to true, so it
+// read as `undefined` the moment that whole object round-tripped through Firestore for the
+// first time (see pushBattlefieldState below). Fixed at the source (buildBattleEntry now sets
+// `defeated: false` explicitly) AND here, as a blanket safety net against the same class of
+// bug anywhere else in the app's state shape, present or future — arrays keep `undefined`
+// elements as-is (an array of primitives never having a hole is a much less likely failure
+// mode, and removing elements would shift indices other code may depend on).
 const NESTED_ARRAY_TAG = "__nestedArrayJSON";
 function sanitizeNestedArrays(value) {
   if (Array.isArray(value)) {
@@ -313,7 +325,10 @@ function sanitizeNestedArrays(value) {
   }
   if (value && typeof value === "object") {
     const out = {};
-    for (const k of Object.keys(value)) out[k] = sanitizeNestedArrays(value[k]);
+    for (const k of Object.keys(value)) {
+      if (value[k] === undefined) continue;
+      out[k] = sanitizeNestedArrays(value[k]);
+    }
     return out;
   }
   return value;

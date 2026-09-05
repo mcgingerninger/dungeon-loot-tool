@@ -12940,6 +12940,12 @@ function buildBattleEntry(monster) {
   return {
     uid: ++battleUidCounter, monster, displayName, variant, traits, leaning, chaosGearList,
     hp, maxHp: hp, hpRoll, ac, atkMod, dmgMult, statLines, lastResult: null,
+    // Explicit false, not left unset: this whole object round-trips through Firestore now
+    // (see pushBattlefieldState in multiplayer-sync.js), which rejects `undefined` field
+    // values outright — an omitted `defeated` key here surfaced as exactly that error the
+    // first time a freshly-added, not-yet-defeated monster's card tried to sync. Every other
+    // boolean-ish field below is already explicit for the same reason.
+    defeated: false,
     // Targeting: which connected player this monster attacks. 'random' picks any connected
     // player fresh each attack; 'lowestHp'/'lowestAc' pick whoever currently has the lowest
     // value; 'fixed' always attacks targetPlayerUid specifically. See resolveEntryTarget.
@@ -12964,7 +12970,7 @@ function buildFrozenBattleEntry(monster) {
     uid: ++battleUidCounter, monster, displayName: f.displayName, variant: f.variant,
     traits: f.traits, leaning: f.leaning, chaosGearList: f.chaosGearList || [],
     hp: f.hp, maxHp: f.hp, hpRoll: f.hpRoll, ac: f.ac, atkMod: f.atkMod, dmgMult: f.dmgMult,
-    statLines: f.statLines || [], lastResult: null,
+    statLines: f.statLines || [], lastResult: null, defeated: false,
     targetMode: 'random', targetPlayerUid: null, lootRevealed: false,
   };
 }
