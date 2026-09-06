@@ -13807,6 +13807,7 @@ function combatCardHtml(entry, mode) {
        <span>${escapeHtml(String(entry.hp))}/${entry.maxHp}</span>`;
 
   return `<div class="combat-card${v ? ' has-variant ' + v.tier : ''}${traits.length && !v ? ' has-trait' : ''}${bountyTag}${defeatedTag}"
+    data-entry-uid="${entry.uid}"
     ${isDm ? `oncontextmenu="combatCardContextMenu(event, ${entry.uid})"` : ''}>
     <div class="combat-card-head">
       <div>
@@ -13827,25 +13828,71 @@ function combatCardHtml(entry, mode) {
   </div>`;
 }
 
+// Card-level reconciliation instead of a blind "replace the whole roster's innerHTML" —
+// that used to tear down EVERY card's DOM on ANY change anywhere (rolling one monster's
+// attack, reserving a loot item, a background roster ping from another player's autosave),
+// destroying whatever the DM happened to have open on a COMPLETELY UNRELATED card at that
+// instant: a "Give to…" select mid-pick, a "Targets" dropdown, anything. Each card keeps a
+// stable wrapper keyed by the monster's own uid; a card is only ever touched if its own
+// rendered HTML actually changed since last time, so acting on monster B never disturbs
+// whatever's open on monster A — no matter which of the many call sites triggered the render.
+// skipIfInteracting additionally protects a card that DOES need a genuine update (e.g. its
+// target-player options changed because someone's roster entry changed) if the DM currently
+// has something inside THAT SAME card focused; direct actions on that exact card (rolling its
+// attack, toggling its own loot reserve, etc.) never pass this, so they still always land.
+// Roster reordering isn't handled (existing cards keep their current DOM position) since the
+// roster is append-order and never resorted in place — only additions/removals move anything.
+function reconcileRosterCards(wrap, entries, mode, skipIfInteracting) {
+  if (!wrap) return;
+  if (!entries.length) {
+    wrap.innerHTML = mode === 'dm'
+      ? '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>'
+      : '<div class="combat-empty-roster">Nothing happening yet.</div>';
+    return;
+  }
+  const existingCards = new Map();
+  wrap.querySelectorAll(':scope > [data-entry-uid]').forEach(el => existingCards.set(el.dataset.entryUid, el));
+  const seenUids = new Set();
+  let prevEl = null;
+  entries.forEach(entry => {
+    const uidStr = String(entry.uid);
+    seenUids.add(uidStr);
+    const html = combatCardHtml(entry, mode);
+    const existing = existingCards.get(uidStr);
+    if (existing) {
+      const interacting = existing.contains(document.activeElement) && document.activeElement !== existing;
+      if (existing.dataset.cardHtml !== html && !(skipIfInteracting && interacting)) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const newEl = temp.firstElementChild;
+        if (newEl) {
+          newEl.dataset.cardHtml = html;
+          existing.replaceWith(newEl);
+          prevEl = newEl;
+        } else {
+          prevEl = existing;
+        }
+      } else {
+        prevEl = existing;
+      }
+    } else {
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      const newEl = temp.firstElementChild;
+      if (newEl) {
+        newEl.dataset.cardHtml = html;
+        if (prevEl && prevEl.parentElement === wrap) prevEl.after(newEl);
+        else wrap.prepend(newEl);
+        prevEl = newEl;
+      }
+    }
+  });
+  existingCards.forEach((el, uidStr) => { if (!seenUids.has(uidStr)) el.remove(); });
+}
 function renderCombatRoster(skipIfInteracting) {
   if (typeof scheduleSave === 'function') scheduleSave();
   if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
-  const wrap = document.getElementById('combatRoster'); if (!wrap) return;
-  // Background triggers (see onConnectedPlayersChanged, which fires every few seconds just
-  // from other players' idle autosaves) only ever refresh HP/AC numbers and target-player
-  // options here — nothing worth losing a click over. A full re-render mid-interaction was
-  // destroying an open "Targets" dropdown (or the loot "Give to…" select) before the DM could
-  // actually pick an option, since replacing the whole roster's innerHTML tears out the live
-  // <select> the browser's native option popup is anchored to — which is exactly what made
-  // targeting dropdowns "disappear" before a click could register. Only background callers
-  // opt into this guard (skipIfInteracting); the DM's OWN actions (attacking, targeting,
-  // looting, adding/removing a monster) all call this unguarded and still render immediately.
-  if (skipIfInteracting && wrap.contains(document.activeElement) && document.activeElement !== wrap) return;
-  if (!battleRoster.length) {
-    wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
-    return;
-  }
-  wrap.innerHTML = battleRoster.map(entry => combatCardHtml(entry, 'dm')).join('');
+  reconcileRosterCards(document.getElementById('combatRoster'), battleRoster, 'dm', skipIfInteracting);
 }
 
 function renderCombatLog() {
@@ -13870,13 +13917,7 @@ window.applyRemoteBattlefieldState = function (roster, log) {
   renderBattlefieldForPlayer();
 };
 function renderBattlefieldForPlayer() {
-  const wrap = document.getElementById('battlefieldRosterEl');
-  if (!wrap) return;
-  if (!battlefieldRoster.length) {
-    wrap.innerHTML = '<div class="combat-empty-roster">Nothing happening yet.</div>';
-    return;
-  }
-  wrap.innerHTML = battlefieldRoster.map(entry => combatCardHtml(entry, 'player')).join('');
+  reconcileRosterCards(document.getElementById('battlefieldRosterEl'), battlefieldRoster, 'player', true);
 }
 // Guards against exactly the click pattern that made looting look broken: this only CREATES
 // the claim doc (see the comment below on why), which is a real network round-trip, and the
