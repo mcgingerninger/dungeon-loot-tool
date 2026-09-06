@@ -1389,6 +1389,9 @@
   .weapon-attack-total { font-size:1.3rem; color:var(--gold-bright); text-align:center; margin:0.6rem 0; }
   .weapon-attack-crit { color:var(--uncommon); }
   .weapon-attack-fumble { color:var(--danger); }
+  .pending-attack-row { display:flex; align-items:center; justify-content:space-between; gap:0.8rem; background:var(--surface); border:1px solid var(--gold); padding:0.6rem 0.8rem; margin-bottom:0.5rem; flex-wrap:wrap; }
+  .pending-attack-detail { font-size:0.82rem; color:var(--text-dim); margin-top:0.2rem; }
+  .pending-attack-actions { display:flex; gap:0.5rem; flex-shrink:0; }
   .first-time-setup-banner { display:flex; align-items:center; gap:0.8rem; justify-content:space-between; background:rgba(201,168,76,0.08); border:1px solid var(--gold); color:var(--text); padding:0.7rem 0.9rem; margin-bottom:1rem; font-size:0.9rem; }
   .first-time-setup-banner button { flex-shrink:0; background:var(--gold); color:var(--bg); border:none; padding:0.35rem 0.8rem; cursor:pointer; font-family:'Crimson Text',serif; font-weight:600; }
   .inv-grid-wrap { background:var(--surface); border:1px solid var(--border); padding:0.8rem; overflow-x:auto; margin-bottom:0; }
@@ -2826,6 +2829,8 @@
       <div class="store-buy-msg" id="combatAddMsg"></div>
       <div class="combat-picker-results" id="combatPickerResults"><div class="spell-loading">Type at least 2 characters to search creatures.</div></div>
     </div>
+
+    <div id="pendingAttacksPanel"></div>
 
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;">
@@ -4852,7 +4857,7 @@ function showTab(tab, btn) {
   // showCompendiumSub) — re-entering the tab just re-initializes whichever sub-panel was
   // last active instead of always resetting to Items.
   if (tab === 'compendium') initCompendiumSub(activeCompendiumSub);
-  if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); renderCombatLootSettings(); }
+  if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); renderCombatLootSettings(); renderPendingAttacksPanel(); }
   if (tab === 'store') { renderStoreTab(); renderInventoryGrid(); }
   if (tab === 'players' && typeof renderPlayersTab === 'function') renderPlayersTab();
   if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
@@ -11895,22 +11900,17 @@ function collectEquippedWeaponInfo(slots, resolveItem) {
     return { slotId, name: entry.item.name, dmg: entry.item.dmg, rarity: entry.rarity };
   }).filter(Boolean);
 }
-// Self-contained attack roll for the Inventory tab's "⚔ Attack" button on an equipped weapon —
-// there's no monster here to resolve a hit/miss against, so this just shows the full breakdown
-// (d20 + ability mod + proficiency to hit, weapon dice + ability mod for damage) as a popup,
-// the same numbers a real 5e attack would use. Always assumes proficiency with your own
-// equipped weapon (this sheet doesn't model per-weapon proficiency) and reads "Finesse" out of
-// the item's own effect text to use DEX instead of STR when it's actually the better modifier —
-// otherwise defaults to STR, matching the vast majority of weapons.
-function rollEquippedWeaponAttack(slotId) {
-  buildTokenIndex();
-  const key = playerSlots[slotId];
-  const entry = key && TOKEN_INDEX[key];
-  if (!entry) { flashInvMessage('No weapon equipped there.', true); return; }
-  const dmgRaw = String(entry.item.dmg || '').trim();
+// Pure dice math shared by the Inventory tab's self-contained popup AND the Battlefield tab's
+// monster-targeting attack (see submitBattlefieldAttack) — one place computing "what does an
+// attack with this weapon, from this sheet, actually roll" so the two contexts can never drift
+// into using different formulas. Always assumes proficiency with your own equipped weapon (this
+// sheet doesn't model per-weapon proficiency) and reads "Finesse" out of the item's own effect
+// text to use DEX instead of STR when it's actually the better modifier — otherwise defaults to
+// STR, matching the vast majority of weapons.
+function computeWeaponAttackRoll(item, sheet) {
+  const dmgRaw = String(item.dmg || '').trim();
   const dmgMatch = dmgRaw.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-  const sheet = computeCharacterSheet();
-  const finesse = /finesse/i.test(entry.item.effect || '');
+  const finesse = /finesse/i.test(item.effect || '');
   const strMod = sheet.abilities.str.mod;
   const dexMod = sheet.abilities.dex.mod;
   const useDex = finesse && dexMod > strMod;
@@ -11922,23 +11922,35 @@ function rollEquippedWeaponAttack(slotId) {
   const toHitTotal = d20 + abilityMod + sheet.profBonus;
   const dmgResult = dmgMatch ? battleRollDamage(dmgMatch[0].replace(/\s+/g, ''), isCrit) : null;
   const dmgTotal = dmgResult ? dmgResult.total + abilityMod : null;
-
+  return { dmgRaw, abilityMod, abilityLabel, profBonus: sheet.profBonus, d20, isCrit, isFumble, toHitTotal, dmgResult, dmgTotal };
+}
+function weaponAttackRollHtml(roll) {
+  return `
+    <div class="weapon-attack-line"><span>d20 roll</span><span class="${roll.isCrit ? 'weapon-attack-crit' : roll.isFumble ? 'weapon-attack-fumble' : ''}">${roll.d20}${roll.isCrit ? ' (CRIT!)' : roll.isFumble ? ' (FUMBLE!)' : ''}</span></div>
+    <div class="weapon-attack-line"><span>${roll.abilityLabel} modifier</span><span>${fmtMod(roll.abilityMod)}</span></div>
+    <div class="weapon-attack-line"><span>Proficiency bonus</span><span>${fmtMod(roll.profBonus)}</span></div>
+    <div class="weapon-attack-total">To Hit: ${roll.toHitTotal}</div>
+    ${roll.dmgResult ? `
+      <div class="weapon-attack-line"><span>Damage dice (${escapeHtml(roll.dmgRaw)}${roll.isCrit ? ', doubled' : ''})</span><span>${roll.dmgResult.rolls.join(' + ')}${roll.dmgResult.mod ? ' ' + fmtMod(roll.dmgResult.mod) : ''}</span></div>
+      <div class="weapon-attack-line"><span>${roll.abilityLabel} modifier</span><span>${fmtMod(roll.abilityMod)}</span></div>
+      <div class="weapon-attack-total">Damage: ${roll.dmgTotal}</div>
+    ` : `<p class="sheet-chip-empty">This weapon's damage dice aren't set on the item (edit it to add one, e.g. "1d8") — showing the attack roll only.</p>`}
+  `;
+}
+// Self-contained attack roll for the Inventory tab's "⚔ Attack" button on an equipped weapon —
+// there's no monster here to resolve a hit/miss against, so this just shows the full breakdown
+// as a popup, the same numbers a real 5e attack would use.
+function rollEquippedWeaponAttack(slotId) {
+  buildTokenIndex();
+  const key = playerSlots[slotId];
+  const entry = key && TOKEN_INDEX[key];
+  if (!entry) { flashInvMessage('No weapon equipped there.', true); return; }
+  const sheet = computeCharacterSheet();
+  const roll = computeWeaponAttackRoll(entry.item, sheet);
   const titleEl = document.getElementById('weaponAttackTitle');
   if (titleEl) titleEl.textContent = `⚔ Attack with ${entry.item.name}`;
   const bodyEl = document.getElementById('weaponAttackBody');
-  if (bodyEl) {
-    bodyEl.innerHTML = `
-      <div class="weapon-attack-line"><span>d20 roll</span><span class="${isCrit ? 'weapon-attack-crit' : isFumble ? 'weapon-attack-fumble' : ''}">${d20}${isCrit ? ' (CRIT!)' : isFumble ? ' (FUMBLE!)' : ''}</span></div>
-      <div class="weapon-attack-line"><span>${abilityLabel} modifier</span><span>${fmtMod(abilityMod)}</span></div>
-      <div class="weapon-attack-line"><span>Proficiency bonus</span><span>${fmtMod(sheet.profBonus)}</span></div>
-      <div class="weapon-attack-total">To Hit: ${toHitTotal}</div>
-      ${dmgResult ? `
-        <div class="weapon-attack-line"><span>Damage dice (${escapeHtml(dmgRaw)}${isCrit ? ', doubled' : ''})</span><span>${dmgResult.rolls.join(' + ')}${dmgResult.mod ? ' ' + fmtMod(dmgResult.mod) : ''}</span></div>
-        <div class="weapon-attack-line"><span>${abilityLabel} modifier</span><span>${fmtMod(abilityMod)}</span></div>
-        <div class="weapon-attack-total">Damage: ${dmgTotal}</div>
-      ` : `<p class="sheet-chip-empty">This weapon's damage dice aren't set on the item (edit it to add one, e.g. "1d8") — showing the attack roll only.</p>`}
-    `;
-  }
+  if (bodyEl) bodyEl.innerHTML = weaponAttackRollHtml(roll);
   const modal = document.getElementById('weaponAttackModal');
   if (modal) modal.classList.add('open');
 }
@@ -13993,7 +14005,7 @@ function combatCardHtml(entry, mode, shellOnly) {
     // simply absent from entry.loot.items here, not hidden by CSS, so there's nothing to
     // inspect via devtools to see early or to still show a live Loot button for.
     actionHtml = !entry.defeated
-      ? ''
+      ? `<button class="combat-roll-btn" onclick="openBattlefieldAttackPicker(${entry.uid})">⚔ Attack</button>`
       : !entry.loot
         ? '<div class="combat-loot-hint">☠ Defeated — loot not revealed yet.</div>'
         : (() => {
@@ -14149,6 +14161,76 @@ function renderCombatRoster(skipIfInteracting) {
   reconcileRosterCards(document.getElementById('combatRoster'), battleRoster, 'dm', skipIfInteracting);
 }
 
+// DM-only: every player attack awaiting review (see openBattlefieldAttackPicker in the player
+// battlefield section and submitBattlefieldAttack in multiplayer-sync.js). Hp/defeated changes
+// only ever happen here, in applyPendingAttackRequest — the DM stays the single source of truth
+// for monster state, same as every other combat action in this app; a submitted roll is just a
+// number sitting in front of them until they click Apply.
+let pendingAttackRequests = [];
+window.applyIncomingAttackRequests = function (list) {
+  pendingAttackRequests = list || [];
+  renderPendingAttacksPanel();
+};
+function renderPendingAttacksPanel() {
+  const wrap = document.getElementById('pendingAttacksPanel');
+  if (!wrap) return;
+  if (!pendingAttackRequests.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="players-section-title">⚔ Pending Player Attacks</div>
+    ${pendingAttackRequests.map(req => {
+      const entry = battleRoster.find(e => e.uid === req.monsterUid);
+      const targetAc = entry ? (entry.ac !== null && entry.ac !== undefined ? entry.ac : entry.monster.ac) : null;
+      const wouldHit = targetAc != null && req.toHitTotal >= targetAc;
+      return `<div class="pending-attack-row">
+        <div class="pending-attack-info">
+          <strong>${escapeHtml(req.playerUsername)}</strong> attacks <strong>${escapeHtml(req.monsterName)}</strong> with ${escapeHtml(req.weaponName)}${req.isCrit ? ' <span class="weapon-attack-crit">(CRIT)</span>' : req.isFumble ? ' <span class="weapon-attack-fumble">(FUMBLE)</span>' : ''}
+          <div class="pending-attack-detail">To Hit: ${req.toHitTotal}${targetAc != null ? ` vs AC ${targetAc} — ${wouldHit ? '✓ hits' : '✗ misses'}` : ' — that monster is no longer in your roster'}${req.dmgTotal != null ? ` · Damage: ${req.dmgTotal}` : ' · no damage dice recorded'}</div>
+        </div>
+        <div class="pending-attack-actions">
+          <button class="loot-save-btn" onclick="applyPendingAttackRequest('${req.id}')">✓ Apply</button>
+          <button class="loot-save-btn" onclick="dismissPendingAttackRequest('${req.id}')">✕ Dismiss</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+// Only place battleRoster HP/defeated ever changes from a player-submitted attack — resolves
+// hit/miss against the monster's OWN current AC at the moment the DM clicks Apply (not whatever
+// it was when the player rolled, in case something changed it in between) before touching HP.
+function applyPendingAttackRequest(reqId) {
+  const req = pendingAttackRequests.find(r => r.id === reqId);
+  if (!req) return;
+  const entry = battleRoster.find(e => e.uid === req.monsterUid);
+  if (entry) {
+    const targetAc = entry.ac !== null && entry.ac !== undefined ? entry.ac : entry.monster.ac;
+    const hit = req.toHitTotal >= targetAc;
+    if (hit && req.dmgTotal != null && !entry.defeated) {
+      entry.hp = Math.max(0, entry.hp - req.dmgTotal);
+      if (entry.hp <= 0) entry.defeated = true;
+    }
+    const cls = req.isFumble ? 'miss' : req.isCrit ? 'crit' : hit ? 'hit' : 'miss';
+    const title = req.isFumble ? 'Player Fumble' : req.isCrit ? 'Player Critical Hit!' : hit ? 'Player Hit' : 'Player Miss';
+    battleLog.push({
+      cls, title,
+      detail: `<strong>${escapeHtml(req.playerUsername)}</strong> attacks <strong>${escapeHtml(req.monsterName)}</strong> with ${escapeHtml(req.weaponName)} — rolled <strong>${req.toHitTotal}</strong> vs AC ${targetAc}. ${hit ? `Hit${req.dmgTotal != null ? ` for <strong>${req.dmgTotal}</strong> damage` : ''}.` : 'Missed.'}`,
+    });
+    if (battleLog.length > 50) battleLog = battleLog.slice(-50);
+    renderCombatRoster();
+    renderCombatLog();
+  }
+  resolvePendingAttackRequest(reqId);
+}
+function dismissPendingAttackRequest(reqId) {
+  resolvePendingAttackRequest(reqId);
+}
+function resolvePendingAttackRequest(reqId) {
+  pendingAttackRequests = pendingAttackRequests.filter(r => r.id !== reqId);
+  renderPendingAttacksPanel();
+  if (typeof window.resolveAttackRequest === 'function') {
+    window.resolveAttackRequest(reqId).catch(() => flashCombatMessage('Failed to clear that attack request — try again.', true));
+  }
+}
+
 function renderCombatLog() {
   const wrap = document.getElementById('combatLog'); if (!wrap) return;
   if (!battleLog.length) { wrap.innerHTML = '<div class="combat-log-empty">No attacks rolled yet.</div>'; return; }
@@ -14172,6 +14254,36 @@ window.applyRemoteBattlefieldState = function (roster, log) {
 };
 function renderBattlefieldForPlayer() {
   reconcileRosterCards(document.getElementById('battlefieldRosterEl'), battlefieldRoster, 'player', true);
+}
+// Player's "⚔ Attack" button on an undefeated monster card — rolls with whatever's in their
+// main weapon slot (see computeWeaponAttackRoll), shows them the exact same breakdown popup the
+// Inventory tab's self-roll uses (plus who/what it was aimed at), and submits it to the DM to
+// apply or dismiss (see applyPendingAttackRequest) rather than touching the monster's HP
+// directly — the DM stays the one source of truth for combat state, same as everywhere else.
+function openBattlefieldAttackPicker(monsterUid) {
+  buildTokenIndex();
+  const key = playerSlots.weapon1;
+  const entry = key && TOKEN_INDEX[key];
+  if (!entry || !String(entry.item.dmg || '').trim()) {
+    flashInvMessage('Equip a weapon with damage dice in your main hand first.', true);
+    return;
+  }
+  const monster = battlefieldRoster.find(e => e.uid === monsterUid);
+  if (!monster) return;
+  const sheet = computeCharacterSheet();
+  const roll = computeWeaponAttackRoll(entry.item, sheet);
+  const monsterName = monster.displayName || monster.monster.name;
+  const titleEl = document.getElementById('weaponAttackTitle');
+  if (titleEl) titleEl.textContent = `⚔ Attack ${monsterName} with ${entry.item.name}`;
+  const bodyEl = document.getElementById('weaponAttackBody');
+  if (bodyEl) bodyEl.innerHTML = weaponAttackRollHtml(roll) + '<p class="sheet-chip-empty">Sent to your DM to apply.</p>';
+  document.getElementById('weaponAttackModal')?.classList.add('open');
+  if (typeof window.submitBattlefieldAttack !== 'function') return;
+  window.submitBattlefieldAttack({
+    monsterUid, monsterName, weaponName: entry.item.name,
+    d20: roll.d20, toHitTotal: roll.toHitTotal, isCrit: roll.isCrit, isFumble: roll.isFumble,
+    dmgTotal: roll.dmgTotal,
+  }).catch(() => flashInvMessage('Failed to send the attack to your DM — check your connection.', true));
 }
 // Guards against exactly the click pattern that made looting look broken: this only CREATES
 // the claim doc (see the comment below on why), which is a real network round-trip, and the

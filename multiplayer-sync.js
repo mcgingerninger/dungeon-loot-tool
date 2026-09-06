@@ -73,6 +73,16 @@
 //           allow create: if request.auth != null;
 //           allow update, delete: if false;
 //         }
+//         // A player's weapon-attack roll, pending the DM's review/apply — anyone signed in can
+//         // submit one (their own attack), nobody can edit one once submitted (immutable, same
+//         // reasoning as lootClaims), and only the DM can delete one (their "Apply"/"Dismiss"
+//         // both resolve by deleting the request once handled).
+//         match /attackRequests/{reqId} {
+//           allow read: if request.auth != null;
+//           allow create: if request.auth != null;
+//           allow update: if false;
+//           allow delete: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
+//         }
 //       }
 //     }
 //   }
@@ -152,6 +162,12 @@ function playerDocRef(roomCode, uid) { return doc(db, "rooms", roomCode, "player
 function battlefieldDocRef(roomCode) { return doc(db, "rooms", roomCode, "battlefield", "state"); }
 function lootClaimDocRef(roomCode, claimId) { return doc(db, "rooms", roomCode, "lootClaims", claimId); }
 function lootClaimsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "lootClaims"); }
+// A player's weapon-attack roll against a monster on the shared Battlefield, pending DM review
+// (see submitBattlefieldAttack/startAttackRequestListener) — deliberately its own collection,
+// not folded into lootClaims or the player's own doc, so the DM's listener only ever fires on
+// an actual attack needing review, never on unrelated per-player autosave noise.
+function attackRequestsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "attackRequests"); }
+function attackRequestDocRef(roomCode, reqId) { return doc(db, "rooms", roomCode, "attackRequests", reqId); }
 
 // All multiplayer session state lives here, not scattered across module-level variables.
 const mp = {
@@ -284,7 +300,7 @@ async function connectAsRole(uid, role, roomCode, username) {
     }
   }
   startPlayerListener();
-  if (role === "dm") startRosterListener();
+  if (role === "dm") { startRosterListener(); startAttackRequestListener(roomCode); }
   else startBattlefieldListener(roomCode);
   startLootClaimListener(roomCode);
   hideGate();
@@ -328,9 +344,10 @@ function resetLocalSessionState() {
   if (mpBattlefieldUnsub) mpBattlefieldUnsub();
   if (mpLootClaimsUnsub) mpLootClaimsUnsub();
   if (mpViewedPlayerUnsub) mpViewedPlayerUnsub();
+  if (mpAttackRequestUnsub) mpAttackRequestUnsub();
   mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
   mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
-  mpBattlefieldUnsub = null; mpLootClaimsUnsub = null; mpViewedPlayerUnsub = null;
+  mpBattlefieldUnsub = null; mpLootClaimsUnsub = null; mpViewedPlayerUnsub = null; mpAttackRequestUnsub = null;
   document.body.classList.remove("role-player");
   updatePlayerNameDisplay();
   // Called last, after mp.connected is already false — the main file's own saveAppState()
@@ -630,6 +647,43 @@ function startLootClaimListener(roomCode) {
     });
   });
 }
+
+// ---------- Battlefield attacks (player -> DM review) ----------
+// A player's own weapon-attack roll against a monster, submitted for the DM to look at and
+// apply (or dismiss) rather than auto-resolving — the DM stays the one source of truth for
+// monster HP, same as every other combat action in this app. doc(collectionRef) with no id
+// argument (rather than a manually-built id) generates a fresh random id, matching what addDoc
+// would give without needing that import.
+window.submitBattlefieldAttack = function (attack) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  const ref = doc(attackRequestsCollectionRef(mp.roomCode));
+  return setDoc(ref, {
+    ...attack,
+    playerUid: mp.uid,
+    playerUsername: mp.username,
+    createdAt: serverTimestamp(),
+  });
+};
+// DM-only: hands the main file the full current list of pending requests on every change (not
+// just the delta) — there are only ever a handful outstanding at once, so re-rendering the
+// whole pending-attacks panel from the full list each time is simpler than diffing here, and
+// the main file's own render function is already cheap to call repeatedly.
+let mpAttackRequestUnsub = null;
+function startAttackRequestListener(roomCode) {
+  if (mpAttackRequestUnsub) mpAttackRequestUnsub();
+  mpAttackRequestUnsub = onSnapshot(attackRequestsCollectionRef(roomCode), (snap) => {
+    const list = [];
+    snap.forEach((docSnap) => list.push({ id: docSnap.id, ...docSnap.data() }));
+    if (typeof window.applyIncomingAttackRequests === "function") window.applyIncomingAttackRequests(list);
+  });
+}
+// DM's Apply/Dismiss both resolve the same way: delete the request doc. Applying the actual HP
+// change happens entirely on the main file's side first (see applyPendingAttackRequest) since
+// that's local roster data this bridge has no reason to know the shape of.
+window.resolveAttackRequest = function (reqId) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return deleteDoc(attackRequestDocRef(mp.roomCode, reqId));
+};
 
 // ---------- Battlefield (DM-only write, shared read) ----------
 // Debounced the same way the main app's own saveAppState is — renderCombatRoster() (which can
