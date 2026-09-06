@@ -43,6 +43,10 @@
 //         allow read: if request.auth != null;
 //         allow create: if request.auth != null && request.auth.uid == uid;
 //         allow update: if request.auth != null && request.auth.uid == uid;
+//         // Lets the "Delete My Account" self-service action (see deleteMyAccount) clean up
+//         // this profile doc as part of freeing up a username for reuse — there was no delete
+//         // rule here at all before, which would otherwise reject that half of the cleanup.
+//         allow delete: if request.auth != null && request.auth.uid == uid;
 //       }
 //       match /rooms/{roomCode} {
 //         allow read: if request.auth != null;
@@ -290,6 +294,44 @@ function logOut() {
   resetLocalSessionState();
   signOut(auth).catch(() => {});
   showGate();
+}
+
+// Self-service account deletion — the only way a username actually becomes reusable, since
+// nothing in this app (or Firebase's client SDK generally) can delete a DIFFERENT account than
+// the one currently signed in. A DM can't do this to a player; a player who wants their
+// username freed up has to log in as themselves and do it here. Requires typing the exact
+// username back (not just a plain confirm()) since — unlike removing a player, which only
+// deletes their campaign progress and leaves them able to log back in — this is genuinely
+// irreversible: the login itself is gone.
+async function deleteMyAccount() {
+  const roleWarning = mp.role === "dm"
+    ? " You are the DM — deleting your account will NOT delete the campaign or remove your players, but you will no longer be able to log in to manage it."
+    : "";
+  const typed = prompt(`This permanently deletes the login for "${mp.username}" and frees that username up for a new signup. This cannot be undone.${roleWarning}\n\nType your username to confirm:`);
+  if (typed === null) return; // cancelled
+  if (typed !== mp.username) {
+    alert("That didn't match your username — nothing was deleted.");
+    return;
+  }
+  const user = auth.currentUser;
+  if (!user) return;
+  // Clean up Firestore data BEFORE deleting the auth account — once it's gone, request.auth
+  // is null and these writes would be rejected by the security rules regardless.
+  if (mp.roomCode && mp.uid) { try { await deleteDoc(playerDocRef(mp.roomCode, mp.uid)); } catch (e) { /* best effort */ } }
+  try { await deleteDoc(userDocRef(user.uid)); } catch (e) { /* best effort */ }
+  try {
+    await deleteUser(user);
+  } catch (err) {
+    if (err.code === "auth/requires-recent-login") {
+      alert("For security, deleting an account needs a recent login. Log out, log back in, and try again right away.");
+    } else {
+      alert("Couldn't delete the account: " + (err.message || err.code || "unknown error"));
+    }
+    return;
+  }
+  resetLocalSessionState();
+  showGate();
+  setGateStatus("Account deleted — that username is available again.", false);
 }
 
 // ---------- Sync engine (same design as Phase 1) ----------
@@ -941,9 +983,11 @@ function renderAccountPanel() {
     </div>
     <div class="mp-copy-msg" id="mpRoomCodeCopyMsg"></div>
     <button class="mp-btn mp-danger" id="mpLogoutBtn">Log Out</button>
+    <button class="mp-btn mp-danger" id="mpDeleteAccountBtn" style="margin-top:0.4rem;">Delete My Account</button>
     ${rosterHtml}
   `;
   document.getElementById("mpLogoutBtn").onclick = logOut;
+  document.getElementById("mpDeleteAccountBtn").onclick = deleteMyAccount;
   document.getElementById("mpCopyRoomCodeBtn").onclick = copyRoomCode;
   // Clicking the code itself copies it too — select-all-on-click still works as a fallback
   // (user-select:all above) for anyone whose browser blocks the Clipboard API.
