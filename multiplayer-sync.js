@@ -234,7 +234,24 @@ async function connectAsRole(uid, role, roomCode, username) {
   const existing = await getDoc(playerDocRef(roomCode, uid));
   mp.connected = true;
   if (!existing.exists()) {
-    const created = await pushOwnState();
+    // refreshLocalStateCache() just captured whatever THIS BROWSER's current in-memory state
+    // happens to be — its own earlier local testing before ever signing up, or a previous
+    // account used in this same tab — not a guaranteed blank slate. A brand-new account should
+    // never inherit that (this is what was making some new characters spawn already carrying
+    // an item, e.g. a torch, from whatever the browser had lying around). Overriding just the
+    // item/equipment AND character-sheet fields is enough — everything else omitted here is
+    // simply left at whatever default applyStateBlob's reader already starts with wherever
+    // this data is next read, which is correct on any genuinely fresh load anyway.
+    const blankState = {
+      ...collectCurrentAppState(),
+      inventoryGrid: typeof window.buildBlankInventoryGrid === "function" ? window.buildBlankInventoryGrid() : [],
+      inventoryPlacements: {}, inventoryPlacementCounter: 0,
+      savedGeneratedItems: [], playerSlots: {}, recentlyLooted: [],
+      characterAbilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      characterLevel: 1, skillProficiencies: [], saveProficiencies: [],
+      characterCurrentHp: 10, characterMaxHp: 10, characterHitDice: "", characterAc: 10, characterClass: "",
+    };
+    const created = await pushOwnState(blankState);
     if (!created) {
       // The very first write failed (permissions still propagating, a network blip, etc.) —
       // do NOT proceed into startPlayerListener() in this state, since its first snapshot
@@ -288,6 +305,13 @@ function resetLocalSessionState() {
   mpBattlefieldUnsub = null; mpLootClaimsUnsub = null; mpViewedPlayerUnsub = null;
   document.body.classList.remove("role-player");
   updatePlayerNameDisplay();
+  // Called last, after mp.connected is already false — the main file's own saveAppState()
+  // (triggered inside this bridge) checks mp.connected before pushing anything to Firestore,
+  // so this only flushes the blank state to local storage, never to the account just logged
+  // out of. See the bridge's own comment for why this needs to happen at all: without it, an
+  // account switch within one browser tab left the PREVIOUS account's inventory sitting in
+  // memory until (if ever) the next account's real data happened to arrive and overwrite it.
+  if (typeof window.resetMainAppStateToBlank === "function") window.resetMainAppStateToBlank();
 }
 
 function logOut() {
@@ -954,6 +978,16 @@ function friendlyAuthError(err) {
 }
 
 // ---- Post-login account panel ----
+// Split into a STATIC shell (built once per login) and a live roster list (rebuilt on every
+// call) — this used to rebuild the ENTIRE modal via innerHTML on every single call, but this
+// function runs on every roster snapshot (startRosterListener), which fires roughly every 5
+// seconds at minimum just from the DM's own idle autosave heartbeat (it listens to the whole
+// players collection, including their own doc), let alone anything an actual player does.
+// Rebuilding the whole modal that often destroyed and recreated the Log Out / Delete My
+// Account / Copy buttons' actual DOM nodes constantly — if a click's mousedown and mouseup
+// happened to straddle one of those rebuilds, they landed on two different elements and never
+// counted as a completed click at all. That's what made Log Out "sometimes just do nothing"
+// with no obvious pattern — nothing to do with the button's size or hit area.
 function renderAccountPanel() {
   const btn = document.getElementById("mpAccountBtn");
   const modal = document.getElementById("mpAccountModal");
@@ -962,7 +996,37 @@ function renderAccountPanel() {
   if (!mp.connected) return;
   btn.textContent = (mp.role === "dm" ? "👑 " : "🧙 ") + mp.username;
 
-  const rosterHtml = mp.role === "dm" ? `
+  // Only (re)built when the logged-in account actually changes, so Log Out/Delete/Copy stay
+  // the exact same DOM nodes for the entire session — a plain data attribute is enough since
+  // there's nothing else that would need this shell rebuilt while still logged into one account.
+  if (modal.dataset.builtFor !== mp.uid) {
+    modal.dataset.builtFor = mp.uid;
+    modal.innerHTML = `
+      <span class="mp-close" onclick="document.getElementById('mpAccountOverlay').classList.remove('show')">×</span>
+      <h3>${mp.role === "dm" ? "👑 Dungeon Master" : "🧙 Player"}: ${escapeHtmlLocal(mp.username)}</h3>
+      <label>Campaign code</label>
+      <div class="mp-room-code-row">
+        <div class="mp-room-code" id="mpRoomCodeVal" title="Click to copy">${escapeHtmlLocal(mp.roomCode)}</div>
+        <button class="mp-copy-btn" id="mpCopyRoomCodeBtn" title="Copy campaign code">📋 Copy</button>
+      </div>
+      <div class="mp-copy-msg" id="mpRoomCodeCopyMsg"></div>
+      <button class="mp-btn mp-danger" id="mpLogoutBtn">Log Out</button>
+      <button class="mp-btn mp-danger" id="mpDeleteAccountBtn" style="margin-top:0.4rem;">Delete My Account</button>
+      <div id="mpRosterContainer"></div>
+    `;
+    document.getElementById("mpLogoutBtn").onclick = logOut;
+    document.getElementById("mpDeleteAccountBtn").onclick = deleteMyAccount;
+    document.getElementById("mpCopyRoomCodeBtn").onclick = copyRoomCode;
+    // Clicking the code itself copies it too — select-all-on-click still works as a fallback
+    // (user-select:all above) for anyone whose browser blocks the Clipboard API.
+    document.getElementById("mpRoomCodeVal").onclick = copyRoomCode;
+  }
+
+  // The one part that genuinely needs to refresh live — isolated to its own container so
+  // rebuilding it never touches the buttons above.
+  const rosterContainer = document.getElementById("mpRosterContainer");
+  if (!rosterContainer) return;
+  rosterContainer.innerHTML = mp.role === "dm" ? `
     <div class="mp-roster">
       <label style="margin-top:0;">Connected players</label>
       ${[...mp.roster.entries()].filter(([uid]) => uid !== mp.uid).map(([uid, p]) => `
@@ -973,26 +1037,7 @@ function renderAccountPanel() {
       `).join("") || '<div style="color:var(--text-dim,#a89f8a);font-size:0.85rem;">No players have joined yet.</div>'}
     </div>
   ` : "";
-  modal.innerHTML = `
-    <span class="mp-close" onclick="document.getElementById('mpAccountOverlay').classList.remove('show')">×</span>
-    <h3>${mp.role === "dm" ? "👑 Dungeon Master" : "🧙 Player"}: ${escapeHtmlLocal(mp.username)}</h3>
-    <label>Campaign code</label>
-    <div class="mp-room-code-row">
-      <div class="mp-room-code" id="mpRoomCodeVal" title="Click to copy">${escapeHtmlLocal(mp.roomCode)}</div>
-      <button class="mp-copy-btn" id="mpCopyRoomCodeBtn" title="Copy campaign code">📋 Copy</button>
-    </div>
-    <div class="mp-copy-msg" id="mpRoomCodeCopyMsg"></div>
-    <button class="mp-btn mp-danger" id="mpLogoutBtn">Log Out</button>
-    <button class="mp-btn mp-danger" id="mpDeleteAccountBtn" style="margin-top:0.4rem;">Delete My Account</button>
-    ${rosterHtml}
-  `;
-  document.getElementById("mpLogoutBtn").onclick = logOut;
-  document.getElementById("mpDeleteAccountBtn").onclick = deleteMyAccount;
-  document.getElementById("mpCopyRoomCodeBtn").onclick = copyRoomCode;
-  // Clicking the code itself copies it too — select-all-on-click still works as a fallback
-  // (user-select:all above) for anyone whose browser blocks the Clipboard API.
-  document.getElementById("mpRoomCodeVal").onclick = copyRoomCode;
-  modal.querySelectorAll(".mp-remove-btn").forEach((el) => {
+  rosterContainer.querySelectorAll(".mp-remove-btn").forEach((el) => {
     el.onclick = () => {
       if (confirm(`Remove ${el.previousElementSibling.textContent} from your campaign? Their character data will be deleted.`)) {
         removePlayer(el.getAttribute("data-uid"));

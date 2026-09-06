@@ -11289,6 +11289,10 @@ const INV_ROWS = 5, INV_COLS = 18;
 let inventoryGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
 let inventoryPlacements = {};
 let inventoryPlacementCounter = 0;
+// Bridge for multiplayer-sync.js's brand-new-account signup path — it needs a genuinely blank
+// grid shaped correctly (INV_ROWS/INV_COLS are plain consts here, not reachable from the
+// module) rather than reusing this account's own possibly-already-populated inventoryGrid.
+window.buildBlankInventoryGrid = () => Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
 
 // ignoreId lets a placement's own currently-occupied cells not count as a collision against
 // itself — without this, an item could never be dropped anywhere that overlaps where it
@@ -15118,6 +15122,46 @@ function refreshAllViewsAfterStateApply() {
   if (typeof renderSavedItems === 'function') renderSavedItems();
   if (typeof renderCharacterSheet === 'function') renderCharacterSheet();
 }
+// Bridge for multiplayer-sync.js's logOut()/resetLocalSessionState() — logging out never
+// touched any of this file's own in-memory state (inventoryGrid, playerSlots, the character
+// sheet, etc.), only the multiplayer session object. In one browser tab, logging out of one
+// account and into another doesn't reload the page, so whatever was left in memory from the
+// FIRST account stayed on screen until (if ever) the second account's own real Firestore data
+// happened to arrive and overwrite it — in the meantime the two accounts' inventories looked
+// "confused"/identical. Blanking everything immediately on logout, before the gate even shows,
+// means there's nothing left over for the next account (or a solo/no-login session) to
+// inherit; saveAppState() at the end also flushes this blank state to localStorage right away
+// rather than leaving the previous account's data sitting there until the next autosave tick.
+window.resetMainAppStateToBlank = function () {
+  inventoryGrid = window.buildBlankInventoryGrid ? window.buildBlankInventoryGrid() : Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
+  inventoryPlacements = {};
+  inventoryPlacementCounter = 0;
+  savedGeneratedItems = [];
+  // NOT playerSlots = {} — renderPlayerSlots() only ever visits keys that already exist in
+  // playerSlots (see its own comment: the object only gains a key the first time a given slot
+  // is ever touched), so resetting to a truly empty object leaves it with nothing to iterate
+  // at all, and any doll slot already showing "filled" on screen would just stay that way
+  // forever, with no code path left to ever tell it to clear. Explicitly nulling every known
+  // slot id instead gives renderPlayerSlots something to actually visit and clear.
+  playerSlots = Object.fromEntries(Object.keys(SLOT_LABELS).map(id => [id, null]));
+  recentlyLooted = [];
+  characterAbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  characterLevel = 1;
+  skillProficiencies = [];
+  saveProficiencies = [];
+  characterCurrentHp = 10;
+  characterMaxHp = 10;
+  characterHitDice = '';
+  characterAc = 10;
+  characterClass = '';
+  appliedLootClaimIds = [];
+  battlefieldRoster = [];
+  battlefieldLog = [];
+  viewedPlayerUid = null;
+  viewedPlayerState = null;
+  refreshAllViewsAfterStateApply();
+  if (typeof saveAppState === 'function') saveAppState();
+};
 // Multiplayer hook, called FROM multiplayer-sync.js (window.applyRemoteMultiplayerState)
 // whenever a realtime update arrives — a DM editing your inventory, loot being pushed to
 // you, or just the initial state landing right after you join a session. Kept as a named
