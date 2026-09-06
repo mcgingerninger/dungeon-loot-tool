@@ -663,6 +663,18 @@ async function removePlayer(uid) {
   if (uid === mp.uid) return; // DM can't remove themselves this way
   try { await deleteDoc(playerDocRef(mp.roomCode, uid)); } catch (err) { /* rules will reject if not actually DM */ }
 }
+// Bulk version for the Players tab's "Remove All Players" action — same effect as clicking
+// Remove on every connected player one at a time (see removePlayer's own comment: this deletes
+// each player's document/progress in THIS campaign, not their login, so they can still rejoin
+// with the same username/password and start fresh). Uses mp.roster directly rather than the
+// main file's connectedPlayers snapshot so it always acts on whoever is currently in the
+// roster, not a possibly-slightly-stale copy. Returns the count actually removed.
+window.removeAllPlayers = async function () {
+  if (!mp.connected || mp.role !== "dm" || !mp.roomCode) return 0;
+  const uids = [...mp.roster.keys()].filter((uid) => uid !== mp.uid);
+  await Promise.all(uids.map((uid) => removePlayer(uid)));
+  return uids.length;
+};
 
 // ===================== ROLE-BASED TAB RESTRICTIONS =====================
 // Pure CSS, targeting the exact onclick attributes already on the main file's nav buttons —

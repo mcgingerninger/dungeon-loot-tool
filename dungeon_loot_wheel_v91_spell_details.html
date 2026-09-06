@@ -2869,6 +2869,10 @@
   <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
     Everyone who's joined your campaign. Click a player to see their gear and inventory live, and send them anything from your own Token Library.
   </p>
+  <div style="margin-bottom:0.6rem;">
+    <button class="combat-danger-btn" onclick="removeAllPlayersClicked()">🗑 Remove All Players</button>
+  </div>
+  <div class="store-buy-msg" id="playersActionMsg"></div>
   <div class="players-layout">
     <div class="players-list" id="playersListEl"><div class="empty-results">No players have joined yet.</div></div>
     <div class="players-detail" id="playersDetailEl">
@@ -14013,6 +14017,31 @@ function buildForeignInventoryGridHtml(grid, placements, savedGeneratedItems) {
     html += `</div>`;
   }
   return html;
+}
+// Removes every connected player from the campaign at once (same effect as clicking Remove on
+// each one in the account panel) — this deletes their progress/inventory data for THIS
+// campaign, not their login. They can still log back in with the same username/password and
+// they'll simply start fresh, exactly like removing one player at a time already works today.
+function flashPlayersMessage(msg, isError) {
+  const el = document.getElementById('playersActionMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._playersActionMsgTimer);
+  window._playersActionMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 2200);
+}
+function removeAllPlayersClicked() {
+  const count = (connectedPlayers || []).filter(p => p.role === 'player').length;
+  if (!count) { flashPlayersMessage('No players to remove.', true); return; }
+  if (!confirm(`Remove all ${count} player${count === 1 ? '' : 's'} from your campaign? Their character and inventory data for this campaign will be deleted. They can still log back in and start fresh — this does not delete their login.`)) return;
+  if (typeof window.removeAllPlayers !== 'function') return;
+  window.removeAllPlayers().then(removedCount => {
+    viewedPlayerUid = null;
+    viewedPlayerState = null;
+    renderPlayersTab();
+    flashPlayersMessage(`Removed ${removedCount} player${removedCount === 1 ? '' : 's'}.`);
+  });
 }
 function renderPlayersTab() {
   buildTokenIndex();
