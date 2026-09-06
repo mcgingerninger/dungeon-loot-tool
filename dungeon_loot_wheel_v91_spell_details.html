@@ -1820,21 +1820,16 @@
   .players-detail-header h3{margin:0;color:var(--gold);letter-spacing:.03em}
   .players-detail-stats{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--text-dim)}
   .players-section-title{color:var(--gold);font-size:.92rem;letter-spacing:.03em;margin:.9rem 0 .5rem}
-  .players-equip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem}
-  .players-equip-row{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;font-size:.8rem;display:flex;justify-content:space-between;gap:.4rem}
-  .players-equip-row .slot-label{color:var(--text-dim)}
-  .players-equip-row.empty{opacity:.55}
-  .slot-empty-label{color:var(--text-dim);font-style:italic}
-  .players-take-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-size:.68rem;padding:.15rem .4rem;cursor:pointer;white-space:nowrap}
-  .players-take-btn:hover{color:var(--gold);border-color:var(--gold)}
   .inv-item.foreign-takeable{cursor:pointer}
   .inv-item.foreign-takeable:hover{outline:2px solid var(--gold);outline-offset:-2px}
+  #playersEquipDoll .doll-slot.filled:hover{outline:2px solid var(--gold);outline-offset:-2px}
   .players-sheet-toprow{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;margin-bottom:.8rem}
   .players-sheet-field{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;text-align:center}
   .players-sheet-field label{display:block;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.2rem}
   .players-section-subtitle{color:var(--text-dim);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin-bottom:.3rem}
   .sheet-line-row.readonly label{cursor:default}
   .sheet-chip-row{display:flex;flex-wrap:wrap;gap:.35rem}
+  .sheet-chip-empty{color:var(--text-dim);font-style:italic;font-size:.82rem}
   .sheet-chip{background:var(--bg);border:1px solid var(--border);padding:.2rem .55rem;font-size:.78rem;white-space:nowrap}
   .sheet-chip.proficient{border-color:var(--gold);color:var(--gold)}
   .players-sheet-subrow{margin-top:.6rem}
@@ -14392,11 +14387,76 @@ function buildForeignCharacterSheetHtml(s) {
     <div class="sheet-chip-row">${abilitiesHtml}</div>
     <div class="players-sheet-subrow">
       <span class="players-section-subtitle">Proficient Saves</span>
-      <div class="sheet-chip-row">${saveChips || '<span class="empty-results">None selected</span>'}</div>
+      <div class="sheet-chip-row">${saveChips || '<span class="sheet-chip-empty">None selected</span>'}</div>
     </div>
     <div class="players-sheet-subrow">
       <span class="players-section-subtitle">Proficient Skills</span>
-      <div class="sheet-chip-row">${skillChips || '<span class="empty-results">None selected</span>'}</div>
+      <div class="sheet-chip-row">${skillChips || '<span class="sheet-chip-empty">None selected</span>'}</div>
+    </div>
+  `;
+}
+// Read-only rendering of a FOREIGN player's equipment, laid out exactly like the real doll on
+// the local Inventory tab (same CSS classes/grid positions — see #tab-inventory's
+// .player-top-row markup) instead of the old flat "Slot: item name" row list, so a DM actually
+// recognizes it at a glance as the same character sheet a player sees for themselves. No
+// drag/drop here (there's no local Firestore doc to drag INTO), and no id="slot-X" on any of
+// these — that id is already owned by the DM's own live doll on their own Inventory tab, and
+// reusing it here would make every getElementById('slot-...') call in this file ambiguous about
+// which of the two same-page dolls it means. A filled slot is click-to-take instead, wired
+// straight to the existing dmTakeViewedPlayerSlotItem.
+function buildForeignDollHtml(foreignSlots, savedGeneratedItems) {
+  function slotDiv(slotId, extraClass, gridStyle) {
+    const key = foreignSlots[slotId];
+    const entry = key ? resolveForeignItem(key, savedGeneratedItems) : null;
+    const filled = !!entry;
+    const body = filled
+      ? `<div class="slot-token ${entry.rarity}">${itemPixelIcon(entry.item, 26, entry.rarity)}<span class="slot-token-name">${escapeHtml(entry.item.name)}</span></div>`
+      : `<div class="doll-slot-empty-icon">${SLOT_EMPTY_ICON[slotId] || '·'}</div>`;
+    const label = escapeHtml(SLOT_LABELS[slotId] || slotId);
+    const titleAttr = filled ? `${label}: ${escapeHtml(entry.item.name)} — click to take` : label;
+    const clickAttr = filled ? ` onclick="dmTakeViewedPlayerSlotItem('${slotId}')"` : '';
+    const styleAttr = `${gridStyle || ''}${filled ? 'cursor:pointer;' : ''}`;
+    return `<div class="doll-slot${extraClass ? ' ' + extraClass : ''}${filled ? ' filled' : ''}"${styleAttr ? ` style="${styleAttr}"` : ''} title="${escapeHtml(titleAttr)}"${clickAttr}>${body}</div>`;
+  }
+  return `
+    <div class="player-top-row" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+      <div class="player-board">
+        <div class="player-doll">
+          ${slotDiv('facewear', '', 'grid-column:1;grid-row:1;')}
+          ${slotDiv('helmet', '', 'grid-column:2;grid-row:1;')}
+          ${slotDiv('handwear', '', 'grid-column:3;grid-row:1;')}
+          ${slotDiv('amulet1', '', 'grid-column:1;grid-row:2;')}
+          ${slotDiv('armor', '', 'grid-column:2;grid-row:2;')}
+          ${slotDiv('amulet2', '', 'grid-column:3;grid-row:2;')}
+          ${slotDiv('cloak', '', 'grid-column:1;grid-row:3;')}
+          ${slotDiv('beltwaist', '', 'grid-column:2;grid-row:3;')}
+          ${slotDiv('offhand', '', 'grid-column:3;grid-row:3;')}
+          ${slotDiv('weapon1', '', 'grid-column:1;grid-row:4;')}
+          ${slotDiv('leggings', '', 'grid-column:2;grid-row:4;')}
+          ${slotDiv('weapon2', '', 'grid-column:3;grid-row:4;')}
+          ${slotDiv('boots', '', 'grid-column:2;grid-row:5;')}
+          <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:6;">
+            ${slotDiv('ring1', 'ring')}${slotDiv('ring2', 'ring')}${slotDiv('ring3', 'ring')}${slotDiv('ring4', 'ring')}
+          </div>
+          <div class="doll-slot-row" style="grid-column:1/span 3;grid-row:7;">
+            ${slotDiv('charm1', 'charm')}${slotDiv('charm2', 'charm')}${slotDiv('charm3', 'charm')}${slotDiv('charm4', 'charm')}${slotDiv('charm5', 'charm')}
+          </div>
+        </div>
+        <div class="companion-slot-wrap">
+          <span class="limb-slot-label">Mount / Pet</span>
+          ${slotDiv('companion', 'companion')}
+        </div>
+      </div>
+      <div class="limbs-panel">
+        <h3>🩸 Grafted Limbs</h3>
+        <div class="limbs-grid">
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 1</span>${slotDiv('limbArm1', 'limb')}</div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 2</span>${slotDiv('limbArm2', 'limb')}</div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 3</span>${slotDiv('limbHand1', 'limb')}</div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 4</span>${slotDiv('limbHand2', 'limb')}</div>
+          <div class="limb-slot-wrap"><span class="limb-slot-label">Limb 5</span>${slotDiv('limbLeg1', 'limb')}</div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -14448,7 +14508,7 @@ function renderPlayersTab() {
         <div class="collapsible-body"><div id="playersSheetSection"></div></div>
       </details>
       <div class="players-section-title">🎒 Equipped</div>
-      <div class="players-equip-grid" id="playersEquipGrid"></div>
+      <div id="playersEquipDoll"></div>
       <div class="players-section-title" id="playersInvTitle">📦 Inventory</div>
       <div class="inv-grid-wrap"><div class="inv-grid" id="playersInvGrid"></div></div>
       <div class="players-section-title">🎁 Send an item from your Token Library</div>
@@ -14471,20 +14531,8 @@ function renderPlayersTab() {
   if (sheetEl) sheetEl.innerHTML = buildForeignCharacterSheetHtml(s);
 
   const foreignSlots = s.playerSlots || {};
-  // Every slot the doll has, not just the filled ones — a fresh character (nothing equipped
-  // yet, which is now the default for brand-new signups) used to render as a blank "Nothing
-  // equipped" line here with no indication the slots even existed, which read as if the whole
-  // equipment section were simply missing.
-  const equipRows = Object.keys(SLOT_LABELS).map(slotId => {
-    const key = foreignSlots[slotId];
-    const entry = key ? resolveForeignItem(key, s.savedGeneratedItems) : null;
-    const filled = !!key;
-    const itemLabel = filled ? (entry ? escapeHtml(entry.item.name) : '(unknown item)') : '<span class="slot-empty-label">— empty —</span>';
-    const takeBtn = filled ? `<button class="players-take-btn" onclick="dmTakeViewedPlayerSlotItem('${slotId}')" title="Take into your inventory">⬇ Take</button>` : '';
-    return `<div class="players-equip-row${filled ? '' : ' empty'}"><span class="slot-label">${escapeHtml(SLOT_LABELS[slotId])}</span><span>${itemLabel}</span>${takeBtn}</div>`;
-  }).join('');
-  const equipEl = document.getElementById('playersEquipGrid');
-  if (equipEl) equipEl.innerHTML = equipRows;
+  const equipEl = document.getElementById('playersEquipDoll');
+  if (equipEl) equipEl.innerHTML = buildForeignDollHtml(foreignSlots, s.savedGeneratedItems);
 
   const foreignPlacements = s.inventoryPlacements || {};
   const foreignGrid = s.inventoryGrid;
