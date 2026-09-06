@@ -13929,8 +13929,15 @@ function giveLootItemToPlayer(entryUid, itemId, selectEl) {
     delete lootGiveSelections[entryUid + '_' + itemId];
     renderCombatRoster();
     flashInvMessage(`${item.name} given to ${targetUsername}.`);
-  }).catch(() => {
-    flashInvMessage('That item was already claimed by someone else.', true);
+  }).catch((err) => {
+    // See dmGiveLootItem's own comment — these are genuinely different situations. A claim
+    // conflict means someone else already has it; a delivery failure means the claim now
+    // permanently exists (immutable) but the item was never actually handed to anyone.
+    if (err && err.giftStage === 'claim') {
+      flashInvMessage('That item was already claimed by someone else.', true);
+    } else {
+      flashInvMessage(`${item.name} was marked given, but delivery failed — it wasn't actually added to their inventory. Check your connection and try a different item.`, true);
+    }
   });
 }
 

@@ -403,13 +403,25 @@ function applyHpDelta(roomCode, targetUid, delta) {
 // appends — safe with arrayUnion under concurrent writers — never inventoryGrid, which is an
 // opaque JSON-string blob (see sanitizeNestedArrays below) Firestore can't field-path into.
 function giftItemToPlayer(roomCode, targetUid, item) {
-  const saved = { ...item, id: Date.now() + "_" + Math.random().toString(36).slice(2) };
+  // Same reasoning as pushBattlefieldState's payload: an item can carry a field that's
+  // explicitly `undefined` (not just absent) depending on how it was built, and Firestore
+  // rejects that outright. sanitizeNestedArrays already strips undefined recursively for
+  // every other write in this file; applying it here too rather than trusting every possible
+  // item shape to never have one.
+  const saved = sanitizeNestedArrays({ ...item, id: Date.now() + "_" + Math.random().toString(36).slice(2) });
   const key = "gen:" + saved.id;
   return updateDoc(playerDocRef(roomCode, targetUid), {
     "state.savedGeneratedItems": arrayUnion(saved),
     "state.recentlyLooted": arrayUnion(key),
   }).catch((err) => {
+    // Re-throw (not just log) -- this function's callers (the Players tab's "Send" action,
+    // and the DM's combat-loot "Give to..." action) both chain a .then()/.catch() to show the
+    // DM real success/failure feedback. A .catch() that only logs and returns normally here
+    // would turn ANY failure into a silently-resolved promise, making every caller report
+    // success no matter what actually happened -- which is exactly what was happening: the
+    // DM would see "Sent" even when the write never landed, with no visible error at all.
     console.error("[multiplayer-sync] giftItemToPlayer failed:", err);
+    throw err;
   });
 }
 // Bridge for the main file's combat code (see resolveBattleAttack) — fire-and-forget by design,
@@ -451,10 +463,18 @@ window.createSelfLootClaim = function (monsterUid, itemId) {
 // the same item still resolves correctly — whichever create wins), then, since the DM already
 // has the authoritative item data AND cross-player write permission, delivers it directly
 // rather than waiting on the target's own client/listener to be online at all.
+// Tags which of the two steps actually failed (`err.giftStage`) so the DM's UI can tell a
+// real "someone already claimed this" conflict (the claim step) apart from a delivery failure
+// after the claim already succeeded (the item step) -- those need very different messages: the
+// first means someone else has it, the second means the claim now permanently exists (claims
+// are immutable) but NOBODY has the item, which is worth surfacing plainly rather than
+// mislabeling as "already claimed by someone else" (nobody has it in that case).
 window.dmGiveLootItem = function (monsterUid, itemId, targetUid, targetUsername, itemData) {
   if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
   return createLootClaim(mp.roomCode, `${monsterUid}_${itemId}`, targetUid, targetUsername)
-    .then(() => giftItemToPlayer(mp.roomCode, targetUid, itemData));
+    .catch((err) => { err.giftStage = "claim"; throw err; })
+    .then(() => giftItemToPlayer(mp.roomCode, targetUid, itemData))
+    .catch((err) => { if (!err.giftStage) err.giftStage = "deliver"; throw err; });
 };
 // Player-only: reactively applies any claim this account has WON, exactly once each (guarded
 // by a persisted appliedLootClaimIds list so a reload/listener-replay never re-grants an
