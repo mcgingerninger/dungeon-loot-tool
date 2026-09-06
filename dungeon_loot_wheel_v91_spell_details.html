@@ -1821,6 +1821,15 @@
   .players-equip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem}
   .players-equip-row{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;font-size:.8rem;display:flex;justify-content:space-between;gap:.4rem}
   .players-equip-row .slot-label{color:var(--text-dim)}
+  .players-take-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-size:.68rem;padding:.15rem .4rem;cursor:pointer;white-space:nowrap}
+  .players-take-btn:hover{color:var(--gold);border-color:var(--gold)}
+  .inv-item.foreign-takeable{cursor:pointer}
+  .inv-item.foreign-takeable:hover{outline:2px solid var(--gold);outline-offset:-2px}
+  .players-sheet-toprow{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;margin-bottom:.8rem}
+  .players-sheet-field{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;text-align:center}
+  .players-sheet-field label{display:block;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.2rem}
+  .players-section-subtitle{color:var(--text-dim);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin-bottom:.3rem}
+  .sheet-line-row.readonly label{cursor:default}
   .players-send-row{display:flex;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap}
   .players-send-row input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.9rem;padding:.4rem .5rem}
   .players-send-results{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem}
@@ -11774,12 +11783,15 @@ function extractStatDeltasFromText(text) {
 // Sums extractStatDeltasFromText across every currently-equipped item (doll slots, limbs,
 // companion — everything in playerSlots), so a stat bonus from any equipped gear applies
 // automatically without needing to special-case any particular slot or item type.
-function collectEquippedStatBonuses() {
-  buildTokenIndex();
+// slots/resolveItem are parameters (not hard-coded to this account's own playerSlots/
+// TOKEN_INDEX) so the Players tab can compute the exact same sheet math for a VIEWED player's
+// own data — see computeCharacterSheetFor below and resolveForeignItem.
+function collectEquippedStatBonuses(slots, resolveItem) {
   const totals = {};
-  Object.values(playerSlots).forEach(key => {
-    if (!key || !TOKEN_INDEX[key]) return;
-    extractStatDeltasFromText(TOKEN_INDEX[key].item.effect).forEach(({ stat, amount }) => {
+  Object.values(slots).forEach(key => {
+    const entry = key && resolveItem(key);
+    if (!entry) return;
+    extractStatDeltasFromText(entry.item.effect).forEach(({ stat, amount }) => {
       totals[stat] = (totals[stat] || 0) + amount;
     });
   });
@@ -11791,12 +11803,12 @@ function collectEquippedStatBonuses() {
 // An item's own `ac` field can independently be either an absolute base AC ("13" — replaces
 // the sheet's default base of 10, armor slot only) or, on any slot, a flat bonus ("+1", "+2") —
 // a dedicated field several item types (armor, rings, shields) already carry.
-function collectEquippedAcFieldContribution() {
-  buildTokenIndex();
+function collectEquippedAcFieldContribution(slots, resolveItem) {
   let base = 10, flatBonus = 0;
-  Object.entries(playerSlots).forEach(([slotId, key]) => {
-    if (!key || !TOKEN_INDEX[key]) return;
-    const raw = String(TOKEN_INDEX[key].item.ac || '').trim();
+  Object.entries(slots).forEach(([slotId, key]) => {
+    const entry = key && resolveItem(key);
+    if (!entry) return;
+    const raw = String(entry.item.ac || '').trim();
     if (!raw) return;
     if (slotId === 'armor' && /^\d+$/.test(raw)) { base = parseInt(raw, 10); return; }
     const m = /^([+-]\d+)$/.exec(raw);
@@ -11807,31 +11819,38 @@ function collectEquippedAcFieldContribution() {
 // The single computation function everything else reads from — ability totals/modifiers,
 // proficiency bonus, every skill and saving throw total, and a suggested AC — folding in
 // equipped-item bonuses at read time so there's nothing to keep in sync when gear changes.
-function computeCharacterSheet() {
-  const bonuses = collectEquippedStatBonuses();
+// Parameterized (not hard-coded to this account's own state) so the Players tab can show a
+// VIEWED player's real sheet using their own synced data — see computeCharacterSheet below for
+// the local-account convenience wrapper every other caller in this file already used.
+function computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, resolveItem) {
+  const bonuses = collectEquippedStatBonuses(slots, resolveItem);
   const abilities = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
     const full = ABILITY_NAMES[abbr];
-    const base = characterAbilityScores[abbr] != null ? characterAbilityScores[abbr] : 10;
+    const base = abilityScores[abbr] != null ? abilityScores[abbr] : 10;
     const bonus = bonuses[full] || 0;
     const total = base + bonus;
     abilities[abbr] = { base, bonus, total, mod: abilityModifier(total) };
   });
-  const profBonus = proficiencyBonusForLevel(characterLevel || 1);
+  const profBonus = proficiencyBonusForLevel(level || 1);
   const saveFlatBonus = bonuses['Saving Throws'] || 0;
   const saves = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
-    const proficient = saveProficiencies.includes(ABILITY_NAMES[abbr]);
+    const proficient = (saveProfs || []).includes(ABILITY_NAMES[abbr]);
     saves[abbr] = abilities[abbr].mod + (proficient ? profBonus : 0) + saveFlatBonus;
   });
   const skills = {};
   Object.keys(SKILL_ABILITY_MAP).forEach(skill => {
-    const proficient = skillProficiencies.includes(skill);
+    const proficient = (skillProfs || []).includes(skill);
     skills[skill] = abilities[SKILL_ABILITY_MAP[skill]].mod + (proficient ? profBonus : 0) + (bonuses[skill] || 0);
   });
-  const acField = collectEquippedAcFieldContribution();
+  const acField = collectEquippedAcFieldContribution(slots, resolveItem);
   const suggestedAc = acField.base + abilities.dex.mod + acField.flatBonus;
   return { abilities, profBonus, saves, skills, suggestedAc };
+}
+function computeCharacterSheet() {
+  buildTokenIndex();
+  return computeCharacterSheetFor(characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies, playerSlots, key => TOKEN_INDEX[key]);
 }
 // Not a dynamic window[field] = value assignment — these are `let` bindings in a classic
 // script, which (unlike `var` or function declarations) never attach to `window`, so that
@@ -13988,13 +14007,13 @@ window.applyViewedPlayerState = function (uid, state) {
   viewedPlayerState = state;
   renderPlayersTab();
 };
-// A read-only rendering of a FOREIGN player's inventory grid — mirrors buildInventoryGridHtml
-// (same INV_ROWS x INV_COLS layout, same per-cell/per-item markup) but parameterized on that
-// player's own synced grid/placements/savedGeneratedItems instead of this account's globals,
-// and with no drag/drop or context-menu wiring at all since the DM can't manipulate a player's
-// inventory directly this way — the only interaction is the separate Send panel below it. Not
-// showing empty slots as anything but visually-empty cells, exactly like the real grid, so the
-// DM sees genuinely how full their inventory is, not just a list of what they're carrying.
+// A rendering of a FOREIGN player's inventory grid — mirrors buildInventoryGridHtml (same
+// INV_ROWS x INV_COLS layout, same per-cell/per-item markup) but parameterized on that
+// player's own synced grid/placements/savedGeneratedItems instead of this account's globals.
+// No drag/drop here (dragging would need to compute a valid drop spot in someone else's grid
+// mid-gesture) — instead each filled cell is a click-to-take button wired to
+// dmTakeViewedPlayerInventoryItem, which pulls that exact item out of the player's inventory
+// and into the DM's own, the same "total control" action as the equipped-slot Take buttons.
 function buildForeignInventoryGridHtml(grid, placements, savedGeneratedItems) {
   let html = '';
   for (let row = 0; row < INV_ROWS; row++) {
@@ -14011,7 +14030,7 @@ function buildForeignInventoryGridHtml(grid, placements, savedGeneratedItems) {
         const body = wide
           ? (entry ? itemPixelIcon(entry.item, null, rarity, true) : '')
           : `${entry ? itemPixelIcon(entry.item, 22, rarity) : ''}<span class="inv-item-name">${escapeHtml(name)}</span>`;
-        html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" style="width:${p.w * 44 + (p.w - 1) * 3}px" title="${escapeHtml(name)}">${body}</div>`;
+        html += `<div class="inv-item foreign-takeable ${rarity}${wide ? ' inv-item-fill' : ''}" style="width:${p.w * 44 + (p.w - 1) * 3}px" title="Click to take: ${escapeHtml(name)}" onclick="dmTakeViewedPlayerInventoryItem('${String(placementId).replace(/'/g, "\\'")}')">${body}</div>`;
         col += p.w;
       } else {
         html += `<div class="inv-cell"></div>`;
@@ -14021,6 +14040,74 @@ function buildForeignInventoryGridHtml(grid, placements, savedGeneratedItems) {
     html += `</div>`;
   }
   return html;
+}
+// Guards both Take actions below against a duplicate in-flight click: there's a real gap
+// between clicking Take and the item actually disappearing from the viewed player's card
+// (that only happens once a fresh snapshot round-trips back through startViewedPlayerListener),
+// and during that gap the item still looks untouched — a DM who doesn't notice the first click
+// registered and clicks Take again on the same item would otherwise fire a second Firestore
+// write (harmless, same slot set to null again) AND a second placeItemIntoInventory call,
+// duplicating the item into the DM's own inventory for one real item taken.
+const playersTakeInFlight = new Set();
+// Pulls one item out of the viewed player's EQUIPPED slot and into the DM's own inventory —
+// writes the player's updated playerSlots (and drops the item from their savedGeneratedItems
+// if it was a per-account "gen:" item, so no orphaned entry lingers in their synced state)
+// straight to Firestore via the DM's cross-player write permission, then hands the same item
+// data to this account's own placeItemIntoInventory — the exact function Store purchases use
+// to land a new item into the grid (or the Token Library if the grid's full).
+function dmTakeViewedPlayerSlotItem(slotId) {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const inFlightKey = viewedPlayerUid + ':slot:' + slotId;
+  if (playersTakeInFlight.has(inFlightKey)) return;
+  const s = viewedPlayerState;
+  const key = (s.playerSlots || {})[slotId];
+  const entry = resolveForeignItem(key, s.savedGeneratedItems);
+  if (!entry) { flashPlayersMessage('That item is no longer there.', true); return; }
+  if (!confirm(`Take "${entry.item.name}" from their equipped ${SLOT_LABELS[slotId] || slotId} slot into your own inventory?`)) return;
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  const fields = { playerSlots: { ...(s.playerSlots || {}), [slotId]: null } };
+  if (key && key.indexOf('gen:') === 0) {
+    const id = key.slice(4);
+    fields.savedGeneratedItems = (s.savedGeneratedItems || []).filter(it => String(it.id) !== id);
+  }
+  playersTakeInFlight.add(inFlightKey);
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, fields).then(() => {
+    placeItemIntoInventory(entry.item);
+    flashPlayersMessage(`Took ${entry.item.name}.`);
+  }).catch(() => flashPlayersMessage(`Failed to take ${entry.item.name} — try again.`, true))
+    .finally(() => playersTakeInFlight.delete(inFlightKey));
+}
+// Same idea as above but for one placed item in the viewed player's inventory GRID instead of
+// an equipped slot — also has to clear the placement out of inventoryPlacements and null out
+// every grid cell that pointed at it (a wide item occupies more than one cell), not just drop
+// the item data itself, or the player's grid would keep a placement pointing at nothing.
+function dmTakeViewedPlayerInventoryItem(placementId) {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const inFlightKey = viewedPlayerUid + ':grid:' + placementId;
+  if (playersTakeInFlight.has(inFlightKey)) return;
+  const s = viewedPlayerState;
+  const placements = s.inventoryPlacements || {};
+  const p = placements[placementId];
+  if (!p) return;
+  const entry = resolveForeignItem(p.key, s.savedGeneratedItems);
+  if (!entry) { flashPlayersMessage('That item is no longer there.', true); return; }
+  if (!confirm(`Take "${entry.item.name}" from their inventory into your own?`)) return;
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  const newPlacements = { ...placements };
+  delete newPlacements[placementId];
+  const oldGrid = s.inventoryGrid || [];
+  const newGrid = oldGrid.map(row => (row || []).map(cell => cell === placementId ? null : cell));
+  const fields = { inventoryPlacements: newPlacements, inventoryGrid: newGrid };
+  if (p.key && p.key.indexOf('gen:') === 0) {
+    const id = p.key.slice(4);
+    fields.savedGeneratedItems = (s.savedGeneratedItems || []).filter(it => String(it.id) !== id);
+  }
+  playersTakeInFlight.add(inFlightKey);
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, fields).then(() => {
+    placeItemIntoInventory(entry.item);
+    flashPlayersMessage(`Took ${entry.item.name}.`);
+  }).catch(() => flashPlayersMessage(`Failed to take ${entry.item.name} — try again.`, true))
+    .finally(() => playersTakeInFlight.delete(inFlightKey));
 }
 // Removes every connected player from the campaign at once (same effect as clicking Remove on
 // each one in the account panel) — this deletes their progress/inventory data for THIS
@@ -14047,6 +14134,48 @@ function removeAllPlayersClicked() {
     flashPlayersMessage(`Removed ${removedCount} player${removedCount === 1 ? '' : 's'}.`);
   });
 }
+// A read-only rendering of a FOREIGN player's character sheet — reuses the exact same
+// computeCharacterSheetFor(...) math the local Character Sheet tab uses, just fed that
+// player's own synced ability scores/proficiencies/gear instead of this account's globals.
+// No inputs/checkboxes here: this panel is look-only, the DM edits nothing about a player's
+// sheet directly (sending them items is the only interaction, via the panel below it).
+function buildForeignCharacterSheetHtml(s) {
+  const abilityScores = s.characterAbilityScores || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  const level = s.characterLevel || 1;
+  const skillProfs = s.skillProficiencies || [];
+  const saveProfs = s.saveProficiencies || [];
+  const slots = s.playerSlots || {};
+  const sheet = computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, key => resolveForeignItem(key, s.savedGeneratedItems));
+  const abilitiesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
+    const a = sheet.abilities[abbr];
+    const bonusNote = a.bonus ? `<div class="sheet-item-bonus">${fmtMod(a.bonus)} from gear</div>` : '';
+    return `<div class="sheet-ability-box"><label>${ABILITY_NAMES[abbr]}</label><div class="sheet-ability-total">${a.total} (${fmtMod(a.mod)})</div>${bonusNote}</div>`;
+  }).join('');
+  const savesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
+    const name = ABILITY_NAMES[abbr];
+    const proficient = saveProfs.includes(name);
+    return `<div class="sheet-line-row readonly"><label>${proficient ? '●' : '○'} ${name}</label><span class="sheet-line-val">${fmtMod(sheet.saves[abbr])}</span></div>`;
+  }).join('');
+  const skillsHtml = Object.keys(SKILL_ABILITY_MAP).map(skill => {
+    const proficient = skillProfs.includes(skill);
+    return `<div class="sheet-line-row readonly"><label>${proficient ? '●' : '○'} ${escapeHtml(skill)}</label><span class="sheet-line-val">${fmtMod(sheet.skills[skill])}</span></div>`;
+  }).join('');
+  return `
+    <div class="players-sheet-toprow">
+      <div class="players-sheet-field"><label>Class</label><div>${escapeHtml(s.characterClass || '—')}</div></div>
+      <div class="players-sheet-field"><label>Level</label><div>${level}</div></div>
+      <div class="players-sheet-field"><label>Prof. Bonus</label><div>${fmtMod(sheet.profBonus)}</div></div>
+      <div class="players-sheet-field"><label>HP</label><div>${s.characterCurrentHp != null ? s.characterCurrentHp : '—'} / ${s.characterMaxHp != null ? s.characterMaxHp : '—'}</div></div>
+      <div class="players-sheet-field"><label>AC</label><div>${s.characterAc != null ? s.characterAc : sheet.suggestedAc}</div></div>
+      <div class="players-sheet-field"><label>Hit Dice</label><div>${escapeHtml(s.characterHitDice || '—')}</div></div>
+    </div>
+    <div class="sheet-abilities-grid">${abilitiesHtml}</div>
+    <div class="sheet-columns">
+      <div><div class="players-section-subtitle">Saving Throws</div>${savesHtml}</div>
+      <div><div class="players-section-subtitle">Skills</div>${skillsHtml}</div>
+    </div>
+  `;
+}
 function renderPlayersTab() {
   buildTokenIndex();
   const listEl = document.getElementById('playersListEl');
@@ -14061,48 +14190,77 @@ function renderPlayersTab() {
   `).join('') : '<div class="empty-results">No players have joined yet.</div>';
 
   if (!viewedPlayerUid) {
+    detailEl.dataset.builtFor = 'none';
     detailEl.innerHTML = '<div class="empty-results">Select a player on the left to view their inventory.</div>';
     return;
   }
   const viewedMeta = players.find(p => p.uid === viewedPlayerUid);
   if (!viewedMeta) {
     // They were removed/left since being selected.
+    detailEl.dataset.builtFor = 'gone';
     detailEl.innerHTML = '<div class="empty-results">That player is no longer in this campaign.</div>';
     return;
   }
   if (!viewedPlayerState) {
+    detailEl.dataset.builtFor = 'loading';
     detailEl.innerHTML = '<div class="empty-results">Loading their inventory…</div>';
     return;
   }
+  // Build the static shell exactly once per selected player (a full detailEl.innerHTML
+  // rebuild on EVERY call — which used to happen here on every roster/state snapshot, i.e.
+  // every few seconds from idle autosave alone — destroyed the Send search box/button mid-
+  // interaction, which is why Send used to flicker and appear to silently fail). Everything
+  // that actually changes on a live update (stats line, sheet, equipped, inventory grid) is
+  // instead written into its own named sub-element below, leaving the send section untouched.
+  if (detailEl.dataset.builtFor !== viewedPlayerUid) {
+    detailEl.dataset.builtFor = viewedPlayerUid;
+    detailEl.innerHTML = `
+      <div class="players-detail-header">
+        <h3 id="playersDetailName"></h3>
+        <div class="players-detail-stats" id="playersDetailStatsLine"></div>
+      </div>
+      <div class="players-section-title">🧾 Character Sheet</div>
+      <div id="playersSheetSection"></div>
+      <div class="players-section-title">🎒 Equipped</div>
+      <div class="players-equip-grid" id="playersEquipGrid"></div>
+      <div class="players-section-title" id="playersInvTitle">📦 Inventory</div>
+      <div class="inv-grid-wrap"><div class="inv-grid" id="playersInvGrid"></div></div>
+      <div class="players-section-title">🎁 Send an item from your Token Library</div>
+      <div class="players-send-row">
+        <input type="text" id="playersSendSearch" placeholder="Search your items…" value="${escapeHtml(playersSendSearchText)}" oninput="playersSendSearchText=this.value; renderPlayersSendResults();">
+      </div>
+      <div class="players-send-results" id="playersSendResults"></div>
+      <div class="players-send-msg" id="playersSendMsg"></div>
+    `;
+    renderPlayersSendResults();
+  }
+
   const s = viewedPlayerState;
+  const nameEl = document.getElementById('playersDetailName');
+  if (nameEl) nameEl.textContent = viewedMeta.username;
+  const statsEl = document.getElementById('playersDetailStatsLine');
+  if (statsEl) statsEl.textContent = viewedMeta.currentHp != null ? `HP ${viewedMeta.currentHp}/${viewedMeta.maxHp} · AC ${viewedMeta.ac}` : 'No character sheet yet';
+
+  const sheetEl = document.getElementById('playersSheetSection');
+  if (sheetEl) sheetEl.innerHTML = buildForeignCharacterSheetHtml(s);
+
   const foreignSlots = s.playerSlots || {};
   const equipRows = Object.keys(SLOT_LABELS)
     .filter(slotId => foreignSlots[slotId])
     .map(slotId => {
       const entry = resolveForeignItem(foreignSlots[slotId], s.savedGeneratedItems);
-      return `<div class="players-equip-row"><span class="slot-label">${escapeHtml(SLOT_LABELS[slotId])}</span><span>${entry ? escapeHtml(entry.item.name) : '(unknown item)'}</span></div>`;
+      return `<div class="players-equip-row"><span class="slot-label">${escapeHtml(SLOT_LABELS[slotId])}</span><span>${entry ? escapeHtml(entry.item.name) : '(unknown item)'}</span><button class="players-take-btn" onclick="dmTakeViewedPlayerSlotItem('${slotId}')" title="Take into your inventory">⬇ Take</button></div>`;
     }).join('');
+  const equipEl = document.getElementById('playersEquipGrid');
+  if (equipEl) equipEl.innerHTML = equipRows || '<div class="empty-results">Nothing equipped.</div>';
+
   const foreignPlacements = s.inventoryPlacements || {};
   const foreignGrid = s.inventoryGrid;
   const slotsUsed = Object.values(foreignPlacements).reduce((sum, p) => sum + (p.w || 1), 0);
-  const gridHtml = buildForeignInventoryGridHtml(foreignGrid, foreignPlacements, s.savedGeneratedItems);
-  detailEl.innerHTML = `
-    <div class="players-detail-header">
-      <h3>${escapeHtml(viewedMeta.username)}</h3>
-      <div class="players-detail-stats">${viewedMeta.currentHp != null ? `HP ${escapeHtml(String(viewedMeta.currentHp))}/${escapeHtml(String(viewedMeta.maxHp))} · AC ${escapeHtml(String(viewedMeta.ac))}` : 'No character sheet yet'}</div>
-    </div>
-    <div class="players-section-title">🎒 Equipped</div>
-    <div class="players-equip-grid">${equipRows || '<div class="empty-results">Nothing equipped.</div>'}</div>
-    <div class="players-section-title">📦 Inventory (${slotsUsed} / ${INV_ROWS * INV_COLS} slots used)</div>
-    <div class="inv-grid-wrap"><div class="inv-grid">${gridHtml}</div></div>
-    <div class="players-section-title">🎁 Send an item from your Token Library</div>
-    <div class="players-send-row">
-      <input type="text" id="playersSendSearch" placeholder="Search your items…" value="${escapeHtml(playersSendSearchText)}" oninput="playersSendSearchText=this.value; renderPlayersSendResults();">
-    </div>
-    <div class="players-send-results" id="playersSendResults"></div>
-    <div class="players-send-msg" id="playersSendMsg"></div>
-  `;
-  renderPlayersSendResults();
+  const invTitleEl = document.getElementById('playersInvTitle');
+  if (invTitleEl) invTitleEl.textContent = `📦 Inventory (${slotsUsed} / ${INV_ROWS * INV_COLS} slots used)`;
+  const invGridEl = document.getElementById('playersInvGrid');
+  if (invGridEl) invGridEl.innerHTML = buildForeignInventoryGridHtml(foreignGrid, foreignPlacements, s.savedGeneratedItems);
 }
 // The DM's own searchable Token Library, filtered live — separate from the Inventory tab's
 // own token grid (renderInventoryTokenGrid) since this one needs a "Send to <viewed player>"

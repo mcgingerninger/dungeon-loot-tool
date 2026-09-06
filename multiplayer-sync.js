@@ -505,6 +505,26 @@ window.giftArbitraryItemToPlayer = function (targetUid, item) {
   if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
   return giftItemToPlayer(mp.roomCode, targetUid, item);
 };
+// Bridge for the DM's Players tab "Take" action — full control over a player's equipped/
+// inventory state means overwriting whole fields (playerSlots, inventoryGrid,
+// inventoryPlacements, savedGeneratedItems), not atomic transforms like the two above, since
+// the DM computes the resulting object/grid locally from the live snapshot it already has via
+// startViewedPlayerListener and needs to write that exact result back. Each field is sanitized
+// independently (inventoryGrid is the one that actually needs the nested-array encoding;
+// running every field through it uniformly is simpler than special-casing which ones do) and
+// sent as its own dot-path key so this never clobbers fields the caller didn't pass in.
+function setPlayerInventoryFields(roomCode, targetUid, fields) {
+  const payload = {};
+  Object.keys(fields).forEach((k) => { payload["state." + k] = sanitizeNestedArrays(fields[k]); });
+  return updateDoc(playerDocRef(roomCode, targetUid), payload).catch((err) => {
+    console.error("[multiplayer-sync] setPlayerInventoryFields failed:", err);
+    throw err;
+  });
+}
+window.dmSetPlayerInventoryFields = function (targetUid, fields) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return setPlayerInventoryFields(mp.roomCode, targetUid, fields);
+};
 
 // ---------- Real-time looting: lootClaims (immutable, first-write-wins) ----------
 // Every corpse-drop item gets a claim doc at a deterministic id (monsterUid_itemId — both
@@ -664,15 +684,16 @@ function startPlayerListener() {
     const remote = snap.data();
     if (!remote || !remote.state) return;
     // Guards against a specific out-of-order-network race: every push carries an
-    // ever-increasing `rev` (see pushOwnState), and this document has exactly one writer —
-    // this account's own client, via pushOwnState — nothing else writes to a player's own
-    // room doc today. Rapid successive local changes (e.g. dragging one item right after
-    // another) each schedule their own debounced push; if an OLDER push's network round-trip
-    // happens to finish after a NEWER one's, this listener would otherwise see the older
-    // snapshot last and hand it to applyRemoteMultiplayerState, visibly reverting whatever
-    // was just moved back to where it used to be (or undoing the move before it's ever seen).
-    // Since mp.pushRev already reflects the newest rev THIS client has sent as of right now,
-    // any snapshot behind that is guaranteed stale and is dropped rather than applied.
+    // ever-increasing `rev` (see pushOwnState). Rapid successive local changes (e.g. dragging
+    // one item right after another) each schedule their own debounced push; if an OLDER push's
+    // network round-trip happens to finish after a NEWER one's, this listener would otherwise
+    // see the older snapshot last and hand it to applyRemoteMultiplayerState, visibly reverting
+    // whatever was just moved back to where it used to be (or undoing the move before it's ever
+    // seen). Since mp.pushRev already reflects the newest rev THIS client has sent as of right
+    // now, any snapshot behind that is guaranteed stale and is dropped rather than applied.
+    // The DM ALSO writes into this doc now (applyHpDelta, giftItemToPlayer,
+    // setPlayerInventoryFields) but deliberately never touches `rev` when doing so, so those
+    // writes always compare as >= mp.pushRev here and are never mistaken for a stale echo.
     if (typeof remote.rev === "number" && remote.rev < mp.pushRev) return;
     mp.applyingRemote = true;
     try {
