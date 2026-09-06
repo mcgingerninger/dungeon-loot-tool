@@ -1023,6 +1023,16 @@ function injectStyles() {
       box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none;
     }
     #mpAccountBtn.show { display: block; }
+    /* ---- Guest / debug mode badge ---- */
+    #mpGuestBadge {
+      position: fixed; bottom: 1rem; right: 1rem; z-index: 9000;
+      background: var(--surface, #1a1a1a); color: var(--gold, #c9a84c);
+      border: 2px solid var(--gold, #c9a84c); border-radius: 6px;
+      font-family: 'Crimson Text', serif; font-weight: 600; font-size: 0.9rem;
+      padding: 0.55rem 0.9rem; cursor: pointer; letter-spacing: 0.02em;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none;
+    }
+    #mpGuestBadge.show { display: block; }
     #mpAccountOverlay {
       display: none; position: fixed; inset: 0; z-index: 9001;
       background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
@@ -1068,6 +1078,13 @@ function injectDom() {
   accountBtn.onclick = () => document.getElementById("mpAccountOverlay").classList.add("show");
   document.body.appendChild(accountBtn);
 
+  const guestBadge = document.createElement("button");
+  guestBadge.id = "mpGuestBadge";
+  guestBadge.textContent = "👤 Guest Mode — exit";
+  guestBadge.title = "Nothing here is saved to any account. Click to return to the login screen.";
+  guestBadge.onclick = exitGuestMode;
+  document.body.appendChild(guestBadge);
+
   const overlay = document.createElement("div");
   overlay.id = "mpAccountOverlay";
   overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove("show"); };
@@ -1102,10 +1119,32 @@ function renderGateRoleSelect() {
       <button class="mp-role-btn" id="mpRolePlayerBtn">🧙 Player</button>
       <button class="mp-role-btn" id="mpRoleDmBtn">👑 Dungeon Master</button>
     </div>
+    <button class="mp-btn" id="mpGuestBtn" style="background:var(--surface, #1a1a1a); color:var(--gold, #c9a84c); border:2px solid var(--gold, #c9a84c);">👤 Just Looking Around (Guest / Debug)</button>
+    <p class="mp-sub" style="margin:0.5rem 0 0;">No account, no campaign — nothing is ever sent to Firebase. Saves only to this browser's local storage, same as using the app before any of this multiplayer stuff existed. Every tab is unlocked so you can poke at all of it, but nobody else can see or join you.</p>
     <div class="mp-status" id="mpGateStatus"></div>
   `;
   document.getElementById("mpRolePlayerBtn").onclick = () => { gateRole = "player"; gateMode = "login"; renderGateForm(); };
   document.getElementById("mpRoleDmBtn").onclick = () => { gateRole = "dm"; gateMode = "login"; renderGateForm(); };
+  document.getElementById("mpGuestBtn").onclick = enterGuestMode;
+}
+// ---- Guest / debug mode: skips Firebase entirely ----
+// The whole point is a zero-friction, zero-risk way to poke at the app's features or debug
+// something without a real account, a campaign, or touching Firestore at all (which also means
+// it works even while the project's daily quota is exhausted, unlike everything else here).
+// mp.connected simply never becomes true, so window.onMultiplayerStateChange's own guard
+// ("if (!mp.connected...) return") already means every edit just saves to this browser's
+// localStorage exactly like the app worked before multiplayer existed — nothing new to build
+// for that part, just a door that skips the login form.
+function enterGuestMode() {
+  hideGate();
+  document.body.classList.remove("role-player");
+  const battlefieldBtn = document.getElementById("battlefieldTabBtn");
+  if (battlefieldBtn) battlefieldBtn.style.display = "";
+  document.getElementById("mpGuestBadge").classList.add("show");
+}
+function exitGuestMode() {
+  document.getElementById("mpGuestBadge").classList.remove("show");
+  showGate();
 }
 
 // ---- Gate: step 2, login/signup form for the chosen role ----
