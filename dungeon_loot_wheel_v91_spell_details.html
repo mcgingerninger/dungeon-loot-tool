@@ -2821,6 +2821,7 @@
 
     <div>
       <input id="battleMonsterSearch" type="text" placeholder="Search a creature name to add to the battle…" oninput="renderCombatPicker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem .7rem;margin-bottom:.6rem;">
+      <div class="store-buy-msg" id="combatAddMsg"></div>
       <div class="combat-picker-results" id="combatPickerResults"><div class="spell-loading">Type at least 2 characters to search creatures.</div></div>
     </div>
 
@@ -12637,7 +12638,7 @@ function suggestedMonstersHtml() {
   const groups = suggestedMonstersForCombat();
   if (!groups.length) return '';
   const sections = groups.map(g => {
-    const chips = g.monsters.map(m => `<button class="combat-suggested-chip" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)})" title="${escapeHtml(m.type)}">${escapeHtml(m.name)} <span class="combat-suggested-cr">CR ${escapeHtml(String(m.cr))}</span></button>`).join('');
+    const chips = g.monsters.map(m => `<button class="combat-suggested-chip" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)}, '${m.name.replace(/'/g, "\\'")}')" title="${escapeHtml(m.type)}">${escapeHtml(m.name)} <span class="combat-suggested-cr">CR ${escapeHtml(String(m.cr))}</span></button>`).join('');
     return `<div class="combat-suggested-tier-label ${g.tier}">${escapeHtml(rarityNames[g.tier] || g.tier)}</div><div class="combat-suggested-chips">${chips}</div>`;
   }).join('');
   return `<div class="combat-suggested-label">✨ Need an idea? Try one of these:</div>${sections}`;
@@ -12666,7 +12667,7 @@ function renderCombatPicker() {
     return `<div class="combat-picker-row${bountyClass}">
     <span class="combat-picker-name">${escapeHtml(m.name)}${bountyBadge}</span>
     <span class="combat-picker-cr">CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.type)}</span>
-    <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)})">+ Add</button>
+    <button class="action-btn" style="width:auto;max-width:none" onclick="addMonsterToBattle(${monsterDatabase.indexOf(m)}, '${m.name.replace(/'/g, "\\'")}')">+ Add</button>
   </div>`;
   }).join('');
 }
@@ -13024,11 +13025,41 @@ function buildFrozenBattleEntry(monster) {
     targetMode: 'random', targetPlayerUid: null, lootRevealed: false,
   };
 }
-function addMonsterToBattle(idx) {
-  const monster = monsterDatabase[idx];
-  if (!monster) return;
-  battleRoster.push(monster.frozenEntry ? buildFrozenBattleEntry(monster) : buildBattleEntry(monster));
-  renderCombatRoster();
+function flashCombatMessage(msg, isError) {
+  const el = document.getElementById('combatAddMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._combatAddMsgTimer);
+  window._combatAddMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 2200);
+}
+// `idx` is a plain array index baked into the "+ Add" button's onclick at render time
+// (see renderCombatPicker/suggestedMonstersHtml) — normally stable, since monsterDatabase is
+// only ever reassigned once (its first successful load) and only ever grows afterward
+// (registerBountyCreatures appends, never reorders). But this was reported to occasionally
+// silently do nothing, and a stale/invalid index is the one way that can happen without any
+// error — so `expectedName` is a defensive double-check: if the index no longer points at the
+// creature this exact button was rendered for, fall back to finding it by name instead of
+// silently giving up (or, worse, adding whatever wrong creature now sits at that index). Any
+// other failure (a creature whose data trips something inside buildBattleEntry) now surfaces a
+// visible message instead of failing invisibly, so a real bug will actually get reported.
+function addMonsterToBattle(idx, expectedName) {
+  let monster = monsterDatabase[idx];
+  if (!monster || (expectedName && monster.name !== expectedName)) {
+    monster = expectedName ? monsterDatabase.find(m => m.name === expectedName) : null;
+  }
+  if (!monster) {
+    flashCombatMessage('Could not find that creature — try searching again.', true);
+    return;
+  }
+  try {
+    battleRoster.push(monster.frozenEntry ? buildFrozenBattleEntry(monster) : buildBattleEntry(monster));
+    renderCombatRoster();
+  } catch (err) {
+    console.error('[combat] addMonsterToBattle failed:', err);
+    flashCombatMessage(`Couldn't add ${monster.name} — ${err.message || 'something went wrong'}.`, true);
+  }
 }
 
 // ===================== MONSTER LOOTING =====================
