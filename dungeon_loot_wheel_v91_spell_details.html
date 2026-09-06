@@ -1381,6 +1381,8 @@
   .sheet-line-row label { display:flex; align-items:center; gap:0.4rem; cursor:pointer; }
   .sheet-line-val { color:var(--gold); font-family:'Share Tech Mono',monospace; }
   .sheet-note { color:var(--text-dim); font-style:italic; font-size:0.8rem; margin-top:1rem; }
+  .first-time-setup-banner { display:flex; align-items:center; gap:0.8rem; justify-content:space-between; background:rgba(201,168,76,0.08); border:1px solid var(--gold); color:var(--text); padding:0.7rem 0.9rem; margin-bottom:1rem; font-size:0.9rem; }
+  .first-time-setup-banner button { flex-shrink:0; background:var(--gold); color:var(--bg); border:none; padding:0.35rem 0.8rem; cursor:pointer; font-family:'Crimson Text',serif; font-weight:600; }
   .inv-grid-wrap { background:var(--surface); border:1px solid var(--border); padding:0.8rem; overflow-x:auto; margin-bottom:0; }
   .inv-layout-row { display:flex; gap:1rem; align-items:stretch; flex-wrap:wrap; margin-bottom:1rem; }
   .inv-layout-row .inv-grid-wrap { flex:1 1 auto; min-width:0; }
@@ -1828,6 +1830,10 @@
   .players-sheet-field label{display:block;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.2rem}
   .players-section-subtitle{color:var(--text-dim);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin-bottom:.3rem}
   .sheet-line-row.readonly label{cursor:default}
+  .sheet-chip-row{display:flex;flex-wrap:wrap;gap:.35rem}
+  .sheet-chip{background:var(--bg);border:1px solid var(--border);padding:.2rem .55rem;font-size:.78rem;white-space:nowrap}
+  .sheet-chip.proficient{border-color:var(--gold);color:var(--gold)}
+  .players-sheet-subrow{margin-top:.6rem}
   .players-send-row{display:flex;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap}
   .players-send-row input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.9rem;padding:.4rem .5rem}
   .players-send-results{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem}
@@ -2926,6 +2932,10 @@
   </div>
 
   <div id="invSheetPanel" style="display:none;">
+    <div id="firstTimeSetupBanner" class="first-time-setup-banner" style="display:none;">
+      <span>👋 Welcome! Fill in your ability scores, level, HP, AC, and pick your skill/save proficiencies below — your DM sees these live and uses them for combat.</span>
+      <button onclick="dismissFirstTimeSetupBanner()">Got it</button>
+    </div>
     <div class="sheet-top-row">
       <div class="sheet-field">
         <label>Class</label>
@@ -11855,6 +11865,21 @@ function setInventoryViewMode(mode) {
   if (sheetPanel) sheetPanel.style.display = mode === 'sheet' ? '' : 'none';
   if (mode === 'sheet') renderCharacterSheet();
 }
+// Bridge for multiplayer-sync.js's connectAsRole — fires exactly once, right when a brand-new
+// player account first joins a campaign (never on a later login, and never for the DM), so
+// their first stop is filling in a real character instead of the default 10s-across-the-board
+// blank sheet quietly sitting there until they happen to click into it themselves.
+window.promptFirstTimeCharacterSetup = function () {
+  const tabBtn = document.querySelector('.tab-btn[onclick*="showTab(\'inventory\'"]');
+  if (tabBtn) showTab('inventory', tabBtn);
+  setInventoryViewMode('sheet');
+  const banner = document.getElementById('firstTimeSetupBanner');
+  if (banner) banner.style.display = '';
+};
+function dismissFirstTimeSetupBanner() {
+  const banner = document.getElementById('firstTimeSetupBanner');
+  if (banner) banner.style.display = 'none';
+}
 function renderCharacterSheet() {
   const classEl = document.getElementById('sheetClass');
   const levelEl = document.getElementById('sheetLevel');
@@ -13766,7 +13791,7 @@ function combatCardHtml(entry, mode) {
             ${entry.loot.items.length ? entry.loot.items.map(it => `
               <div class="combat-loot-item ${it.rarity}">
                 <span>${escapeHtml(it.name)}</span>
-                <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}')">🎒 Loot</button></span>
+                <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}', this)">🎒 Loot</button></span>
               </div>
             `).join('') : '<div class="combat-loot-item">Nothing left to loot.</div>'}
           </div>`;
@@ -13800,10 +13825,20 @@ function combatCardHtml(entry, mode) {
   </div>`;
 }
 
-function renderCombatRoster() {
+function renderCombatRoster(skipIfInteracting) {
   if (typeof scheduleSave === 'function') scheduleSave();
   if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
   const wrap = document.getElementById('combatRoster'); if (!wrap) return;
+  // Background triggers (see onConnectedPlayersChanged, which fires every few seconds just
+  // from other players' idle autosaves) only ever refresh HP/AC numbers and target-player
+  // options here — nothing worth losing a click over. A full re-render mid-interaction was
+  // destroying an open "Targets" dropdown (or the loot "Give to…" select) before the DM could
+  // actually pick an option, since replacing the whole roster's innerHTML tears out the live
+  // <select> the browser's native option popup is anchored to — which is exactly what made
+  // targeting dropdowns "disappear" before a click could register. Only background callers
+  // opt into this guard (skipIfInteracting); the DM's OWN actions (attacking, targeting,
+  // looting, adding/removing a monster) all call this unguarded and still render immediately.
+  if (skipIfInteracting && wrap.contains(document.activeElement) && document.activeElement !== wrap) return;
   if (!battleRoster.length) {
     wrap.innerHTML = '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>';
     return;
@@ -13841,15 +13876,31 @@ function renderBattlefieldForPlayer() {
   }
   wrap.innerHTML = battlefieldRoster.map(entry => combatCardHtml(entry, 'player')).join('');
 }
-// Player's own Loot button (see combatCardHtml's player mode). Only creates the claim — the
-// claims listener in multiplayer-sync.js (started for every account) is what actually applies
-// a WON claim via applyWonLootClaim below, so a tab closing right after this resolves can't
-// lose the item; the listener re-checks on the next load.
-function playerLootItem(entryUid, itemId) {
+// Guards against exactly the click pattern that made looting look broken: this only CREATES
+// the claim doc (see the comment below on why), which is a real network round-trip, and the
+// button used to give zero feedback while that was in flight — no message, no disabling, and
+// the button itself doesn't disappear until the DM's own claims listener marks the item
+// claimed and re-pushes a fresh battlefield snapshot (a second round-trip on TOP of the first).
+// Someone waiting on a slow connection saw nothing happen, assumed the first click didn't
+// register, and clicked again — but the claim is immutable once created, so that second click's
+// create is rejected by the security rules (an update on an existing doc, which they deny
+// outright) and surfaced the misleading "Someone already looted that" error for an item THEY
+// themselves had already successfully looted a moment earlier. Disabling the button immediately
+// and showing real success feedback closes that whole loop.
+const playerLootInFlight = new Set();
+function playerLootItem(entryUid, itemId, btn) {
+  const claimKey = entryUid + '_' + itemId;
+  if (playerLootInFlight.has(claimKey)) return;
   if (typeof window.createSelfLootClaim !== 'function') return;
-  window.createSelfLootClaim(entryUid, itemId).catch(() => {
+  playerLootInFlight.add(claimKey);
+  if (btn) { btn.disabled = true; btn.textContent = 'Looting…'; }
+  window.createSelfLootClaim(entryUid, itemId).then(() => {
+    flashInvMessage('Looted! Check your inventory.');
+    if (btn) { btn.textContent = '✓ Looted'; }
+  }).catch(() => {
     flashInvMessage('Someone already looted that.', true);
-  });
+    if (btn) { btn.disabled = false; btn.textContent = '🎒 Loot'; }
+  }).finally(() => playerLootInFlight.delete(claimKey));
 }
 // Fires once per claim this account has won, every time the claims collection changes
 // (including on reconnect/reload, when Firestore replays every existing doc) — guarded by
@@ -14094,6 +14145,11 @@ function removeAllPlayersClicked() {
 // player's own synced ability scores/proficiencies/gear instead of this account's globals.
 // No inputs/checkboxes here: this panel is look-only, the DM edits nothing about a player's
 // sheet directly (sending them items is the only interaction, via the panel below it).
+// Deliberately condensed compared to the full Character Sheet tab: one line of ability chips
+// instead of six boxes, and saves/skills collapsed to just what THIS character actually has
+// proficiency in (their own saved selections), as a couple lines of small tags, rather than an
+// exhaustive 6-save/18-skill list — a DM browsing several players doesn't need every possible
+// skill spelled out, just what this one character can actually do.
 function buildForeignCharacterSheetHtml(s) {
   const abilityScores = s.characterAbilityScores || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
   const level = s.characterLevel || 1;
@@ -14103,18 +14159,14 @@ function buildForeignCharacterSheetHtml(s) {
   const sheet = computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, key => resolveForeignItem(key, s.savedGeneratedItems));
   const abilitiesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
     const a = sheet.abilities[abbr];
-    const bonusNote = a.bonus ? `<div class="sheet-item-bonus">${fmtMod(a.bonus)} from gear</div>` : '';
-    return `<div class="sheet-ability-box"><label>${ABILITY_NAMES[abbr]}</label><div class="sheet-ability-total">${a.total} (${fmtMod(a.mod)})</div>${bonusNote}</div>`;
+    return `<div class="sheet-chip" title="${ABILITY_NAMES[abbr]}${a.bonus ? ' (' + fmtMod(a.bonus) + ' from gear)' : ''}"><strong>${abbr.toUpperCase()}</strong> ${a.total} (${fmtMod(a.mod)})</div>`;
   }).join('');
-  const savesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
-    const name = ABILITY_NAMES[abbr];
-    const proficient = saveProfs.includes(name);
-    return `<div class="sheet-line-row readonly"><label>${proficient ? '●' : '○'} ${name}</label><span class="sheet-line-val">${fmtMod(sheet.saves[abbr])}</span></div>`;
-  }).join('');
-  const skillsHtml = Object.keys(SKILL_ABILITY_MAP).map(skill => {
-    const proficient = skillProfs.includes(skill);
-    return `<div class="sheet-line-row readonly"><label>${proficient ? '●' : '○'} ${escapeHtml(skill)}</label><span class="sheet-line-val">${fmtMod(sheet.skills[skill])}</span></div>`;
-  }).join('');
+  const saveChips = Object.keys(ABILITY_NAMES)
+    .filter(abbr => saveProfs.includes(ABILITY_NAMES[abbr]))
+    .map(abbr => `<div class="sheet-chip proficient">${ABILITY_NAMES[abbr]} ${fmtMod(sheet.saves[abbr])}</div>`).join('');
+  const skillChips = Object.keys(SKILL_ABILITY_MAP)
+    .filter(skill => skillProfs.includes(skill))
+    .map(skill => `<div class="sheet-chip proficient">${escapeHtml(skill)} ${fmtMod(sheet.skills[skill])}</div>`).join('');
   return `
     <div class="players-sheet-toprow">
       <div class="players-sheet-field"><label>Class</label><div>${escapeHtml(s.characterClass || '—')}</div></div>
@@ -14124,10 +14176,14 @@ function buildForeignCharacterSheetHtml(s) {
       <div class="players-sheet-field"><label>AC</label><div>${s.characterAc != null ? s.characterAc : sheet.suggestedAc}</div></div>
       <div class="players-sheet-field"><label>Hit Dice</label><div>${escapeHtml(s.characterHitDice || '—')}</div></div>
     </div>
-    <div class="sheet-abilities-grid">${abilitiesHtml}</div>
-    <div class="sheet-columns">
-      <div><div class="players-section-subtitle">Saving Throws</div>${savesHtml}</div>
-      <div><div class="players-section-subtitle">Skills</div>${skillsHtml}</div>
+    <div class="sheet-chip-row">${abilitiesHtml}</div>
+    <div class="players-sheet-subrow">
+      <span class="players-section-subtitle">Proficient Saves</span>
+      <div class="sheet-chip-row">${saveChips || '<span class="empty-results">None selected</span>'}</div>
+    </div>
+    <div class="players-sheet-subrow">
+      <span class="players-section-subtitle">Proficient Skills</span>
+      <div class="sheet-chip-row">${skillChips || '<span class="empty-results">None selected</span>'}</div>
     </div>
   `;
 }
@@ -14174,8 +14230,10 @@ function renderPlayersTab() {
         <h3 id="playersDetailName"></h3>
         <div class="players-detail-stats" id="playersDetailStatsLine"></div>
       </div>
-      <div class="players-section-title">🧾 Character Sheet</div>
-      <div id="playersSheetSection"></div>
+      <details class="collapsible" open>
+        <summary>🧾 Character Sheet</summary>
+        <div class="collapsible-body"><div id="playersSheetSection"></div></div>
+      </details>
       <div class="players-section-title">🎒 Equipped</div>
       <div class="players-equip-grid" id="playersEquipGrid"></div>
       <div class="players-section-title" id="playersInvTitle">📦 Inventory</div>

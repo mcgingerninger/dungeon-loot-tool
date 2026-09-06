@@ -171,6 +171,13 @@ const mp = {
   // player doc (see pushOwnState) and checked on every snapshot the realtime listener
   // receives back (see startPlayerListener) — see the comment there for why this exists.
   pushRev: 0,
+  // The last `extRev` value (a separate server-incremented counter bumped ONLY by cross-player
+  // writes — applyHpDelta, giftItemToPlayer, setPlayerInventoryFields) this client has actually
+  // applied. Lets startPlayerListener tell "this snapshot is just Firestore echoing my own last
+  // push back at me, nothing external changed" (skip — see the full explanation there) apart
+  // from "the DM changed something since I last looked" (apply), even though both cases can
+  // show the exact same `rev` (the DM's writes never touch `rev` at all).
+  lastAppliedExtRev: 0,
 };
 
 // ---------- Sign up ----------
@@ -284,6 +291,14 @@ async function connectAsRole(uid, role, roomCode, username) {
   enforceRoleRestrictions(role);
   renderAccountPanel();
   updatePlayerNameDisplay();
+  // `existing` was checked above BEFORE this account's first-ever state push — reusing that
+  // same check here (rather than a separate flag) is what makes this fire exactly once, only
+  // for a genuinely brand-new player account, and never again on any later login. DM accounts
+  // don't get this: nothing about their combat/roster work depends on filling in a character
+  // sheet, and prompting them for one would just be noise on their own login.
+  if (!existing.exists() && role === "player" && typeof window.promptFirstTimeCharacterSetup === "function") {
+    window.promptFirstTimeCharacterSetup();
+  }
 }
 
 // Fills in / shows the player-name span on the persistent inventory summary bar (see the
@@ -464,11 +479,13 @@ async function pushOwnState(stateOverride) {
 // setDoc({merge:true}) replaces array fields wholesale, and the writer here never has (and
 // shouldn't need to cache) the target player's current array contents. increment()/arrayUnion()
 // are safe under concurrent writers with zero stale-read risk — e.g. two monsters hitting the
-// same player in one rollAllBattleAttacks() pass. Both omit `rev` entirely, so the target's own
-// staleness guard (startPlayerListener below) never mistakes an authoritative external push for
-// a stale echo of one of ITS OWN writes.
+// same player in one rollAllBattleAttacks() pass. All three of these omit `rev` entirely, so
+// the target's own staleness guard (startPlayerListener below) never mistakes an authoritative
+// external push for a stale echo of one of ITS OWN writes — but they all bump `extRev`, a
+// separate counter that same guard uses to tell "an external write actually landed" apart from
+// "Firestore is just echoing my own last push back at me" (see startPlayerListener).
 function applyHpDelta(roomCode, targetUid, delta) {
-  return updateDoc(playerDocRef(roomCode, targetUid), { "state.characterCurrentHp": increment(delta) }).catch((err) => {
+  return updateDoc(playerDocRef(roomCode, targetUid), { "state.characterCurrentHp": increment(delta), extRev: increment(1) }).catch((err) => {
     console.error("[multiplayer-sync] applyHpDelta failed:", err);
   });
 }
@@ -492,6 +509,7 @@ function giftItemToPlayer(roomCode, targetUid, item) {
   return updateDoc(playerDocRef(roomCode, targetUid), {
     "state.savedGeneratedItems": arrayUnion(saved),
     "state.recentlyLooted": arrayUnion(key),
+    extRev: increment(1),
   }).catch((err) => {
     // Re-throw (not just log) -- this function's callers (the Players tab's "Send" action,
     // and the DM's combat-loot "Give to..." action) both chain a .then()/.catch() to show the
@@ -529,6 +547,7 @@ window.giftArbitraryItemToPlayer = function (targetUid, item) {
 function setPlayerInventoryFields(roomCode, targetUid, fields) {
   const payload = {};
   Object.keys(fields).forEach((k) => { payload["state." + k] = sanitizeNestedArrays(fields[k]); });
+  payload.extRev = increment(1);
   return updateDoc(playerDocRef(roomCode, targetUid), payload).catch((err) => {
     console.error("[multiplayer-sync] setPlayerInventoryFields failed:", err);
     throw err;
@@ -708,6 +727,25 @@ function startPlayerListener() {
     // setPlayerInventoryFields) but deliberately never touches `rev` when doing so, so those
     // writes always compare as >= mp.pushRev here and are never mistaken for a stale echo.
     if (typeof remote.rev === "number" && remote.rev < mp.pushRev) return;
+    // Every push this client makes to its OWN doc round-trips straight back through this same
+    // listener (Firestore always echoes a client's own writes back to it) — and with the guard
+    // above, that echo's `rev` always equals mp.pushRev exactly, so it was never being dropped.
+    // Each echo used to trigger a full re-application of this account's OWN state onto itself
+    // (applyStateBlob + refreshAllViewsAfterStateApply, which re-renders the inventory grid,
+    // equip slots, and character sheet from scratch) — meaning literally any edit while
+    // connected triggered a save -> push -> echo -> full-rebuild loop that could tear out an
+    // open dropdown, an in-progress checkbox click, or a focused field the user hadn't left yet,
+    // moments after they interacted with it. This is what made "almost every dropdown and
+    // field" flaky while playing connected, not any one specific control being broken.
+    // `extRev` (see the `mp` object) is a separate counter ONLY the cross-player writes above
+    // bump — never this client's own pushOwnState — so comparing it alongside `rev` tells a
+    // pure self-echo (rev unchanged AND extRev unchanged: the DM hasn't touched this doc since
+    // the last snapshot we actually applied) apart from a genuine external change arriving with
+    // the same rev (the DM's writes never touch rev at all, so extRev moving is the only signal
+    // that one of them landed). Only the former gets skipped.
+    const remoteExtRev = typeof remote.extRev === "number" ? remote.extRev : 0;
+    if (remote.rev === mp.pushRev && remoteExtRev === mp.lastAppliedExtRev) return;
+    mp.lastAppliedExtRev = remoteExtRev;
     mp.applyingRemote = true;
     try {
       if (typeof window.applyRemoteMultiplayerState === "function") {
