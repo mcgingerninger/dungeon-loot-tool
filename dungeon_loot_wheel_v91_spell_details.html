@@ -955,7 +955,6 @@
 
   /* STORE TAB */
   .store-layout { display: flex; flex-direction: column; gap: 1.2rem; }
-  .store-intro { color: var(--text-dim); font-size: 0.95rem; line-height: 1.65; max-width: 900px; }
   .store-merchant-list { display: flex; flex-wrap: wrap; gap: 0.7rem; }
   .store-merchant-btn {
     background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
@@ -1678,7 +1677,6 @@
 
 
   /* ===================== SPELL COMPENDIUM ===================== */
-  .spells-intro{color:var(--text-dim);font-style:italic;font-size:.92rem;line-height:1.6;margin-bottom:1rem}
   .spells-controls{background:var(--surface);border:1px solid var(--border);padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:2fr repeat(4,minmax(120px,1fr));gap:.55rem}
   .spells-controls input,.spells-controls select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.95rem;padding:.45rem .6rem;width:100%}
   .spells-controls input:focus,.spells-controls select:focus{outline:none;border-color:var(--gold)}
@@ -2309,10 +2307,6 @@
   </div>
 
   <div id="compendium-spells" class="compendium-subpanel">
-  <p class="spells-intro">
-    Complete spell reference for the selected D&amp;D 5e ruleset. Filter by spell level, school, casting time, components, concentration, ritual status, saving throw, damage type, source, and more. Click a spell for its full mechanical metadata and an official D&amp;D Beyond reference link.
-    Spell descriptions are intentionally not reproduced here; use the official reference link for the full copyrighted text.
-  </p>
   <div class="spell-warning">
     <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
   </div>
@@ -2338,11 +2332,6 @@
   </div>
 
   <div id="compendium-monsters" class="compendium-subpanel">
-  <p class="spells-intro">
-    Official D&amp;D 5e monster stat blocks — also the backing data for the Combat tab's battle roster and monster
-    variants. Search, filter, and click a creature for its full stat block: AC, HP, hit dice,
-    ability scores, saves, skills, senses, and every trait/action/legendary action it has.
-  </p>
   <div class="spell-warning">
     <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
     This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
@@ -2363,22 +2352,11 @@
   </div>
 
   <div id="compendium-effects" class="compendium-subpanel">
-  <p class="spells-intro">
-    A browsable reference of every buff, debuff, condition, and named personality trait the generators can roll —
-    used by the Generate Item tab, the Fleshmancer, and the Combat tab's monster variants alike. This shows the
-    full pool, not any specific rolled result.
-  </p>
   <input id="effectsSearch" type="text" class="effects-search" placeholder="Search effects, conditions, traits…" oninput="renderEffectsCompendium()">
   <div id="effectsCompendiumWrap"></div>
   </div>
 
   <div id="compendium-monsterparts" class="compendium-subpanel">
-  <p class="spells-intro">
-    Every monster part type the Monster Mangler can work into a weapon or piece of armor, and the full range of
-    effects it can roll. Magnitude scales with the PART's own rarity (Common/Uncommon parts roll the weakest
-    version, Celestial parts the strongest) — not the base item being modified. To see what a specific creature
-    can actually drop, open its entry on the Monsters tab instead.
-  </p>
   <div id="monsterPartsCompendiumWrap"></div>
   </div>
 </div>
@@ -2613,14 +2591,6 @@
 <!-- STORE TAB -->
 <div id="tab-store" class="tab-content">
   <div class="store-layout">
-    <p class="store-intro">
-      Pick a merchant to see what they have for sale. Ordinary merchants always carry the same handful of standing stock,
-      plus <strong style="color:var(--text)">5 daily wares</strong> — freshly rolled, any-rarity magic items generated the moment you select them.
-      Rerolling or switching merchants replaces the daily wares. The Fleshmancer works differently: pick a fresh limb, pay to have it
-      grafted on, and see whether the flesh takes. Buying (or successfully grafting) anything adds it straight to your item list.
-      The Bounty Hunter works differently still — no goods for sale, just three wanted posters at a time, each pulled from the
-      creature registry with its own reward and warnings.
-    </p>
     <details class="collapsible" open style="margin-bottom:1rem;">
       <summary>🎒 Your Inventory — drag an item onto a merchant below to buy, sell, or use it</summary>
       <div class="collapsible-body">
@@ -2863,9 +2833,6 @@
      entirely from multiplayer-sync.js's window.applyRemoteBattlefieldState bridge; nothing
      here does anything if that never fires (e.g. no DM connected yet). -->
 <div id="tab-battlefield" class="tab-content">
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    A live view of what your DM has put in front of you. Defeated creatures show their loot once your DM reveals it — right-click nothing here, there's nothing to control; just watch the fight and loot a corpse once it's shown.
-  </p>
   <div class="combat-roster" id="battlefieldRosterEl"><div class="combat-empty-roster">Nothing happening yet.</div></div>
 </div>
 
@@ -2875,9 +2842,6 @@
      multiplayer-sync.js) plus a search-and-send panel to hand them any item from the DM's own
      Token Library. -->
 <div id="tab-players" class="tab-content">
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Everyone who's joined your campaign. Click a player to see their gear and inventory live, and send them anything from your own Token Library.
-  </p>
   <div style="margin-bottom:0.6rem;">
     <button class="combat-danger-btn" onclick="removeAllPlayersClicked()">🗑 Remove All Players</button>
   </div>
@@ -2893,12 +2857,6 @@
 <!-- INVENTORY TAB (single view so drag-and-drop works — dragging between separate tabs
      isn't possible since only one tab is visible/interactive at a time) -->
 <div id="tab-inventory" class="tab-content">
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
-    Drag a token from the library below onto the grid to store it — you don't have to be pixel-precise, dropping it anywhere near open squares snaps it to the nearest spot that fits. Its footprint — 1, 2, or 3 slots wide — is set by the item's own slot size. Items only move or leave the inventory while you're actively holding and dragging them; letting go mid-drag over empty space (or anywhere that isn't a valid target) just leaves it exactly where it was, and a plain click no longer removes it — drag it onto the remove zone for that.
-    To equip something, drag it from the grid onto your character below — get it anywhere near an open slot of the right kind (doll, limbs, mount/pet) and it snaps into place even if you're not dead-on over that exact square. It leaves the inventory and its effects go live. You can drag an equipped item right back off its slot too: onto the grid to re-store it (same forgiving snap-to-nearest-square), onto the remove zone to unequip it outright, or onto another matching slot to move it. Click an equipped slot to unequip it instantly.
-    Right-click is the fast way to equip and unequip: right-click any item sitting in the grid or your Token Library to send it straight to the first open slot that fits it, no dragging required. Right-click an already-equipped item to spend a charge if it has one (a staff, rations, a wand); if it doesn't, that same right-click unequips it back to the grid instead. Out of charges? Drag the item onto the refill zone to restore them — a flat count goes back to full, and anything whose charges are rolled on a die (like "1d4+1 applications") gets rerolled fresh.
-  </p>
-
   <div class="spin-source-toggle">
     <button class="spin-mode-btn active" id="invModeEquipBtn" onclick="setInventoryViewMode('equip')">🎒 Equipment</button>
     <button class="spin-mode-btn" id="invModeSheetBtn" onclick="setInventoryViewMode('sheet')">📜 Character Sheet</button>
@@ -3054,9 +3012,6 @@
   </div>
 
   <h3 style="color:var(--gold);font-size:1.05rem;letter-spacing:0.05em;margin:1.5rem 0 0.6rem;">📦 Recently Looted</h3>
-  <p style="color:var(--text-dim);font-style:italic;margin-bottom:0.6rem;font-size:0.9rem;">
-    Anywhere you can "Loot" an item — Treasure Chests, Roll Loot, killed monsters, the Monster Mangler, the Fleshmancer, the Item Compendium — it lands here first, in its own 36-slot holding pen, instead of going straight into your real inventory. Click ➡ on a card to move it into an open inventory slot, or 🗑 to discard it for good.
-  </p>
   <div class="inv-summary-bar" style="margin-bottom:0.6rem;">
     <span>📦 Slots Used: <strong id="rlSlotsUsed">0</strong> / <span id="rlSlotsTotal">36</span></span>
     <button class="action-btn" style="width:auto;max-width:none" onclick="clearRecentlyLooted()">Clear All</button>

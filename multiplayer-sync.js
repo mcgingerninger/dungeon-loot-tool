@@ -83,7 +83,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, updateProfile, deleteUser,
+  onAuthStateChanged, updateProfile, deleteUser, setPersistence, browserSessionPersistence,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
   initializeFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, serverTimestamp,
@@ -101,6 +101,19 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
+// Firebase's default persistence (browserLocalPersistence) stores the signed-in session in a
+// place shared by every tab of the same browser — signing in as a second account in a new tab
+// silently signs the first tab out too, which is exactly the "opening two tabs logs me out"
+// problem. browserSessionPersistence keys the session to sessionStorage instead, which each
+// TAB gets its own independent copy of even for the same origin — so a DM tab and a player tab
+// (or two different players) can now be logged in simultaneously in the same browser, on the
+// same PC, with no separate profile/incognito window needed. Trade-off: sessionStorage doesn't
+// survive actually closing a tab (reloading the same tab is fine, it keeps sessionStorage) —
+// closing and reopening needs signing back in, unlike before. init() is deferred until this
+// resolves so nothing reads/writes auth state under the old persistence mode first.
+const authPersistenceReady = setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.error("[multiplayer-sync] setPersistence(browserSessionPersistence) failed, falling back to Firebase's shared-across-tabs default:", err);
+});
 // Plain getFirestore() defaults to a WebChannel transport that tries QUIC (HTTP/3) first —
 // on some networks (corporate firewalls, certain ISPs/VPNs/proxies that block outbound UDP)
 // QUIC connections fail outright, which shows up as net::ERR_QUIC_PROTOCOL_ERROR plus repeated
@@ -1116,9 +1129,11 @@ function init() {
   injectStyles();
   injectDom();
   showGate();
-  // Firebase persists the signed-in session in this browser (IndexedDB) across reloads —
-  // this is what makes "log back in" mostly automatic on the SAME device, while a genuinely
-  // different device still needs the username/password typed once.
+  // With browserSessionPersistence (see authPersistenceReady above), Firebase persists the
+  // signed-in session in this TAB's sessionStorage — reloading this same tab logs back in
+  // automatically, but a new tab (even in the same browser) or a genuinely different device
+  // starts signed out and needs the username/password typed once. That's the intentional
+  // trade-off that makes running two independent accounts in two tabs possible at all.
   onAuthStateChanged(auth, (user) => {
     if (user) {
       if (!mp.connected && !mp.kicked) {
@@ -1126,17 +1141,15 @@ function init() {
       }
       return;
     }
-    // user is null: Firebase Auth itself now reports signed-out. Firebase's local persistence
-    // is shared across every tab/window of the same browser, and signing out in ONE of them
-    // propagates this same callback to every other open tab — but only THIS tab's own mp
-    // state and gate/DOM would otherwise know about it. Without this branch, a second window
-    // just kept right on behaving as if it were still logged in (roster listeners still
-    // running, gate still hidden) since nothing here ever told it otherwise — which is exactly
-    // what made logging out with two windows open look like it silently didn't work. Only
-    // acts if THIS tab still thinks it's connected: the tab where Log Out was actually clicked
-    // already reset its own state synchronously (see logOut), so this would otherwise be a
-    // redundant showGate() call capable of wiping a just-shown message (e.g. "removed by the
-    // DM") the instant after it appears.
+    // user is null: Firebase Auth itself now reports signed-out for THIS tab. Now that auth
+    // uses browserSessionPersistence (see authPersistenceReady above), each tab has its own
+    // independent session, so this normally only fires from something that happened in this
+    // same tab (the Log Out button, or a token Firebase itself invalidated) — not from another
+    // tab/account logging in or out. Kept as a defensive catch-all rather than assuming Log Out
+    // is the only path here. Only acts if THIS tab still thinks it's connected: the tab where
+    // Log Out was actually clicked already reset its own state synchronously (see logOut), so
+    // this would otherwise be a redundant showGate() call capable of wiping a just-shown message
+    // (e.g. "removed by the DM") the instant after it appears.
     if (mp.connected) {
       resetLocalSessionState();
       showGate();
@@ -1145,8 +1158,10 @@ function init() {
   });
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
-}
+authPersistenceReady.then(() => {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+});
