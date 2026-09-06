@@ -1804,6 +1804,8 @@
   .loot-claimed-tag{color:var(--text-dim);font-size:.72rem;font-style:italic}
   .loot-reserve-toggle{display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;color:var(--text-dim);cursor:pointer}
   .loot-give-select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.72rem;padding:.1rem .2rem;max-width:90px}
+  .combat-loot-item.claimed{opacity:.55}
+  .combat-loot-empty-note{font-size:.82rem;color:var(--text-dim);font-style:italic;padding:.2rem .5rem}
   /* ---- Players tab (DM-only roster + per-player inventory/equipment viewer) ---- */
   .players-layout{display:grid;grid-template-columns:220px 1fr;gap:1.2rem;align-items:start}
   @media (max-width:700px){.players-layout{grid-template-columns:1fr}}
@@ -7981,19 +7983,90 @@ function clearRecentlyLooted() {
   renderRecentlyLootedGrid();
   if (typeof renderSavedItems === 'function') renderSavedItems();
 }
-function lootCombatItem(uid, idx, btn) {
-  const entry = battleRoster.find(e => e.uid === uid);
-  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
-  lootItemToRecentlyLooted(entry.loot.items[idx], btn);
+// Shared by Save, Loot (below) and Give (see giveLootItemToPlayer) — every way a DM can hand
+// a single loot item off to its final destination. Prevents a duplicate click on ANY of these
+// three actions for the same item while an earlier one is still in flight (e.g. Save clicked
+// twice fast, or Save then Give before Save's own claim confirms) from placing/giving the same
+// item more than once.
+const combatLootActionInFlight = new Set();
+// The single point every DM-side "take this item" action funnels through before actually
+// placing it anywhere — see the long comment above combatLootActionInFlight for what this
+// closes off. Not connected to a campaign at all (solo/offline play) skips straight to
+// onSuccess: nothing else could possibly be racing for the same item in that case. Connected,
+// it creates the exact same lootClaims doc a player's own self-loot button would (see
+// window.createSelfLootClaim in multiplayer-sync.js) — whichever of any of these ever-competing
+// actions actually wins that create is the one whose onSuccess fires; everyone else's claim
+// attempt is rejected outright by Firestore's own create-vs-update rule evaluation, not by
+// anything client-side that could itself race or be bypassed.
+function claimThenConsumeLootItem(entry, item, onSuccess, onAlreadyTaken) {
+  const claimKey = entry.uid + '_' + item.id;
+  if (combatLootActionInFlight.has(claimKey)) return;
+  const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
+  if (!self || typeof window.createSelfLootClaim !== 'function') { onSuccess(); return; }
+  combatLootActionInFlight.add(claimKey);
+  window.createSelfLootClaim(entry.uid, item.id).then(() => {
+    item.claimedBy = self.uid;
+    item.claimedByUsername = self.username;
+    onSuccess();
+  }).catch(() => {
+    onAlreadyTaken();
+  }).finally(() => combatLootActionInFlight.delete(claimKey));
 }
-function saveCombatItem(uid, idx, btn) {
+function lootCombatItem(uid, itemId, btn) {
   const entry = battleRoster.find(e => e.uid === uid);
-  if (!entry || !entry.loot || !entry.loot.items[idx]) return;
-  saveLootResultItem(entry.loot.items[idx], btn);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item) return;
+  if (item.claimedBy) { flashInvMessage('That item is already taken.', true); return; }
+  if (btn) btn.disabled = true;
+  claimThenConsumeLootItem(entry, item, () => {
+    lootItemToRecentlyLooted(item, btn);
+    renderCombatRoster();
+  }, () => {
+    if (btn) btn.disabled = false;
+    flashInvMessage('Someone already took that item.', true);
+  });
 }
-// Marks a result-card action row as discarded — used by chest/wheel-spin/combat loot rows
-// (ephemeral display objects that were never saved anywhere), so clicking Discard there is
-// just a UI acknowledgment rather than needing to clean up any backing data.
+function saveCombatItem(uid, itemId, btn) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item) return;
+  if (item.claimedBy) { flashInvMessage('That item is already taken.', true); return; }
+  if (btn) btn.disabled = true;
+  claimThenConsumeLootItem(entry, item, () => {
+    saveLootResultItem(item, btn);
+    renderCombatRoster();
+  }, () => {
+    if (btn) btn.disabled = false;
+    flashInvMessage('Someone already took that item.', true);
+  });
+}
+// Unlike the plain markResultDiscarded below (a one-time chest/wheel-spin result that's never
+// looked at again once dismissed), a combat loot item lives on the battle roster entry
+// indefinitely and stays give/save/loot-able by anyone until something actually consumes it —
+// so "discarding" it here has to go through the same claim step as Save/Loot/Give, or a
+// "discarded" item would still be sitting right there for a player to self-loot a moment later.
+function discardCombatItem(uid, itemId, btn) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
+  if (!item) return;
+  if (item.claimedBy) { flashInvMessage('That item is already taken.', true); return; }
+  if (!confirm(`Discard "${item.name}"? No one will be able to loot, save, or receive it after this.`)) return;
+  if (btn) btn.disabled = true;
+  claimThenConsumeLootItem(entry, item, () => {
+    item.claimedVia = 'discard';
+    renderCombatRoster();
+    flashInvMessage(`${item.name} discarded.`);
+  }, () => {
+    if (btn) btn.disabled = false;
+    flashInvMessage('Someone already took that item.', true);
+  });
+}
+// Marks a result-card action row as discarded — used by chest/wheel-spin loot rows (ephemeral
+// display objects that were never saved anywhere and are never looked at again once dismissed),
+// so clicking Discard there is just a UI acknowledgment rather than needing to clean up any
+// backing data. Combat loot uses its own discardCombatItem instead (see above) since that data
+// lives on the battle roster indefinitely and stays give/save/loot-able until something
+// actually consumes it.
 function markResultDiscarded(btn) {
   if (!btn) return;
   btn.textContent = '🗑 Discarded';
@@ -8618,8 +8691,19 @@ let _pendingFleshItem = null;
 function attemptFleshAttach() {
   if (fleshSelectedIndex === null) return;
   const c = fleshCandidates[fleshSelectedIndex];
-  const outcome = fleshRollOutcome(c.rarity);
   const resultEl = document.getElementById('fleshResult');
+  // This used to roll the attachment (and consume the candidate) without ever actually
+  // charging gold at all — the confirm box shows a real cost, but nothing enforced it, so
+  // attaching was effectively free regardless of what the player could afford. Charged here,
+  // at the moment of the actual attempt, matching the Store's own "check at the point of
+  // spending" pattern — the cost is owed whether the roll below succeeds or fails (a failed
+  // graft still "loses the limb," per its own flavor text), so it's paid before rolling, not
+  // conditionally on the outcome.
+  if (!spendPlayerGold(c.gp)) {
+    if (resultEl) resultEl.innerHTML = `<div class="flesh-outcome fail"><h4>✕ Not Enough Gold</h4><p>Attaching ${escapeHtml(c.name)} costs ${formatGpAmount(c.gp)} — you have ${coinPouchGpText(getPlayerGold())}.</p></div>`;
+    return;
+  }
+  const outcome = fleshRollOutcome(c.rarity);
   _pendingFleshItem = null;
 
   if (!outcome.success) {
@@ -12169,9 +12253,9 @@ function showRawItemTooltip(evt, item, rarity) {
   tt.style.display = 'block';
   moveTokenTooltip(evt);
 }
-function showCombatLootTooltip(evt, uid, idx) {
+function showCombatLootTooltip(evt, uid, itemId) {
   const entry = battleRoster.find(e => e.uid === uid);
-  const it = entry && entry.loot && entry.loot.items[idx];
+  const it = entry && entry.loot && entry.loot.items.find(x => x.id === itemId);
   if (it) showRawItemTooltip(evt, it, it.rarity || (entry.loot && entry.loot.tier));
 }
 
@@ -13709,7 +13793,55 @@ function rollAllBattleAttacks() {
 // both revealed and not DM-reserved. `entry` in player mode is whatever already survived the
 // visibility filtering in buildBattlefieldPayload — loot the player isn't meant to see yet
 // simply isn't present on the object at all by the time it gets here.
-function combatCardHtml(entry, mode) {
+// Renders exactly one loot item's row (name/rarity, Reserve checkbox, Save/Loot/Discard,
+// and — if any players are connected — a "Give to…" picker), for the DM; a single Loot button
+// for a player. Extracted from combatCardHtml so it can be reconciled independently, by item
+// id, from every OTHER item dropped by the same monster AND from the rest of the card — see
+// reconcileRosterCards below for why that isolation matters: toggling Reserve on one item used
+// to force a full-card rebuild that could just as easily blow away an open "Give to…" dropdown
+// on a completely different item from the very same monster.
+function combatLootItemRowHtml(entry, it, mode) {
+  const isDm = mode === 'dm';
+  if (!isDm) {
+    return `<div class="combat-loot-item ${it.rarity}" data-item-id="${it.id}">
+      <span>${escapeHtml(it.name)}</span>
+      <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}', this)">🎒 Loot</button></span>
+    </div>`;
+  }
+  // A DM keeping an item for themselves (Save/Loot, see claimThenConsumeLootItem) still tags
+  // claimedBy/claimedByUsername with their OWN identity, the same as a Give or a player's
+  // self-loot — it's the one shared "has this been consumed" signal everything checks — but
+  // reads oddly as "→ MyOwnName" on their own card, so it gets its own label here instead.
+  const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
+  const claimedTag = !it.claimedBy ? '' : it.claimedVia === 'discard'
+    ? ' <span class="loot-claimed-tag">🗑 Discarded</span>'
+    : (self && it.claimedBy === self.uid)
+      ? ' <span class="loot-claimed-tag">✓ Kept</span>'
+      : ` <span class="loot-claimed-tag">→ ${escapeHtml(it.claimedByUsername || 'claimed')}</span>`;
+  return `<div class="combat-loot-item ${it.rarity}${it.reserved ? ' loot-reserved' : ''}${it.claimedBy ? ' claimed' : ''}" data-item-id="${it.id}"
+    onmouseenter="showCombatLootTooltip(event, ${entry.uid}, '${it.id}')"
+    onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
+    <span>${escapeHtml(it.name)}${it.reserved ? ' <span class="loot-reserved-tag">Reserved</span>' : ''}${claimedTag}</span>
+    <span class="loot-item-actions">
+      ${it.claimedBy ? '' : `<label class="loot-reserve-toggle"><input type="checkbox" ${it.reserved ? 'checked' : ''} onchange="toggleLootItemReserved(${entry.uid}, '${it.id}')"> Reserve</label>
+      <button class="loot-save-btn" onclick="saveCombatItem(${entry.uid}, '${it.id}', this)">💾 Save</button>
+      <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, '${it.id}', this)">🎒 Loot</button>
+      <button class="loot-save-btn" onclick="discardCombatItem(${entry.uid}, '${it.id}', this)">🗑 Discard</button>
+      ${(connectedPlayers || []).some(p => p.role === 'player') ? `
+        <select class="loot-give-select" onclick="event.stopPropagation()" onchange="setLootGiveSelection(${entry.uid}, '${it.id}', this.value)">
+          <option value="">Give to…</option>
+          ${(connectedPlayers || []).filter(p => p.role === 'player').map(p => `<option value="${p.uid}" ${lootGiveSelections[entry.uid + '_' + it.id] === p.uid ? 'selected' : ''}>${escapeHtml(p.username)}</option>`).join('')}
+        </select>
+        <button class="loot-save-btn" onclick="giveLootItemToPlayer(${entry.uid}, '${it.id}', this.previousElementSibling)">🎁 Give</button>
+      ` : ''}`}
+    </span>
+  </div>`;
+}
+// `shellOnly` renders the loot-items container completely empty (a stable place for
+// reconcileRosterCards to attach the independently-reconciled item rows into afterward)
+// instead of the real per-item rows — see the big comment on reconcileRosterCards for why the
+// "does this card need replacing" comparison has to be blind to individual item content.
+function combatCardHtml(entry, mode, shellOnly) {
   const isDm = mode === 'dm';
   const m = entry.monster;
   const r = entry.lastResult;
@@ -13751,30 +13883,14 @@ function combatCardHtml(entry, mode) {
       const revealBtn = entry.lootRevealed
         ? '<span class="combat-loot-revealed">✓ Revealed to players</span>'
         : `<button class="combat-roll-btn" onclick="revealEntryLoot(${entry.uid})">📢 Reveal to Players</button>`;
+      const itemsHtml = shellOnly ? '' : (entry.loot.items.length
+        ? entry.loot.items.map(it => combatLootItemRowHtml(entry, it, mode)).join('')
+        : '<div class="combat-loot-empty-note">Nothing but the gold.</div>');
       actionHtml = `
         <div class="combat-loot-block ${lootTier}">
           <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[lootTier]}">(${rarityNames[lootTier]} tier)</span></div>
           <div class="combat-loot-gold">💰 ${escapeHtml(entry.loot.gold)}</div>
-          ${entry.loot.items.length ? entry.loot.items.map((it, idx) => `
-            <div class="combat-loot-item ${it.rarity}${it.reserved ? ' loot-reserved' : ''}"
-              onmouseenter="showCombatLootTooltip(event, ${entry.uid}, ${idx})"
-              onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
-              <span>${escapeHtml(it.name)}${it.reserved ? ' <span class="loot-reserved-tag">Reserved</span>' : ''}${it.claimedBy ? ` <span class="loot-claimed-tag">→ ${escapeHtml(it.claimedByUsername || 'claimed')}</span>` : ''}</span>
-              <span class="loot-item-actions">
-                ${it.claimedBy ? '' : `<label class="loot-reserve-toggle"><input type="checkbox" ${it.reserved ? 'checked' : ''} onchange="toggleLootItemReserved(${entry.uid}, '${it.id}')"> Reserve</label>
-                <button class="loot-save-btn" onclick="saveCombatItem(${entry.uid}, ${idx}, this)">💾 Save</button>
-                <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
-                <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
-                ${(connectedPlayers || []).some(p => p.role === 'player') ? `
-                  <select class="loot-give-select" onclick="event.stopPropagation()" onchange="setLootGiveSelection(${entry.uid}, '${it.id}', this.value)">
-                    <option value="">Give to…</option>
-                    ${(connectedPlayers || []).filter(p => p.role === 'player').map(p => `<option value="${p.uid}" ${lootGiveSelections[entry.uid + '_' + it.id] === p.uid ? 'selected' : ''}>${escapeHtml(p.username)}</option>`).join('')}
-                  </select>
-                  <button class="loot-save-btn" onclick="giveLootItemToPlayer(${entry.uid}, '${it.id}', this.previousElementSibling)">🎁 Give</button>
-                ` : ''}`}
-              </span>
-            </div>
-          `).join('') : '<div class="combat-loot-item">Nothing but the gold.</div>'}
+          <div class="combat-loot-items-list" data-loot-list>${itemsHtml}</div>
           ${revealBtn}
         </div>
       `;
@@ -13782,21 +13898,22 @@ function combatCardHtml(entry, mode) {
   } else {
     // Player mode: only ever reaches here once loot exists and has been revealed — the
     // visibility filtering already happened before this data ever left the DM's client (see
-    // buildBattlefieldPayload) — reserved items are simply absent from entry.loot.items here,
-    // not hidden by CSS, so there's nothing to inspect via devtools to see them early.
+    // pushBattlefieldState in multiplayer-sync.js) — reserved AND already-claimed items are
+    // simply absent from entry.loot.items here, not hidden by CSS, so there's nothing to
+    // inspect via devtools to see early or to still show a live Loot button for.
     actionHtml = !entry.defeated
       ? ''
       : !entry.loot
         ? '<div class="combat-loot-hint">☠ Defeated — loot not revealed yet.</div>'
-        : `<div class="combat-loot-block ${entry.loot.tier}">
-            <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[entry.loot.tier]}">(${rarityNames[entry.loot.tier]} tier)</span></div>
-            ${entry.loot.items.length ? entry.loot.items.map(it => `
-              <div class="combat-loot-item ${it.rarity}">
-                <span>${escapeHtml(it.name)}</span>
-                <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}', this)">🎒 Loot</button></span>
-              </div>
-            `).join('') : '<div class="combat-loot-item">Nothing left to loot.</div>'}
-          </div>`;
+        : (() => {
+            const itemsHtml = shellOnly ? '' : (entry.loot.items.length
+              ? entry.loot.items.map(it => combatLootItemRowHtml(entry, it, mode)).join('')
+              : '<div class="combat-loot-empty-note">Nothing left to loot.</div>');
+            return `<div class="combat-loot-block ${entry.loot.tier}">
+              <div class="combat-loot-title">💀 Loot <span style="color:${rarityColors[entry.loot.tier]}">(${rarityNames[entry.loot.tier]} tier)</span></div>
+              <div class="combat-loot-items-list" data-loot-list>${itemsHtml}</div>
+            </div>`;
+          })();
   }
 
   const hpHtml = isDm
@@ -13828,66 +13945,112 @@ function combatCardHtml(entry, mode) {
   </div>`;
 }
 
-// Card-level reconciliation instead of a blind "replace the whole roster's innerHTML" —
-// that used to tear down EVERY card's DOM on ANY change anywhere (rolling one monster's
-// attack, reserving a loot item, a background roster ping from another player's autosave),
-// destroying whatever the DM happened to have open on a COMPLETELY UNRELATED card at that
-// instant: a "Give to…" select mid-pick, a "Targets" dropdown, anything. Each card keeps a
-// stable wrapper keyed by the monster's own uid; a card is only ever touched if its own
-// rendered HTML actually changed since last time, so acting on monster B never disturbs
-// whatever's open on monster A — no matter which of the many call sites triggered the render.
-// skipIfInteracting additionally protects a card that DOES need a genuine update (e.g. its
-// target-player options changed because someone's roster entry changed) if the DM currently
-// has something inside THAT SAME card focused; direct actions on that exact card (rolling its
-// attack, toggling its own loot reserve, etc.) never pass this, so they still always land.
-// Roster reordering isn't handled (existing cards keep their current DOM position) since the
-// roster is append-order and never resorted in place — only additions/removals move anything.
-function reconcileRosterCards(wrap, entries, mode, skipIfInteracting) {
-  if (!wrap) return;
-  if (!entries.length) {
-    wrap.innerHTML = mode === 'dm'
-      ? '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>'
-      : '<div class="combat-empty-roster">Nothing happening yet.</div>';
+// Generic keyed-list DOM reconciliation, shared by the roster-of-cards level and the
+// items-within-a-card level below: a child is only ever touched if ITS OWN rendered html
+// actually changed (or it's new/removed), so acting on one entry in the list never disturbs a
+// sibling. `container` holds one child per key, tagged with data-key (set here, independent of
+// any semantic data-* attribute the htmlFn's own markup already carries, like data-entry-uid or
+// data-item-id). `emptyHtml`, when given, replaces the container's content outright once
+// `items` is empty, and is cleared automatically the moment items reappear.
+function reconcileKeyedList(container, items, keyFn, htmlFn, skipFn, emptyHtml) {
+  if (!container) return;
+  if (!items.length) {
+    if (emptyHtml !== undefined) container.innerHTML = emptyHtml;
     return;
   }
-  const existingCards = new Map();
-  wrap.querySelectorAll(':scope > [data-entry-uid]').forEach(el => existingCards.set(el.dataset.entryUid, el));
-  const seenUids = new Set();
+  // Coming from an emptyHtml placeholder (or any other non-keyed content) — clear it before
+  // the diff below runs, or it would sit alongside the real rows as an orphaned leftover.
+  if (!container.querySelector(':scope > [data-key]') && container.children.length) {
+    container.innerHTML = '';
+  }
+  const existing = new Map();
+  container.querySelectorAll(':scope > [data-key]').forEach(el => existing.set(el.dataset.key, el));
+  const seen = new Set();
   let prevEl = null;
-  entries.forEach(entry => {
-    const uidStr = String(entry.uid);
-    seenUids.add(uidStr);
-    const html = combatCardHtml(entry, mode);
-    const existing = existingCards.get(uidStr);
-    if (existing) {
-      const interacting = existing.contains(document.activeElement) && document.activeElement !== existing;
-      if (existing.dataset.cardHtml !== html && !(skipIfInteracting && interacting)) {
+  items.forEach(item => {
+    const key = String(keyFn(item));
+    seen.add(key);
+    const html = htmlFn(item);
+    const el = existing.get(key);
+    if (el) {
+      if (el.dataset.itemHtml !== html && !(skipFn && skipFn(el))) {
         const temp = document.createElement('div');
         temp.innerHTML = html;
         const newEl = temp.firstElementChild;
         if (newEl) {
-          newEl.dataset.cardHtml = html;
-          existing.replaceWith(newEl);
+          newEl.dataset.key = key;
+          newEl.dataset.itemHtml = html;
+          el.replaceWith(newEl);
           prevEl = newEl;
         } else {
-          prevEl = existing;
+          prevEl = el;
         }
       } else {
-        prevEl = existing;
+        prevEl = el;
       }
     } else {
       const temp = document.createElement('div');
       temp.innerHTML = html;
       const newEl = temp.firstElementChild;
       if (newEl) {
-        newEl.dataset.cardHtml = html;
-        if (prevEl && prevEl.parentElement === wrap) prevEl.after(newEl);
-        else wrap.prepend(newEl);
+        newEl.dataset.key = key;
+        newEl.dataset.itemHtml = html;
+        if (prevEl && prevEl.parentElement === container) prevEl.after(newEl);
+        else container.prepend(newEl);
         prevEl = newEl;
       }
     }
   });
-  existingCards.forEach((el, uidStr) => { if (!seenUids.has(uidStr)) el.remove(); });
+  existing.forEach((el, key) => { if (!seen.has(key)) el.remove(); });
+}
+// Two-level reconciliation instead of a blind "replace the whole roster's innerHTML" —
+// that used to tear down EVERY card's DOM on ANY change anywhere (rolling one monster's
+// attack, reserving a loot item, a background roster ping from another player's autosave),
+// destroying whatever the DM happened to have open on a COMPLETELY UNRELATED card at that
+// instant: a "Give to…" select mid-pick, a "Targets" dropdown, anything.
+// Level 1 (cards, keyed by monster uid): a card's shell (everything except its own loot items —
+// see combatCardHtml's shellOnly) is only replaced if that non-item content actually changed,
+// so acting on monster B never disturbs whatever's open anywhere on monster A.
+// Level 2 (loot items within a card, keyed by item id): reconciled completely independently of
+// the shell AND of every other item — toggling Reserve on item 1 can no longer blow away an
+// open "Give to…" dropdown on item 2 of that SAME monster, which a card-only reconciliation
+// still couldn't have prevented.
+// skipIfInteracting protects whichever card/item the DM currently has something focused inside
+// from a background-triggered update that would otherwise still be "correct" to apply (e.g.
+// target-player options changing because someone's roster entry changed); direct actions on
+// that exact card/item (rolling its attack, toggling its own Reserve, etc.) never pass this, so
+// they always land immediately regardless of focus.
+// Roster/item reordering isn't handled (existing elements keep their current DOM position)
+// since both lists are append-order and never resorted in place.
+function reconcileRosterCards(wrap, entries, mode, skipIfInteracting) {
+  if (!wrap) return;
+  const emptyRosterHtml = mode === 'dm'
+    ? '<div class="combat-empty-roster">No creatures added yet. Search above and add a few to begin.</div>'
+    : '<div class="combat-empty-roster">Nothing happening yet.</div>';
+  const isInteracting = el => skipIfInteracting && el.contains(document.activeElement) && document.activeElement !== el;
+  reconcileKeyedList(
+    wrap, entries,
+    entry => entry.uid,
+    entry => combatCardHtml(entry, mode, true),
+    isInteracting,
+    emptyRosterHtml
+  );
+  entries.forEach(entry => {
+    const cardEl = wrap.querySelector(`[data-entry-uid="${entry.uid}"]`);
+    const listEl = cardEl && cardEl.querySelector('[data-loot-list]');
+    if (!listEl) return;
+    const items = (entry.loot && entry.loot.items) || [];
+    const emptyItemsHtml = mode === 'dm'
+      ? '<div class="combat-loot-empty-note">Nothing but the gold.</div>'
+      : '<div class="combat-loot-empty-note">Nothing left to loot.</div>';
+    reconcileKeyedList(
+      listEl, items,
+      it => it.id,
+      it => combatLootItemRowHtml(entry, it, mode),
+      isInteracting,
+      emptyItemsHtml
+    );
+  });
 }
 function renderCombatRoster(skipIfInteracting) {
   if (typeof scheduleSave === 'function') scheduleSave();
@@ -13999,6 +14162,13 @@ function giveLootItemToPlayer(entryUid, itemId, selectEl) {
   const entry = battleRoster.find(e => e.uid === entryUid);
   const item = entry && entry.loot && entry.loot.items.find(it => it.id === itemId);
   if (!item || typeof window.dmGiveLootItem !== 'function') return;
+  if (item.claimedBy) { flashInvMessage('That item is already taken.', true); return; }
+  // Shares combatLootActionInFlight with Save/Loot (see claimThenConsumeLootItem) — a duplicate
+  // click on Give itself, or Give right after Save/Loot on the same item before either
+  // resolves, must never be able to hand the same item out twice.
+  const claimKey = entryUid + '_' + itemId;
+  if (combatLootActionInFlight.has(claimKey)) return;
+  combatLootActionInFlight.add(claimKey);
   window.dmGiveLootItem(entryUid, itemId, targetUid, targetUsername, item).then(() => {
     item.claimedBy = targetUid;
     item.claimedByUsername = targetUsername;
@@ -14014,7 +14184,7 @@ function giveLootItemToPlayer(entryUid, itemId, selectEl) {
     } else {
       flashInvMessage(`${item.name} was marked given, but delivery failed — it wasn't actually added to their inventory. Check your connection and try a different item.`, true);
     }
-  });
+  }).finally(() => combatLootActionInFlight.delete(claimKey));
 }
 
 // ===================== PLAYERS TAB (DM-only) =====================

@@ -577,6 +577,18 @@ window.createSelfLootClaim = function (monsterUid, itemId) {
   if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
   return createLootClaim(mp.roomCode, `${monsterUid}_${itemId}`, mp.uid, mp.username);
 };
+// Bridge so the main file's DM-side "Save"/"Loot" combat-loot actions can route through the
+// exact same createSelfLootClaim used above (this works for either role — createLootClaim just
+// takes whatever uid/username calls it) before actually placing the item into their own
+// inventory, so a DM taking an item for themselves and a player self-looting the very same item
+// at the same moment resolve through the one real arbiter (Firestore's create-vs-update rule
+// evaluation) instead of two entirely separate, uncoordinated code paths that could both
+// "succeed" locally and hand the same item out twice. Returns null when not connected to any
+// campaign (solo/offline play) — the caller can safely skip the claim step in that case since
+// nothing else could possibly be racing for the same item.
+window.getMultiplayerSelf = function () {
+  return mp.connected ? { uid: mp.uid, username: mp.username, role: mp.role } : null;
+};
 // DM's "give to..." action: claims on the chosen player's behalf (so a self-loot race against
 // the same item still resolves correctly — whichever create wins), then, since the DM already
 // has the authoritative item data AND cross-player write permission, delivers it directly
@@ -630,13 +642,17 @@ function pushBattlefieldState(battleRoster, battleLog) {
   _battlefieldPushTimer = setTimeout(() => {
     // Loot visibility is enforced HERE, in what actually gets written to the doc players can
     // read — not by the player-mode card renderer choosing not to show it. An entry's loot is
-    // entirely absent until lootRevealed is set (see revealEntryLoot in the main file), and
-    // reserved items are stripped individually even after reveal — there is nothing for a
-    // player to find via devtools that the DM hasn't chosen to share.
+    // entirely absent until lootRevealed is set (see revealEntryLoot in the main file), reserved
+    // items are stripped individually even after reveal, and — just as important — an item
+    // someone (a player, or the DM themselves via Save/Loot) has already claimed is ALSO
+    // stripped: without this, a claimed item kept showing up with a live "Loot" button on every
+    // other player's battlefield view since claiming only ever blocked the actual claim-doc
+    // write, never removed the item from what they could see and try to click. There is nothing
+    // for a player to find via devtools that the DM hasn't chosen to share.
     const payload = (battleRoster || []).map((entry) => {
       const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed } = entry;
       const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated };
-      if (loot && lootRevealed) out.loot = { tier: loot.tier, gold: loot.gold, items: loot.items.filter((it) => !it.reserved) };
+      if (loot && lootRevealed) out.loot = { tier: loot.tier, gold: loot.gold, items: loot.items.filter((it) => !it.reserved && !it.claimedBy) };
       return out;
     });
     setDoc(battlefieldDocRef(mp.roomCode), {
