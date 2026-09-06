@@ -1804,6 +1804,30 @@
   .loot-claimed-tag{color:var(--text-dim);font-size:.72rem;font-style:italic}
   .loot-reserve-toggle{display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;color:var(--text-dim);cursor:pointer}
   .loot-give-select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.72rem;padding:.1rem .2rem;max-width:90px}
+  /* ---- Players tab (DM-only roster + per-player inventory/equipment viewer) ---- */
+  .players-layout{display:grid;grid-template-columns:220px 1fr;gap:1.2rem;align-items:start}
+  @media (max-width:700px){.players-layout{grid-template-columns:1fr}}
+  .players-list{display:flex;flex-direction:column;gap:.4rem}
+  .players-list-row{background:var(--surface);border:1px solid var(--border);padding:.6rem .7rem;cursor:pointer;transition:border-color .15s}
+  .players-list-row:hover{border-color:var(--gold)}
+  .players-list-row.active{border-color:var(--gold);background:var(--surface2)}
+  .players-list-name{color:var(--text);font-weight:600}
+  .players-list-stats{color:var(--text-dim);font-size:.78rem;font-family:'Share Tech Mono',monospace}
+  .players-detail{background:var(--surface);border:1px solid var(--border);padding:1rem;min-height:200px}
+  .players-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem}
+  .players-detail-header h3{margin:0;color:var(--gold);letter-spacing:.03em}
+  .players-detail-stats{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--text-dim)}
+  .players-section-title{color:var(--gold);font-size:.92rem;letter-spacing:.03em;margin:.9rem 0 .5rem}
+  .players-equip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem}
+  .players-equip-row{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;font-size:.8rem;display:flex;justify-content:space-between;gap:.4rem}
+  .players-equip-row .slot-label{color:var(--text-dim)}
+  .players-inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.4rem;max-height:260px;overflow-y:auto}
+  .players-inv-row{background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;font-size:.8rem}
+  .players-send-row{display:flex;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap}
+  .players-send-row input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.9rem;padding:.4rem .5rem}
+  .players-send-results{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem}
+  .players-send-item-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--bg);border:1px solid var(--border);padding:.35rem .5rem;font-size:.82rem}
+  .players-send-msg{min-height:1.1rem;font-size:.82rem;color:var(--uncommon);margin-top:.4rem}
   /* Bounty-saved creatures — flags a saved bounty target so it's never confused with a
      same-named stock bestiary entry (e.g. a bounty that happened to roll the "Ancient"
      variant on a Brass Dragon looks, by name, identical to the real Ancient Brass Dragon
@@ -1885,6 +1909,7 @@
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
+  <button class="tab-btn" onclick="showTab('players',this)">👥 Players</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
   <!-- Player-only — the opposite direction from multiplayer-sync.js's body.role-player hide
        list (which hides DM-only things): this stays hidden by default and is revealed only
@@ -2834,6 +2859,23 @@
     A live view of what your DM has put in front of you. Defeated creatures show their loot once your DM reveals it — right-click nothing here, there's nothing to control; just watch the fight and loot a corpse once it's shown.
   </p>
   <div class="combat-roster" id="battlefieldRosterEl"><div class="combat-empty-roster">Nothing happening yet.</div></div>
+</div>
+
+<!-- PLAYERS TAB — DM-only. Left: every player who's ever joined this campaign, with their
+     live HP/AC. Right: whichever one is selected — their equipped gear and inventory
+     (read-only, live via a dedicated per-player listener — see startViewedPlayerListener in
+     multiplayer-sync.js) plus a search-and-send panel to hand them any item from the DM's own
+     Token Library. -->
+<div id="tab-players" class="tab-content">
+  <p style="color:var(--text-dim);font-style:italic;margin-bottom:1rem;font-size:0.95rem;">
+    Everyone who's joined your campaign. Click a player to see their gear and inventory live, and send them anything from your own Token Library.
+  </p>
+  <div class="players-layout">
+    <div class="players-list" id="playersListEl"><div class="empty-results">No players have joined yet.</div></div>
+    <div class="players-detail" id="playersDetailEl">
+      <div class="empty-results">Select a player on the left to view their inventory.</div>
+    </div>
+  </div>
 </div>
 
 <!-- INVENTORY TAB (single view so drag-and-drop works — dragging between separate tabs
@@ -4816,6 +4858,8 @@ function showTab(tab, btn) {
   if (tab === 'compendium') initCompendiumSub(activeCompendiumSub);
   if (tab === 'combat') { loadMonsterDatabase(false).then(renderCombatPicker); renderCombatRoster(); renderCombatLog(); renderCombatLootSettings(); }
   if (tab === 'store') { renderStoreTab(); renderInventoryGrid(); }
+  if (tab === 'players' && typeof renderPlayersTab === 'function') renderPlayersTab();
+  if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -11961,7 +12005,15 @@ function renderActiveEffects() {
   if (typeof scheduleSave === 'function') scheduleSave();
   const container = document.getElementById('activeEffectsList');
   if (!container) return;
-  const filled = Object.entries(playerSlots).filter(([slotId, key]) => key && TOKEN_INDEX[key]);
+  // Iterate a FIXED slot order (SLOT_LABELS, matching the doll's own layout), not
+  // Object.entries(playerSlots) directly — playerSlots is a plain object that only ever gains
+  // a key the first time that particular slot is touched, so its own key order reflects
+  // "which slot happened to be equipped into first, ever," not any stable visual order. That
+  // made this list's row order silently depend on equip history and appear to reshuffle
+  // itself every time a different slot got its first-ever item.
+  const filled = Object.keys(SLOT_LABELS)
+    .filter(slotId => playerSlots[slotId] && TOKEN_INDEX[playerSlots[slotId]])
+    .map(slotId => [slotId, playerSlots[slotId]]);
 
   let timedHtml = '';
   if (activeTimedEffects.length) {
@@ -13676,9 +13728,9 @@ function combatCardHtml(entry, mode) {
                 <button class="loot-save-btn" onclick="lootCombatItem(${entry.uid}, ${idx}, this)">🎒 Loot</button>
                 <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
                 ${(connectedPlayers || []).some(p => p.role === 'player') ? `
-                  <select class="loot-give-select" onclick="event.stopPropagation()">
+                  <select class="loot-give-select" onclick="event.stopPropagation()" onchange="setLootGiveSelection(${entry.uid}, '${it.id}', this.value)">
                     <option value="">Give to…</option>
-                    ${(connectedPlayers || []).filter(p => p.role === 'player').map(p => `<option value="${p.uid}">${escapeHtml(p.username)}</option>`).join('')}
+                    ${(connectedPlayers || []).filter(p => p.role === 'player').map(p => `<option value="${p.uid}" ${lootGiveSelections[entry.uid + '_' + it.id] === p.uid ? 'selected' : ''}>${escapeHtml(p.username)}</option>`).join('')}
                   </select>
                   <button class="loot-save-btn" onclick="giveLootItemToPlayer(${entry.uid}, '${it.id}', this.previousElementSibling)">🎁 Give</button>
                 ` : ''}`}
@@ -13820,6 +13872,18 @@ window.markLootClaimOnRoster = function (claimId, claim) {
   item.claimedByUsername = claim.claimedByUsername;
   renderCombatRoster();
 };
+// Which player is currently picked in each loot item's "Give to…" select, keyed by
+// "<entryUid>_<itemId>". Without this, the select's chosen value lived nowhere but the DOM
+// node itself — and renderCombatRoster() rebuilds that DOM from scratch (wrap.innerHTML = ...)
+// on every re-render, which happens far more often than just the DM's own actions (e.g. any
+// connected player's own autosave updates their roster entry, which re-renders the whole
+// roster via window.onConnectedPlayersChanged). Every one of those wiped the dropdown back to
+// "Give to…" out from under the DM mid-choice — this tracks the pick as real state instead, the
+// same way entry.targetPlayerUid already does for the targeting picker.
+let lootGiveSelections = {};
+function setLootGiveSelection(entryUid, itemId, targetUid) {
+  lootGiveSelections[entryUid + '_' + itemId] = targetUid || null;
+}
 // DM's "give to..." action (see the loot item row in combatCardHtml's dm mode) — claims the
 // item on the chosen player's behalf first (so it still resolves correctly if a player
 // self-looted the same item a moment earlier) and only proceeds to deliver it if that succeeds.
@@ -13833,10 +13897,140 @@ function giveLootItemToPlayer(entryUid, itemId, selectEl) {
   window.dmGiveLootItem(entryUid, itemId, targetUid, targetUsername, item).then(() => {
     item.claimedBy = targetUid;
     item.claimedByUsername = targetUsername;
+    delete lootGiveSelections[entryUid + '_' + itemId];
     renderCombatRoster();
     flashInvMessage(`${item.name} given to ${targetUsername}.`);
   }).catch(() => {
     flashInvMessage('That item was already claimed by someone else.', true);
+  });
+}
+
+// ===================== PLAYERS TAB (DM-only) =====================
+// A live, read-only view of one selected player's inventory/equipment at a time, fed by
+// multiplayer-sync.js's startViewedPlayerListener (a dedicated per-player subscription, kept
+// separate from startRosterListener's all-players-at-once HP/AC summary since continuously
+// fetching everyone's ENTIRE state would be wasteful). Resolving item keys for a player who
+// isn't this account needs its own lookup: 'loot:'-prefixed keys are the same static game data
+// on every account so the DM's own TOKEN_INDEX already has them, but 'gen:'-prefixed keys
+// (generated/looted items) only exist in THAT account's own savedGeneratedItems array.
+let viewedPlayerUid = null;
+let viewedPlayerState = null;
+// Persisted the same way lootGiveSelections/entry.targetPlayerUid are — renderPlayersTab()
+// rebuilds this whole panel's innerHTML on every live update (any change to the viewed
+// player's state, or any other player's roster update), which would otherwise wipe whatever
+// the DM had typed here right as they were typing it.
+let playersSendSearchText = '';
+function resolveForeignItem(key, foreignSavedGeneratedItems) {
+  if (!key) return null;
+  if (key.indexOf('loot:') === 0) return TOKEN_INDEX[key] || null;
+  if (key.indexOf('gen:') === 0) {
+    const id = key.slice(4);
+    const item = (foreignSavedGeneratedItems || []).find(it => String(it.id) === id);
+    return item ? { key, item, rarity: item.rarity, source: 'gen' } : null;
+  }
+  return null;
+}
+function selectViewedPlayer(uid) {
+  if (viewedPlayerUid === uid) return;
+  viewedPlayerUid = uid;
+  viewedPlayerState = null;
+  if (typeof window.startViewedPlayerListener === 'function') window.startViewedPlayerListener(uid);
+  renderPlayersTab();
+}
+// Bridge target for multiplayer-sync.js's per-player listener — fires with `null` state if
+// the player's doc doesn't exist (shouldn't normally happen once they've ever connected once).
+window.applyViewedPlayerState = function (uid, state) {
+  if (uid !== viewedPlayerUid) return; // a stale listener from a since-deselected player
+  viewedPlayerState = state;
+  renderPlayersTab();
+};
+function renderPlayersTab() {
+  buildTokenIndex();
+  const listEl = document.getElementById('playersListEl');
+  const detailEl = document.getElementById('playersDetailEl');
+  if (!listEl || !detailEl) return;
+  const players = (connectedPlayers || []).filter(p => p.role === 'player');
+  listEl.innerHTML = players.length ? players.map(p => `
+    <div class="players-list-row${p.uid === viewedPlayerUid ? ' active' : ''}" onclick="selectViewedPlayer('${p.uid}')">
+      <div class="players-list-name">${escapeHtml(p.username)}</div>
+      <div class="players-list-stats">${p.currentHp != null ? `HP ${escapeHtml(String(p.currentHp))}/${escapeHtml(String(p.maxHp))} · AC ${escapeHtml(String(p.ac))}` : 'No character sheet yet'}</div>
+    </div>
+  `).join('') : '<div class="empty-results">No players have joined yet.</div>';
+
+  if (!viewedPlayerUid) {
+    detailEl.innerHTML = '<div class="empty-results">Select a player on the left to view their inventory.</div>';
+    return;
+  }
+  const viewedMeta = players.find(p => p.uid === viewedPlayerUid);
+  if (!viewedMeta) {
+    // They were removed/left since being selected.
+    detailEl.innerHTML = '<div class="empty-results">That player is no longer in this campaign.</div>';
+    return;
+  }
+  if (!viewedPlayerState) {
+    detailEl.innerHTML = '<div class="empty-results">Loading their inventory…</div>';
+    return;
+  }
+  const s = viewedPlayerState;
+  const foreignSlots = s.playerSlots || {};
+  const equipRows = Object.keys(SLOT_LABELS)
+    .filter(slotId => foreignSlots[slotId])
+    .map(slotId => {
+      const entry = resolveForeignItem(foreignSlots[slotId], s.savedGeneratedItems);
+      return `<div class="players-equip-row"><span class="slot-label">${escapeHtml(SLOT_LABELS[slotId])}</span><span>${entry ? escapeHtml(entry.item.name) : '(unknown item)'}</span></div>`;
+    }).join('');
+  const foreignPlacements = s.inventoryPlacements || {};
+  const invRows = Object.values(foreignPlacements).map(p => {
+    const entry = resolveForeignItem(p.key, s.savedGeneratedItems);
+    return `<div class="players-inv-row">${entry ? escapeHtml(entry.item.name) : '(unknown item)'}</div>`;
+  }).join('');
+  detailEl.innerHTML = `
+    <div class="players-detail-header">
+      <h3>${escapeHtml(viewedMeta.username)}</h3>
+      <div class="players-detail-stats">${viewedMeta.currentHp != null ? `HP ${escapeHtml(String(viewedMeta.currentHp))}/${escapeHtml(String(viewedMeta.maxHp))} · AC ${escapeHtml(String(viewedMeta.ac))}` : 'No character sheet yet'}</div>
+    </div>
+    <div class="players-section-title">🎒 Equipped</div>
+    <div class="players-equip-grid">${equipRows || '<div class="empty-results">Nothing equipped.</div>'}</div>
+    <div class="players-section-title">📦 Inventory (${Object.keys(foreignPlacements).length} item${Object.keys(foreignPlacements).length === 1 ? '' : 's'})</div>
+    <div class="players-inv-grid">${invRows || '<div class="empty-results">Empty.</div>'}</div>
+    <div class="players-section-title">🎁 Send an item from your Token Library</div>
+    <div class="players-send-row">
+      <input type="text" id="playersSendSearch" placeholder="Search your items…" value="${escapeHtml(playersSendSearchText)}" oninput="playersSendSearchText=this.value; renderPlayersSendResults();">
+    </div>
+    <div class="players-send-results" id="playersSendResults"></div>
+    <div class="players-send-msg" id="playersSendMsg"></div>
+  `;
+  renderPlayersSendResults();
+}
+// The DM's own searchable Token Library, filtered live — separate from the Inventory tab's
+// own token grid (renderInventoryTokenGrid) since this one needs a "Send to <viewed player>"
+// button per row instead of an equip action.
+function renderPlayersSendResults() {
+  const resultsEl = document.getElementById('playersSendResults');
+  if (!resultsEl) return;
+  const searchEl = document.getElementById('playersSendSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const entries = Object.values(TOKEN_INDEX).filter(e => !search || e.item.name.toLowerCase().includes(search)).slice(0, 60);
+  resultsEl.innerHTML = entries.length ? entries.map(e => `
+    <div class="players-send-item-row">
+      <span>${itemPixelIcon(e.item, 20, e.rarity)} ${escapeHtml(e.item.name)}</span>
+      <button class="loot-save-btn" onclick="sendItemToViewedPlayer('${e.key.replace(/'/g, "\\'")}', this)">🎁 Send</button>
+    </div>
+  `).join('') : '<div class="empty-results">No items match.</div>';
+}
+function sendItemToViewedPlayer(key, btn) {
+  if (!viewedPlayerUid) return;
+  const entry = TOKEN_INDEX[key];
+  if (!entry || typeof window.giftArbitraryItemToPlayer !== 'function') return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  window.giftArbitraryItemToPlayer(viewedPlayerUid, entry.item).then(() => {
+    const msgEl = document.getElementById('playersSendMsg');
+    if (msgEl) msgEl.textContent = `✓ Sent ${entry.item.name}.`;
+    if (btn) { btn.disabled = false; btn.textContent = '🎁 Send'; }
+  }).catch(() => {
+    const msgEl = document.getElementById('playersSendMsg');
+    if (msgEl) { msgEl.textContent = `Failed to send ${entry.item.name} — try again.`; msgEl.style.color = 'var(--danger)'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🎁 Send'; }
   });
 }
 
@@ -14846,6 +15040,7 @@ let connectedPlayers = [];
 window.onConnectedPlayersChanged = function (players) {
   connectedPlayers = players;
   if (typeof renderCombatRoster === 'function' && document.getElementById('combatRoster')) renderCombatRoster();
+  if (typeof renderPlayersTab === 'function' && document.getElementById('playersListEl')) renderPlayersTab();
 };
 loadAppState();
 refreshAllViewsAfterStateApply();

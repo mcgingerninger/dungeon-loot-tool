@@ -278,9 +278,10 @@ function resetLocalSessionState() {
   if (mp.rosterUnsub) mp.rosterUnsub();
   if (mpBattlefieldUnsub) mpBattlefieldUnsub();
   if (mpLootClaimsUnsub) mpLootClaimsUnsub();
+  if (mpViewedPlayerUnsub) mpViewedPlayerUnsub();
   mp.uid = null; mp.username = null; mp.role = null; mp.roomCode = null;
   mp.connected = false; mp.playerUnsub = null; mp.rosterUnsub = null; mp.roster.clear();
-  mpBattlefieldUnsub = null; mpLootClaimsUnsub = null;
+  mpBattlefieldUnsub = null; mpLootClaimsUnsub = null; mpViewedPlayerUnsub = null;
   document.body.classList.remove("role-player");
   updatePlayerNameDisplay();
 }
@@ -417,6 +418,15 @@ window.applyHpDeltaToPlayer = function (targetUid, delta) {
   if (!mp.connected || !mp.roomCode) return;
   applyHpDelta(mp.roomCode, targetUid, delta);
 };
+// Bridge for the DM's Players tab "send item" action — unlike combat loot (which multiple
+// players could race to claim, hence lootClaims below), this is always an item the DM already
+// owns being handed to one specific player they chose, so there's no contention to arbitrate
+// and it can just deliver directly. Returns the promise (unlike the fire-and-forget HP bridge
+// above) so the caller can confirm success/failure in its own UI.
+window.giftArbitraryItemToPlayer = function (targetUid, item) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return giftItemToPlayer(mp.roomCode, targetUid, item);
+};
 
 // ---------- Real-time looting: lootClaims (immutable, first-write-wins) ----------
 // Every corpse-drop item gets a claim doc at a deterministic id (monsterUid_itemId — both
@@ -515,6 +525,29 @@ async function startBattlefieldListener(roomCode) {
     }
   });
 }
+
+// DM-only: a live, read-only view of ONE specific player's full state, for the Players tab —
+// separate from startRosterListener (which only ever extracts a thin HP/AC summary for every
+// player at once) since fetching everyone's entire inventory/equipment continuously would be
+// wasteful. Only ever one of these active at a time: selecting a different player unsubscribes
+// the previous one first (a single small doc listener is cheap enough to just leave running
+// while the DM browses other tabs, so switching back to Players shows fresh data immediately;
+// it's torn down on logout via resetLocalSessionState instead).
+let mpViewedPlayerUnsub = null;
+function startViewedPlayerListener(targetUid) {
+  if (mpViewedPlayerUnsub) mpViewedPlayerUnsub();
+  if (!mp.connected || !mp.roomCode) return;
+  mpViewedPlayerUnsub = onSnapshot(playerDocRef(mp.roomCode, targetUid), (snap) => {
+    if (typeof window.applyViewedPlayerState !== "function") return;
+    window.applyViewedPlayerState(targetUid, snap.exists() ? unsanitizeNestedArrays(snap.data().state || {}) : null);
+  });
+}
+function stopViewedPlayerListener() {
+  if (mpViewedPlayerUnsub) mpViewedPlayerUnsub();
+  mpViewedPlayerUnsub = null;
+}
+window.startViewedPlayerListener = startViewedPlayerListener;
+window.stopViewedPlayerListener = stopViewedPlayerListener;
 
 // Realtime listener on this account's own document — this is how a DM's edit, or loot pushed
 // to you (Phase 2/3), reaches your screen live. Also detects the DM removing you: the
@@ -643,9 +676,11 @@ function injectStyles() {
     body.role-player [onclick="showTab('spin',this)"],
     body.role-player [onclick="showTab('generate',this)"],
     body.role-player [onclick="showTab('combat',this)"],
+    body.role-player [onclick="showTab('players',this)"],
     body.role-player #tab-spin,
     body.role-player #tab-generate,
     body.role-player #tab-combat,
+    body.role-player #tab-players,
     body.role-player .add-item-area,
     body.role-player [onclick*="editItem("],
     body.role-player [onclick*="removeItem("] { display: none !important; }
