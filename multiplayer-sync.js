@@ -197,16 +197,52 @@ const mp = {
 };
 
 // ---------- Sign up ----------
+// Best-effort cleanup when ANY step after account creation fails during signup — deletes
+// whatever this attempt may have already written (the profile doc, and for a DM signup, the
+// room doc it just created) plus the auth account itself, so a failed signup never leaves an
+// orphaned login permanently squatting on that username with no way to actually use it. This is
+// what was missing before: signUpDM had no rollback at all, and signUpPlayer's one rollback path
+// silently swallowed a failed deleteUser (`.catch(() => {})`) with no way for the user — or
+// anyone — to tell the cleanup itself hadn't actually worked, which is exactly the "the user
+// doesn't get taken [when signup fails]... that doesn't seem to work" symptom.
+// Returns whether the auth account itself was actually deleted — the one step that determines
+// whether the username is really free again — so the caller can be honest about whether
+// retrying with the same username will work or whether it's now stuck.
+async function rollbackFailedSignup(user, roomCodeCreated) {
+  await deleteDoc(userDocRef(user.uid)).catch(() => {});
+  if (roomCodeCreated) await deleteDoc(roomDocRef(roomCodeCreated)).catch(() => {});
+  try {
+    await deleteUser(user);
+    return true;
+  } catch (err) {
+    console.error("[multiplayer-sync] rollbackFailedSignup: deleteUser failed, account may be orphaned:", err);
+    return false;
+  }
+}
+// Wraps err in a distinct, honest message when rollback itself failed — telling the user
+// "just try again" would be actively misleading if the username is now permanently stuck.
+function signupFailure(err, cleanedUp, username) {
+  if (cleanedUp) return err;
+  return new Error(`Signup failed and couldn't be fully cleaned up (${(err && err.message) || err}). The username "${username}" may now be stuck on a broken account — try logging in with it and using Delete My Account, or pick a different username.`);
+}
 async function signUpDM(username, password) {
   const email = usernameToEmail(username);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
-  await updateProfile(user, { displayName: sanitizeUsername(username) });
   const roomCode = generateRoomCode();
-  await setDoc(roomDocRef(roomCode), { dmUid: user.uid, createdAt: serverTimestamp() });
-  await setDoc(userDocRef(user.uid), {
-    role: "dm", username: sanitizeUsername(username), campaignCode: roomCode, createdAt: serverTimestamp(),
-  });
+  try {
+    await updateProfile(user, { displayName: sanitizeUsername(username) });
+    await setDoc(roomDocRef(roomCode), { dmUid: user.uid, createdAt: serverTimestamp() });
+    await setDoc(userDocRef(user.uid), {
+      role: "dm", username: sanitizeUsername(username), campaignCode: roomCode, createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    throw signupFailure(err, await rollbackFailedSignup(user, roomCode), username);
+  }
+  // By this point the account, room, and profile all exist correctly — signup itself genuinely
+  // succeeded. A failure in connectAsRole (wiring up live listeners/local session state) is a
+  // transient runtime hiccup on an otherwise-valid account, not a reason to roll back a
+  // perfectly good signup; the right recovery there is just logging in again normally.
   await connectAsRole(user.uid, "dm", roomCode, sanitizeUsername(username));
 }
 
@@ -216,21 +252,21 @@ async function signUpPlayer(username, password, campaignCode) {
   const email = usernameToEmail(username);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
-  // The campaign-code check has to happen AFTER signup, not before: the security rules up top
-  // require request.auth != null just to READ a room doc at all, so checking this before the
-  // account exists throws Firestore's "Missing or insufficient permissions" instead of the
-  // intended "no campaign found" message -- this is what was actually breaking player signup,
-  // not a rules/config problem. If the code turns out to be bad, roll back the account that
-  // was just created rather than leaving an orphaned login nobody can do anything useful with.
-  const roomSnap = await getDoc(roomDocRef(campaignCode));
-  if (!roomSnap.exists()) {
-    await deleteUser(user).catch(() => {});
-    throw new Error(`No campaign found for code "${campaignCode}".`);
+  try {
+    // The campaign-code check has to happen AFTER signup, not before: the security rules up top
+    // require request.auth != null just to READ a room doc at all, so checking this before the
+    // account exists throws Firestore's "Missing or insufficient permissions" instead of the
+    // intended "no campaign found" message -- this is what was actually breaking player signup,
+    // not a rules/config problem.
+    const roomSnap = await getDoc(roomDocRef(campaignCode));
+    if (!roomSnap.exists()) throw new Error(`No campaign found for code "${campaignCode}".`);
+    await updateProfile(user, { displayName: sanitizeUsername(username) });
+    await setDoc(userDocRef(user.uid), {
+      role: "player", username: sanitizeUsername(username), campaignCode, createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    throw signupFailure(err, await rollbackFailedSignup(user, null), username);
   }
-  await updateProfile(user, { displayName: sanitizeUsername(username) });
-  await setDoc(userDocRef(user.uid), {
-    role: "player", username: sanitizeUsername(username), campaignCode, createdAt: serverTimestamp(),
-  });
   await connectAsRole(user.uid, "player", campaignCode, sanitizeUsername(username));
 }
 
@@ -923,7 +959,15 @@ function injectStyles() {
     body.role-player #tab-players,
     body.role-player .add-item-area,
     body.role-player [onclick*="editItem("],
-    body.role-player [onclick*="removeItem("] { display: none !important; }
+    body.role-player [onclick*="removeItem("],
+    /* The Loot and Generate Item TABS are already hidden above, but the Item Compendium's
+       "Items" browser has its own standalone Save/Loot buttons on every entry (grab any item
+       in the whole catalog straight into your Token Library or Recently Looted, completely
+       free) that aren't part of either restricted tab — closing that off is what actually makes
+       "items only ever come from mobs, shops, or the DM" true for players; browsing the
+       Compendium for reference stays available. */
+    body.role-player [onclick*="saveCompendiumItem("],
+    body.role-player [onclick*="lootCompendiumItem("] { display: none !important; }
 
     /* ---- Full-screen launch gate ---- */
     #mpGate {
