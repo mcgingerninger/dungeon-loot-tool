@@ -601,6 +601,8 @@
 
   .item-num { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; color: var(--text-dim); padding-top: 3px; }
   .item-info .item-name { font-size: 0.97rem; font-weight: 600; }
+  .item-row.legendary .item-name { color: var(--legendary); animation: textLegendaryEmber 2s ease-in-out infinite; }
+  .item-row.celestial .item-name { color: var(--celestial); animation: textCelestialPulse 2.4s ease-in-out infinite; }
   .item-info .item-desc { font-size: 0.85rem; color: var(--text-dim); font-style: italic; line-height: 1.4; }
   .item-actions { display:flex; gap:0.25rem; }
   .edit-btn { background:transparent; border:none; color:var(--gold); cursor:pointer; font-size:1rem; padding:0.1rem 0.3rem; }
@@ -808,8 +810,8 @@
   .item-card.uncommon .ic-name { color: var(--uncommon); }
   .item-card.rare .ic-name     { color: var(--rare); text-shadow: 0 0 20px rgba(91,156,246,0.3); }
   .item-card.superrare .ic-name{ color: var(--superrare); text-shadow: 0 0 20px rgba(196,124,245,0.3); }
-  .item-card.legendary .ic-name{ color: var(--legendary); text-shadow: 0 0 20px rgba(255,159,67,0.5); }
-  .item-card.celestial .ic-name{ color: var(--celestial); text-shadow: 0 0 25px rgba(125,231,255,0.6); }
+  .item-card.legendary .ic-name{ color: var(--legendary); animation: textLegendaryEmber 2s ease-in-out infinite; }
+  .item-card.celestial .ic-name{ color: var(--celestial); animation: textCelestialPulse 2.4s ease-in-out infinite; }
 
   .ic-subtitle { font-size: 0.9rem; color: var(--text-dim); font-style: italic; }
   .ic-rarity-badge {
@@ -823,6 +825,71 @@
   .item-card.superrare .ic-rarity-badge{ color: var(--superrare); border-color: var(--superrare); }
   .item-card.legendary .ic-rarity-badge{ color: var(--legendary); border-color: var(--legendary); }
   .item-card.celestial .ic-rarity-badge{ color: var(--celestial); border-color: var(--celestial); }
+
+  /* ---- Legendary (embered/smoldering) and celestial (pulsing light) item effects ----
+     Applied to itemPixelIcon()'s frame span (icon-fx-legendary/icon-fx-celestial, added
+     there once so every icon anywhere in the app picks this up automatically) and to the
+     handful of item-name text elements below. Both use the same --legendary/--celestial
+     CSS vars everywhere else already uses, so this can't drift out of sync with them. */
+  @keyframes iconCelestialPulse {
+    0%,100% { box-shadow:0 0 6px 1px var(--celestial), 0 0 14px 4px rgba(125,231,255,0.35); }
+    50%     { box-shadow:0 0 15px 3px var(--celestial), 0 0 30px 10px rgba(125,231,255,0.6); }
+  }
+  .icon-fx-celestial { animation: iconCelestialPulse 2.4s ease-in-out infinite; }
+  @keyframes iconLegendaryFlicker {
+    0%,100% { box-shadow:0 0 5px 1px var(--legendary), 0 0 10px 2px rgba(255,120,40,0.35); filter:brightness(1); }
+    35%     { box-shadow:0 0 9px 2px #ff7a1a, 0 0 18px 6px rgba(255,90,20,0.55); filter:brightness(1.1); }
+    60%     { box-shadow:0 0 4px 1px var(--legendary), 0 0 8px 2px rgba(255,120,40,0.3); filter:brightness(0.96); }
+  }
+  .icon-fx-legendary { animation: iconLegendaryFlicker 1.9s ease-in-out infinite; }
+  /* Two staggered pseudo-elements, each drawing three ember dots via box-shadow, rising
+     and fading on a loop — cheap (no JS particle spawning) and works on every icon at once. */
+  @keyframes emberRiseA {
+    0%   { transform:translate(0,2px) scale(0.7); opacity:0; }
+    12%  { opacity:1; }
+    100% { transform:translate(-4px,-24px) scale(0.15); opacity:0; }
+  }
+  @keyframes emberRiseB {
+    0%   { transform:translate(0,3px) scale(0.6); opacity:0; }
+    12%  { opacity:1; }
+    100% { transform:translate(5px,-28px) scale(0.1); opacity:0; }
+  }
+  .icon-fx-legendary::before, .icon-fx-legendary::after {
+    content:''; position:absolute; left:50%; bottom:8%; width:3px; height:3px; border-radius:50%;
+    background:#ffb84d; pointer-events:none;
+    box-shadow: 8px 2px 0 -0.5px #ff7a1a, -7px 4px 0 -0.5px #ffd08a, 3px -6px 0 -1px #ff9f43;
+  }
+  .icon-fx-legendary::before { animation: emberRiseA 2.1s ease-in infinite; }
+  .icon-fx-legendary::after  { animation: emberRiseB 2.1s ease-in infinite 1.05s; }
+
+  @keyframes textCelestialPulse {
+    0%,100% { text-shadow:0 0 6px rgba(125,231,255,0.5), 0 0 12px rgba(125,231,255,0.25); }
+    50%     { text-shadow:0 0 15px rgba(125,231,255,0.9), 0 0 28px rgba(125,231,255,0.55); }
+  }
+  @keyframes textLegendaryEmber {
+    0%,100% { text-shadow:0 0 5px rgba(255,159,67,0.5), 0 1px 2px rgba(90,30,8,0.5); }
+    35%     { text-shadow:0 0 9px rgba(255,110,30,0.85), 0 1px 3px rgba(70,20,5,0.6); }
+    60%     { text-shadow:0 0 4px rgba(255,159,67,0.35), 0 1px 2px rgba(90,30,8,0.4); }
+  }
+  .flesh-card.legendary .flesh-card-name, .store-card.legendary .store-card-name,
+  .slot-token.legendary .slot-token-name, .token-card.legendary .token-card-name,
+  .rl-item.legendary .rl-item-name, .inv-item.legendary .inv-item-name,
+  .combat-loot-item.legendary .combat-loot-item-name, .tt-header.legendary {
+    animation: textLegendaryEmber 2s ease-in-out infinite;
+  }
+  .flesh-card.celestial .flesh-card-name, .store-card.celestial .store-card-name,
+  .slot-token.celestial .slot-token-name, .token-card.celestial .token-card-name,
+  .rl-item.celestial .rl-item-name, .inv-item.celestial .inv-item-name,
+  .combat-loot-item.celestial .combat-loot-item-name, .tt-header.celestial {
+    animation: textCelestialPulse 2.4s ease-in-out infinite;
+  }
+  /* rl-item-name/inv-item-name/token-card-name/combat-loot-item-name have no rarity color
+     of their own today (only their container gets a border/tint) — legendary/celestial earn one now,
+     since those are exactly the places a player is looking at their own gear. */
+  .rl-item.legendary .rl-item-name, .inv-item.legendary .inv-item-name,
+  .token-card.legendary .token-card-name, .combat-loot-item.legendary .combat-loot-item-name { color: var(--legendary); }
+  .rl-item.celestial .rl-item-name, .inv-item.celestial .inv-item-name,
+  .token-card.celestial .token-card-name, .combat-loot-item.celestial .combat-loot-item-name { color: var(--celestial); }
 
   .item-card-body { padding: 1rem 1.4rem; display: flex; flex-direction: column; gap: 0.9rem; }
 
@@ -6713,7 +6780,7 @@ function renderItemsList() {
   }
 
   list.innerHTML = entries.map(({item, rarity, i}) => `
-    <div class="item-row">
+    <div class="item-row ${rarity}">
       <span class="item-num">${i+1}</span>
       ${itemPixelIcon(item, 28, rarity)}
       <div class="item-info">
@@ -9628,15 +9695,16 @@ function itemPixelIcon(item, size, rarity, fillParent) {
   }
   const px = size || 28;
   const frameColor = rarityColors[rarity] || rarityColors.common;
-  const glow = isHighTier ? `box-shadow:0 0 ${rarity === 'celestial' ? 7 : 5}px ${frameColor};` : '';
+  const fxClass = isHighTier ? ` icon-fx-${rarity}` : '';
+  const fxPos = isHighTier ? 'position:relative;' : '';
   if (fillParent) {
     const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="image-rendering:pixelated;display:block;">${rects}${accent}${gleam}</svg>`;
-    return `<span class="item-icon-frame item-icon-frame-fill" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box;background:${frameColor}26;border:1px solid ${frameColor};border-radius:3px;${glow}">${svg}</span>`;
+    return `<span class="item-icon-frame item-icon-frame-fill${fxClass}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box;background:${frameColor}26;border:1px solid ${frameColor};border-radius:3px;${fxPos}">${svg}</span>`;
   }
   const svg = `<svg class="pixel-svg item-pixel-icon" viewBox="${shape.viewBox}" width="${px}" height="${px}" style="image-rendering:pixelated;flex-shrink:0;">${rects}${accent}${gleam}</svg>`;
   const pad = Math.max(2, Math.round(px * 0.14));
   const frameSize = px + pad * 2;
-  return `<span class="item-icon-frame" style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${frameSize}px;height:${frameSize}px;background:${frameColor}26;border:1px solid ${frameColor};border-radius:4px;${glow}">${svg}</span>`;
+  return `<span class="item-icon-frame${fxClass}" style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${frameSize}px;height:${frameSize}px;background:${frameColor}26;border:1px solid ${frameColor};border-radius:4px;${fxPos}">${svg}</span>`;
 }
 
 // Every merchant always stocks the same handful of mundane staples (flat, non-magical
@@ -14407,7 +14475,7 @@ function combatLootItemRowHtml(entry, it, mode) {
   const isDm = mode === 'dm';
   if (!isDm) {
     return `<div class="combat-loot-item ${it.rarity}" data-item-id="${it.id}">
-      <span>${escapeHtml(it.name)}</span>
+      <span class="combat-loot-item-name">${escapeHtml(it.name)}</span>
       <span class="loot-item-actions"><button class="loot-save-btn" onclick="playerLootItem(${entry.uid}, '${it.id}', this)">🎒 Loot</button></span>
     </div>`;
   }
@@ -14424,7 +14492,7 @@ function combatLootItemRowHtml(entry, it, mode) {
   return `<div class="combat-loot-item ${it.rarity}${it.reserved ? ' loot-reserved' : ''}${it.claimedBy ? ' claimed' : ''}" data-item-id="${it.id}"
     onmouseenter="showCombatLootTooltip(event, ${entry.uid}, '${it.id}')"
     onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
-    <span>${escapeHtml(it.name)}${it.reserved ? ' <span class="loot-reserved-tag">Reserved</span>' : ''}${claimedTag}</span>
+    <span class="combat-loot-item-name">${escapeHtml(it.name)}${it.reserved ? ' <span class="loot-reserved-tag">Reserved</span>' : ''}${claimedTag}</span>
     <span class="loot-item-actions">
       ${it.claimedBy ? '' : `<label class="loot-reserve-toggle"><input type="checkbox" ${it.reserved ? 'checked' : ''} onchange="toggleLootItemReserved(${entry.uid}, '${it.id}')"> Reserve</label>
       <button class="loot-save-btn" onclick="saveCombatItem(${entry.uid}, '${it.id}', this)">💾 Save</button>
