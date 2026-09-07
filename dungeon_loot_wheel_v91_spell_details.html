@@ -15947,71 +15947,99 @@ const MONSTER_PART_EFFECT_POOL = {
     { id:'keeneye', label:'Keen Eye', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls — it sees the opening before you do.` },
     { id:'watchful', label:'Watchful', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Perception checks (+${m} when contested).` },
     { id:'nightsight', label:'Night Sight', appliesTo:['weapon','armor'], utilityText:() => `Grants Darkvision 60 ft. (or +60 ft. if you already have it).` },
+    { id:'truesight', label:'Preternatural Sight', appliesTo:['weapon','armor'], utilityText:() => `See through illusions and invisibility within 30 ft., so long as you have line of sight.` },
+    { id:'huntersfocus', label:"Hunter's Focus", appliesTo:['weapon'], utilityText:() => `Advantage on your first attack roll each combat against a creature you can see.` },
   ],
   fang: [
     { id:'venombite', label:'Venomous Bite', appliesTo:['weapon'], dmgAdd:true, dmgType:'poison', text:d => `+${d} poison damage on hit.` },
     { id:'rending', label:'Rending Fang', appliesTo:['weapon'], dmgDieUp:true, text:() => `Reforged around the fang — damage die increased.` },
     { id:'bloodscent', label:'Blood Scent', appliesTo:['weapon','armor'], utilityText:() => `Advantage on tracking a creature you've drawn blood from in the last hour.` },
+    { id:'lockjaw', label:'Lockjaw Grip', appliesTo:['weapon'], utilityText:() => `On a hit, the target's speed is halved until the start of your next turn.` },
+    { id:'bloodfrenzy', label:'Blood Frenzy', appliesTo:['weapon'], utilityText:m => `+${m} to damage rolls against a target below half HP.` },
   ],
   claw: [
     { id:'rendingclaw', label:'Rending Claw', appliesTo:['weapon'], dmgAdd:true, dmgType:'slashing', text:d => `+${d} slashing damage on hit.` },
     { id:'grappler', label:"Grappler's Grip", appliesTo:['weapon','armor'], utilityText:m => `Advantage on grapple checks (+${m}).` },
     { id:'quickstrike', label:'Quick Strike', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls.` },
+    { id:'shred', label:'Shredding Claws', appliesTo:['weapon'], utilityText:() => `On a hit, the target also takes 1d4 damage at the start of its next turn from the wound (once per hit).` },
+    { id:'climber', label:'Climbing Claws', appliesTo:['weapon','armor'], utilityText:() => `Grants a climbing speed equal to your walking speed.` },
   ],
   hide: [
     { id:'toughhide', label:'Tough Hide', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
     { id:'insulated', label:'Insulated Hide', appliesTo:['armor','weapon'], utilityText:() => `Resistance to cold damage while worn/held.` },
     { id:'sturdy', label:'Sturdy Hide', appliesTo:['armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn.` },
+    { id:'camouflage', label:'Camouflage Hide', appliesTo:['armor'], utilityText:m => `Advantage on Stealth checks while in terrain matching the hide's origin (+${m} when contested).` },
+    { id:'thickskin', label:'Thick-Skinned', appliesTo:['armor'], utilityText:() => `Once per short rest, halve the damage from a single nonmagical bludgeoning, piercing, or slashing hit.` },
   ],
   horn: [
     { id:'gore', label:'Goring Point', appliesTo:['weapon'], dmgAdd:true, dmgType:'piercing', text:d => `+${d} piercing damage on the first hit each combat.` },
     { id:'reach', label:'Extended Reach', appliesTo:['weapon'], reachAdd:true, text:() => `Reach increased by 5 ft.` },
     { id:'charge', label:'Charging Point', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls when you moved 10+ ft. before the attack.` },
+    { id:'trample', label:'Trampling Point', appliesTo:['weapon'], utilityText:() => `Deal an extra 1d6 damage on a hit against a Prone creature.` },
+    { id:'unyielding', label:'Unyielding Horn', appliesTo:['armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn.` },
   ],
   wing: [
     { id:'featherlight', label:'Featherlight', appliesTo:['weapon','armor'], weightMult:0.7, utilityText:() => `Noticeably lighter than it should be.` },
     { id:'windward', label:'Windward', appliesTo:['weapon','armor'], utilityText:m => `+${m * 5} ft. movement speed while wielded/worn.` },
     { id:'gliding', label:'Gliding', appliesTo:['armor'], utilityText:() => `Falls affect you as if 20 ft. shorter for damage purposes.` },
+    { id:'featherfall', label:'Feather Fall', appliesTo:['armor'], utilityText:() => `You take no damage from falling.` },
+    { id:'skyward', label:'Skyward Wing', appliesTo:['weapon','armor'], utilityText:m => `+${m * 5} ft. to your long and high jump distance.` },
   ],
   tail: [
     { id:'sweep', label:'Sweeping Tail', appliesTo:['weapon'], utilityText:() => `On a hit, you may attempt to knock the target Prone (Strength save vs. your attack DC).` },
     { id:'reachtail', label:'Whip-Tail', appliesTo:['weapon'], reachAdd:true, text:() => `Reach increased by 5 ft.` },
     { id:'balance', label:'Balance', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Acrobatics checks (+${m} when contested).` },
+    { id:'countertail', label:'Counter-Tail', appliesTo:['weapon'], utilityText:() => `Once per turn when a creature misses you with a melee attack, you may make a free tail attack against it.` },
+    { id:'anchor', label:'Anchoring Tail', appliesTo:['armor'], utilityText:() => `Advantage on saves against being knocked Prone or forcibly moved.` },
   ],
   venomsac: [
     { id:'poisoncoat', label:'Poison Coating', appliesTo:['weapon'], dmgAdd:true, dmgType:'poison', text:d => `+${d} poison damage on hit; target must save or be Poisoned for 1 minute.` },
     { id:'toxicresist', label:'Toxin-Hardened', appliesTo:['weapon','armor'], utilityText:() => `Resistance to poison damage; advantage on saves vs. poison.` },
     { id:'numbing', label:'Numbing Venom', appliesTo:['weapon'], utilityText:() => `On a critical hit, the target has disadvantage on its next attack roll.` },
+    { id:'paralytic', label:'Paralytic Venom', appliesTo:['weapon'], utilityText:() => `On a critical hit, the target must succeed on a Constitution save or be Paralyzed until the end of its next turn.` },
+    { id:'weakening', label:'Weakening Toxin', appliesTo:['weapon'], utilityText:() => `On a hit, the target has disadvantage on Strength checks and Strength saving throws for 1 minute.` },
   ],
   heart: [
     { id:'vitality', label:'Beating Heart', appliesTo:['weapon','armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn/held.` },
     { id:'lifedrink', label:'Lifedrinker', appliesTo:['weapon'], utilityText:m => `On a killing blow, regain ${m}d4 HP.` },
     { id:'steadfast', label:'Steadfast Heart', appliesTo:['weapon','armor'], utilityText:() => `Advantage on saving throws against being Frightened.` },
+    { id:'secondwind', label:'Second Wind', appliesTo:['weapon','armor'], utilityText:() => `Once per long rest, drop to 1 HP instead of 0 when you would be reduced to 0.` },
+    { id:'furious', label:'Furious Heart', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls once you're below half HP.` },
   ],
   bone: [
     { id:'boneplate', label:'Bone-Reinforced', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
     { id:'unbreakable', label:'Unbreakable', appliesTo:['weapon','armor'], utilityText:() => `Cannot be broken or sundered by non-magical means.` },
     { id:'heavyblow', label:'Heavy Blow', appliesTo:['weapon'], dmgDieUp:true, text:() => `Reforged around the bone — damage die increased.` },
+    { id:'bonespike', label:'Bone Spike', appliesTo:['weapon'], dmgAdd:true, dmgType:'piercing', text:d => `+${d} piercing damage on hit.` },
+    { id:'fractureresist', label:'Fracture-Resistant', appliesTo:['armor'], utilityText:() => `Advantage on saving throws against being knocked Prone.` },
   ],
   talon: [
     { id:'piercingtalon', label:'Piercing Talon', appliesTo:['weapon'], dmgAdd:true, dmgType:'piercing', text:d => `+${d} piercing damage on hit.` },
     { id:'snatch', label:'Snatching Grip', appliesTo:['weapon','armor'], utilityText:m => `Advantage on grapple checks (+${m}).` },
     { id:'talonstrike', label:'Talon Strike', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls.` },
+    { id:'divestrike', label:'Diving Strike', appliesTo:['weapon'], attackBonus:true, text:m => `+${m} to attack rolls if you moved at least 10 ft. straight toward the target this turn.` },
+    { id:'irongrip', label:'Iron Grip', appliesTo:['armor'], utilityText:() => `Advantage on checks and saves made to avoid being disarmed.` },
   ],
   tongue: [
     { id:'silver', label:'Silver Tongue', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Persuasion and Deception checks (+${m} when contested).` },
     { id:'tastepoison', label:'Taste for Poison', appliesTo:['weapon','armor'], utilityText:() => `You can identify poison or spoiled food/drink by taste, instantly and safely.` },
     { id:'keeninsight', label:'Keen Insight', appliesTo:['weapon','armor'], utilityText:m => `Advantage on Insight checks (+${m} when contested).` },
+    { id:'mimicry', label:'Mimic Tongue', appliesTo:['weapon','armor'], utilityText:() => `You can convincingly mimic any voice or sounds you've heard for at least a minute.` },
+    { id:'keensmell', label:'Keen Taste', appliesTo:['weapon','armor'], utilityText:m => `Advantage on checks to track or identify a creature by scent/taste (+${m} when contested).` },
   ],
   shell: [
     { id:'shellplate', label:'Shell-Plated', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
     { id:'bracing', label:'Braced Shell', appliesTo:['armor'], utilityText:() => `Resistance to bludgeoning damage.` },
     { id:'hardened', label:'Hardened Shell', appliesTo:['armor'], hpAdd:true, text:m => `+${m * 2} max HP while worn.` },
+    { id:'retreatshell', label:'Retreating Shell', appliesTo:['armor'], utilityText:m => `As a reaction when hit, reduce the damage taken by ${m * 2} (once per turn).` },
+    { id:'buoyant', label:'Buoyant Shell', appliesTo:['armor'], utilityText:() => `You float on water and can't be forced fully underwater against your will.` },
   ],
   pelt: [
     { id:'furlined', label:'Fur-Lined', appliesTo:['armor'], acAdd:true, text:m => `+${m} AC.` },
     { id:'coldward', label:'Cold-Warded', appliesTo:['weapon','armor'], utilityText:() => `Resistance to cold damage.` },
     { id:'stalker', label:"Stalker's Pelt", appliesTo:['armor'], utilityText:m => `Advantage on Stealth checks (+${m} when contested).` },
+    { id:'nightprowl', label:'Night Prowler', appliesTo:['armor'], utilityText:() => `Advantage on Stealth checks made in darkness or dim light.` },
+    { id:'warmth', label:'Insulating Pelt', appliesTo:['armor'], utilityText:() => `Immune to the effects of natural cold weather; resistance to cold damage.` },
   ],
   // Fallback for any part type not covered above (future part types, or a legacy/hand-authored
   // "monster part" that never went through buildMonsterPartItem).
@@ -16297,7 +16325,20 @@ function renderManglerTokenGrid() {
 // localStorage and restores it the moment the page loads.
 const SAVE_KEY = 'dungeonLootWheelSave';
 let _saveTimer = null;
+// Firestore push throttling — separate from the localStorage save above, which stays cheap
+// and local no matter how often it runs. Every one of the ~50 call sites for scheduleSave()
+// marks state dirty; saveAppState only actually pushes to Firestore when something dirty is
+// waiting, or MP_FORCE_PUSH_INTERVAL_MS has elapsed since the last push (a resilience
+// backstop for a push that failed silently, not a real heartbeat — nothing in the app reads
+// updatedAt for presence/"last seen" display, so there was never a feature reason for the old
+// every-5-seconds unconditional push, only cost: a fully idle connected client — a common
+// state for a player who stepped away mid-session — was writing to Firestore, AND getting
+// read back by the DM's roster listener, every 5 seconds for as long as the tab stayed open.
+let _mpDirtySincePush = true;
+let _mpLastPushAt = 0;
+const MP_FORCE_PUSH_INTERVAL_MS = 60000;
 function scheduleSave() {
+  _mpDirtySincePush = true;
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(saveAppState, 400);
 }
@@ -16322,8 +16363,17 @@ function saveAppState() {
     // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
     // session is active. Reuses this exact same save trigger (scheduleSave's debounce, the
     // periodic tick, beforeunload, visibilitychange) rather than needing its own scattered
-    // "sync now" calls throughout the rest of the app.
-    if (typeof window.onMultiplayerStateChange === 'function') window.onMultiplayerStateChange(data);
+    // "sync now" calls throughout the rest of the app. Gated on _mpDirtySincePush (see above)
+    // so the periodic tick doesn't push an unchanged blob to Firestore every 5 seconds —
+    // beforeunload/visibilitychange still flush immediately if something's genuinely pending.
+    if (typeof window.onMultiplayerStateChange === 'function') {
+      const now = Date.now();
+      if (_mpDirtySincePush || (now - _mpLastPushAt) >= MP_FORCE_PUSH_INTERVAL_MS) {
+        window.onMultiplayerStateChange(data);
+        _mpDirtySincePush = false;
+        _mpLastPushAt = now;
+      }
+    }
   } catch (e) { /* storage full/unavailable — nothing more we can do about it */ }
 }
 // Applies a full state blob (from localStorage OR a remote multiplayer sync — same shape
