@@ -4659,6 +4659,17 @@ function expendItemCharge(item) {
   item.charges = item.charges.slice(0, m.index) + newValue + item.charges.slice(m.index + m[0].length);
   return true;
 }
+// True once a crumble-eligible item (see the `crumble` interaction above) has just been
+// spent down to 0 charges — checked right after expendItemCharge, never read-then-write, so
+// this can't race against anything. Multi-power items (parseUsablePowers) are skipped: every
+// one of those in this project is a staff/wand, never type:'consumable', so crumble never
+// actually applies to them, but the shared-pool number in their `charges` string wouldn't
+// mean "empty" the way it does for a simple potion/scroll anyway.
+function itemShouldCrumble(item) {
+  if (!item || !canInteract(item, 'crumble')) return false;
+  const m = FLAT_CHARGE_RE.exec(item.charges || '');
+  return !!m && parseInt(m[0], 10) === 0;
+}
 // Drag onto the refill zone: restores charges to full. For a flat count ("3/day", "7"),
 // that just means going back to the original chargesFormat text. For an item whose base
 // charges text is itself dice notation, it re-rolls that dice expression fresh instead of
@@ -5338,6 +5349,11 @@ const INTERACTIONS = {
   // ---- Consumable ----
   consume:          { cat: 'Consumable',  label: 'Consume',            default: it => it.type === 'consumable' && ['potion', 'food'].includes(it.subcategory) },
   apply:            { cat: 'Consumable',  label: 'Apply',              default: it => it.type === 'consumable' && /\boil\b|ointment|salve|balm/i.test(it.name || '') },
+  // Gated on type alone (not subcategory) — every consumable (potions, food, scrolls, oils,
+  // poisons, smoke bombs...) is meant to be used up and gone, unlike a charge-based weapon
+  // ability, a wearable charm, or a torch, none of which are type:'consumable' in the first
+  // place. See itemShouldCrumble/expendItemCharge below for the actual disappear-at-0 behavior.
+  crumble:          { cat: 'Consumable',  label: 'Crumbles When Spent', default: it => it.type === 'consumable' && !!it.charges },
   // ---- Combat ----
   throw:            { cat: 'Combat',      label: 'Throw',              default: it => it.subcategory === 'throwable' },
   weapon_coating:   { cat: 'Combat',      label: 'Weapon Coating',     default: it => it.type === 'consumable' && /poison/i.test(it.name || '') },
@@ -11869,6 +11885,15 @@ function slotContextMenu(evt, slotId) {
   const entry = TOKEN_INDEX[key];
   if (!entry) return;
   if (handleItemActivation(entry, evt)) {
+    if (itemShouldCrumble(entry.item)) {
+      const name = entry.item.name;
+      clearActiveEffectsForKey(key);
+      removeTokenEverywhere(key);
+      renderPlayerSlots();
+      renderActiveEffects();
+      flashInvMessage(`${name} crumbles to dust.`);
+      return;
+    }
     renderPlayerSlots();
     renderActiveEffects();
     showTokenTooltip(evt, key); // refresh the tooltip in place so the new count is visible immediately
