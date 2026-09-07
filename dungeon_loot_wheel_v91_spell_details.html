@@ -1754,6 +1754,7 @@
   .combat-variant-badge.legendary{color:var(--legendary)}
   .combat-trait-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--gold);color:var(--gold);vertical-align:middle}
   .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
+  .combat-card-desc{font-style:italic;color:var(--text-dim);font-size:.78rem;line-height:1.35;margin:.35rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
   .combat-card-remove:hover{color:var(--danger)}
   .combat-card-stats{display:flex;gap:1rem;align-items:center;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
@@ -1895,7 +1896,7 @@
   <button class="tab-btn active" onclick="showTab('spin',this)">🎲 Loot</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
-  <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
+  <button class="tab-btn" onclick="showTab('compendium',this)">📚 Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('players',this)">👥 Players</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
@@ -12798,6 +12799,29 @@ function buildTooltipHtml(entry) {
   `;
 }
 
+// Same floating tooltip element and .tt-* visual language as buildTooltipHtml (items) above,
+// for a combat roster card's creature — full stat-line context plus its flavor description,
+// without permanently bloating every card in a roster that might hold a dozen entries at once.
+function buildMonsterTooltipHtml(m) {
+  const stats = [`🛡 AC ${m.ac}`, `❤ HP ${m.hp}`, `🏃 ${m.speed}`, `⚔ CR ${m.cr}`];
+  const statsLine = `<div class="tt-stats">${stats.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div>`;
+  return `
+    <div class="tt-header" style="display:flex;align-items:center;gap:0.5rem;"><span>${escapeHtml(m.name)}</span></div>
+    <div class="tt-rarity">${escapeHtml(m.size)} ${escapeHtml(m.type)} · ${escapeHtml(m.alignment)}</div>
+    ${statsLine}
+    <div class="tt-classification">Senses ${escapeHtml(m.senses || '—')} · Languages ${escapeHtml(m.languages || '—')}</div>
+    ${m.desc ? `<div class="tt-desc">${escapeHtml(m.desc)}</div>` : ''}
+  `;
+}
+function showMonsterTooltip(evt, uid) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  const tt = document.getElementById('itemTooltip');
+  if (!tt) return;
+  tt.innerHTML = buildMonsterTooltipHtml(entry.monster);
+  tt.style.display = 'block';
+  moveTokenTooltip(evt);
+}
 function showTokenTooltip(evt, key) {
   const entry = TOKEN_INDEX[key];
   if (!entry) return;
@@ -13125,7 +13149,91 @@ function monsterActionList(list) {
     text: spellCleanTags(spellFlattenEntries(a.entries)),
   }));
 }
-function monsterNormalize(raw) {
+// The official fluff file has no entry at all for ~64 Monster Manual beasts — almost entirely
+// ordinary real-world animals (or a "Giant" reskin of one), which the source material never
+// bothered giving lore text since there's nothing fantastical to explain. Hand-written
+// one-liners for exactly that "common enough not to need a lookup" set, keyed by exact name and
+// used as monsterNormalize's last-resort fallback below when the fluff fetch comes up empty.
+const MUNDANE_ANIMAL_DESC_FALLBACK = {
+  'Ape': "A powerfully built primate, more inclined to bluster and chest-beating than actual violence — though it's fully capable of the latter if pushed.",
+  'Giant Ape': "An ape swollen to towering, king-sized proportions by strange magic or stranger evolution, capable of uprooting trees as casually as most apes toss fruit.",
+  'Baboon': "Loud, quick, and rarely alone — a lone baboon is a nuisance; a whole troop of them is a genuine hazard to anyone carrying food.",
+  'Badger': "Stubborn and short-tempered for its size, a cornered badger will happily out-stubborn a creature ten times its weight.",
+  'Giant Badger': "All of a badger's foul temper, scaled up to a size that makes 'cornered' a much more dangerous proposition.",
+  'Bat': "A common cave-dweller, harmless in isolation but an excellent early warning system for whatever's disturbed the colony.",
+  'Giant Bat': "A cave-dweller's worst rumor made real — a wingspan wide enough to blot out a torch, and a taste for anything smaller than itself.",
+  'Black Bear': "Opportunistic and usually more interested in a traveler's food stores than the traveler — right up until it isn't.",
+  'Boar': "Bad-tempered, low to the ground, and quick to charge anything that startles it — a common hazard of the deep woods and hedgerows alike.",
+  'Giant Boar': "Boar-shaped, cart-sized, and entirely capable of goring through more than one line of soldiers in a single charge.",
+  'Brown Bear': "Massive, territorial, and capable of shrugging off wounds that would fell lesser beasts — best given a very wide berth.",
+  'Camel': "Bred for the long haul across sand and scarcity, ill-tempered on a good day and openly hostile on a hot one.",
+  'Cat': "Small, independent, and utterly uninterested in anyone's business but its own — kept as often for luck as for the mice.",
+  'Cave Bear': "A hulking, prehistoric holdover, more massive and far more dangerous than its common cousins — and it knows every inch of the dark it lairs in.",
+  'Constrictor Snake': "Patient beyond reason, content to wait coiled and motionless for however long it takes for something warm-blooded to wander close.",
+  'Giant Constrictor Snake': "Thick enough around to crush a full-grown ox, and every bit as patient as its smaller kin about waiting for the chance to do it.",
+  'Crab': "Small, armored, and mostly interested in being left alone in whatever tide pool it's claimed.",
+  'Giant Crab': "A tide-pool scavenger grown to the size of a cart, with claws that can shear through a shield rim as easily as driftwood.",
+  'Crocodile': "Motionless for so long it's mistaken for a log more often than not — until the moment it very much isn't.",
+  'Giant Crocodile': "Long enough to swallow a small boat's cargo, and patient enough to wait a full day submerged for the chance to try.",
+  'Deer': "Skittish and swift, bolting at the first sign of danger — which is exactly why it's survived this long in country full of things that would eat it.",
+  'Dire Wolf': "Larger, smarter, and far more coordinated in a pack than any ordinary wolf, hunting with a discipline that borders on tactics.",
+  'Draft Horse': "Bred for pulling loads rather than speed or war — steady-tempered and strong enough to drag a wagon out of any mud that catches it.",
+  'Eagle': "A sharp-eyed hunter of the high air, more likely to be a traveler's omen than a traveler's problem.",
+  'Elephant': "Enormous, intelligent, and usually placid — right up until something threatens its herd, at which point 'placid' stops applying entirely.",
+  'Elk': "Proud and territorial come the rutting season, otherwise content to graze and be left well alone.",
+  'Giant Centipede': "Segmented, many-legged, and venomous enough that the bite is the real danger, not its admittedly unsettling size.",
+  'Giant Frog': "Broad-mouthed and ambush-patient, perfectly happy to swallow anything roughly its own size that strays too close to the water's edge.",
+  'Giant Goat': "A hillside grazer bred or warped to cart-sized proportions, with a headbutt that can crack more than pride.",
+  'Goat': "Stubborn, sure-footed, and perfectly willing to test a fence, a rope, or a stranger's patience — usually all three.",
+  'Giant Hyena': "Bigger, bolder, and every bit as opportunistic as its smaller cousins — rarely hunts alone, and rarely needs to.",
+  'Hyena': "An opportunist through and through, more scavenger than hunter but not above changing that math when the odds favor it.",
+  'Giant Octopus': "Unnervingly intelligent for a beast, and capable of vanishing into a cloud of ink the instant a fight turns against it.",
+  'Octopus': "A shy, clever denizen of tide pools and reefs, more likely to hide in a crevice than confront anything larger than itself.",
+  'Giant Poisonous Snake': "A serpent long enough to look a mounted rider in the eye, with venom potent enough to make that encounter memorable in all the wrong ways.",
+  'Poisonous Snake': "Small, quiet, and easy to miss underfoot — which is exactly how most of its bites happen.",
+  'Giant Rat': "Bold, filthy, and rarely alone — where there's one oversized rat, there's usually a nest of them close behind.",
+  'Rat': "Small, quick, and everywhere — a nuisance alone, and a plague risk in numbers.",
+  'Hawk': "A keen-eyed daylight hunter, smaller than an eagle but no less precise when it stoops on something scurrying below.",
+  'Jackal': "Small, quick, and almost never alone — a lone jackal is timid; a pack of them is a calculated risk for anything wounded or slow.",
+  'Killer Whale': "An apex predator of open water, intelligent enough to hunt in coordinated pods and large enough to need no help doing it.",
+  'Lion': "The unquestioned ruler of whatever stretch of grassland it claims, and entirely willing to remind anyone who forgets it.",
+  'Lizard': "Small, quick, and utterly unremarkable — the kind of creature nobody notices until it's halfway up a boot.",
+  'Mule': "Stubborn to a fault and smarter than it gets credit for, capable of hauling loads a horse would refuse outright.",
+  'Owl': "A silent hunter of the night sky, more likely to be mistaken for a bad omen than actually encountered as a threat.",
+  'Panther': "A solitary, near-silent stalker of the deep forest canopy, more often heard than seen — right up until it isn't either.",
+  'Polar Bear': "Massive, relentless, and perfectly at home in cold that would kill most other predators outright.",
+  'Pony': "Small, sturdy, and even-tempered — a common choice for smaller riders or lighter loads where a full-sized horse would be overkill.",
+  'Raven': "Clever and unsettlingly observant for a bird, prized by some as a messenger and feared by others as a bad omen.",
+  'Rhinoceros': "Nearsighted, thick-hided, and prone to charging first and sorting out what it hit second.",
+  'Riding Horse': "Bred for temperament and endurance over raw power — a reliable, unremarkable travel companion for anyone who can afford one.",
+  'Saber-Toothed Tiger': "A relic predator from a colder, older age, built entirely around two curved fangs and the raw power to put them to use.",
+  'Giant Scorpion': "A stinger the length of a spear and pincers that can crack plate armor — the desert's least subtle apex predator.",
+  'Scorpion': "Small, venomous, and prone to hiding in exactly the boot, bedroll, or woodpile someone's about to reach into.",
+  'Sea Horse': "Delicate, slow, and utterly harmless — more a curiosity for sailors than any kind of hazard.",
+  'Spider': "Small and mostly content to keep to its web, though its bite carries more sting than its size suggests.",
+  'Giant Toad': "Squat, warty, and deceptively quick with its tongue — anything person-sized is well within a giant toad's idea of a reasonable meal.",
+  'Tiger': "A solitary, patient stalker that relies on a single decisive ambush rather than a drawn-out chase.",
+  'Vulture': "Patient beyond most creatures' understanding of the word, content to circle for days waiting for something to finish dying.",
+  'Warhorse': "Bred and trained for the battlefield specifically, unbothered by the noise and chaos that would spook any ordinary mount.",
+  'Weasel': "Small, fast, and far bolder than its size should allow, willing to raid a coop or a camp with equal nerve.",
+  'Giant Weasel': "All the nerve of its smaller kin, scaled up to a size that makes 'raiding the henhouse' a much larger problem.",
+  'Giant Wasp': "A stinger the length of a dagger and a temperament to match — territorial, aggressive, and rarely alone.",
+  'Wolf': "Rarely hunts alone, and rarely needs to — a lone wolf is a rare sight precisely because the pack is so much more effective.",
+};
+// Pulls just the opening descriptive paragraph out of a fluff entry's deeply nested
+// {type,entries,items} tree (same shape spellFlattenEntries already knows how to fully
+// flatten for actions/traits) — the first plain string found in document order, before any
+// named subsection ("Goblinoids", "Malicious Glee", etc.) breaks in. That's consistently the
+// general "what is this creature" paragraph every 5etools fluff entry opens with, and keeps
+// desc the same one-paragraph length every hand-authored item/homebrew NPC desc already is,
+// instead of pulling in the full multi-section lore essay.
+function firstFluffText(node) {
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) { for (const n of node) { const r = firstFluffText(n); if (r) return r; } return null; }
+  if (node && typeof node === 'object') return firstFluffText(node.entries || node.items || null);
+  return null;
+}
+function monsterNormalize(raw, fluffByKey) {
   const acEntry = Array.isArray(raw.ac) ? raw.ac[0] : raw.ac;
   const ac = acEntry == null ? '—' : (typeof acEntry === 'number' ? acEntry : (acEntry.ac ?? '—'));
   const acFrom = (acEntry && acEntry.from) ? acEntry.from.map(x => spellCleanTags(String(x))).join(', ') : '';
@@ -13143,6 +13251,8 @@ function monsterNormalize(raw) {
   const saves = raw.save ? Object.entries(raw.save).map(([k, v]) => k.toUpperCase() + ' ' + v).join(', ') : '—';
   const senses = [(raw.senses || []).join(', '), raw.passive ? `passive Perception ${raw.passive}` : ''].filter(Boolean).join(', ') || '—';
   const languages = (raw.languages || []).join(', ') || '—';
+  const fluffEntry = fluffByKey && fluffByKey.get(raw.name + '|' + raw.source);
+  const desc = (fluffEntry && spellCleanTags(firstFluffText(fluffEntry.entries) || '')) || MUNDANE_ANIMAL_DESC_FALLBACK[raw.name] || undefined;
   return {
     name: raw.name, source: raw.source, page: raw.page,
     size, type, alignment, ac, acFrom, hp, speed, cr,
@@ -13154,13 +13264,46 @@ function monsterNormalize(raw) {
     reactions: monsterActionList(raw.reaction),
     legendary: monsterActionList(raw.legendary),
     sourceLabel: spellSourceLabel(raw.source),
+    desc,
   };
+}
+// Official fluff files (same data root, "fluff-" prefixed — a 5etools mirror convention) carry
+// the prose lore text stat blocks never do; fetched alongside the main stat data per source and
+// keyed by name+source so monsterNormalize can attach an opening-paragraph desc to every
+// creature that has one. Missing/failed fluff for a given source just means those monsters
+// come back with no desc at all, same as before this existed — never a hard failure.
+async function fetchMonsterFluff(file) {
+  const fluffFile = 'fluff-' + file;
+  try {
+    const j = await fetch(MONSTER_DATA_ROOT + fluffFile, { cache:'no-store' }).then(r => { if (!r.ok) throw new Error('Could not load ' + fluffFile); return r.json(); });
+    const raw = new Map();
+    (j.monsterFluff || []).forEach(f => raw.set(f.name + '|' + f.source, f));
+    // Many entries (every dragon age/variant, most reskins) carry no `entries` of their own at
+    // all — just a `_copy: {name, source}` pointer at whichever base entry actually has the real
+    // text, since e.g. every age category of black dragon shares one description. Resolves that
+    // chain (bounded depth as a safety net against a cycle in the source data) down to real text.
+    const resolved = new Map();
+    function resolve(key, depth) {
+      if (resolved.has(key)) return resolved.get(key);
+      const entry = raw.get(key);
+      let result = entry ? (entry.entries || null) : null;
+      if (!result && entry && entry._copy && depth < 5) result = resolve(entry._copy.name + '|' + entry._copy.source, depth + 1);
+      resolved.set(key, result);
+      return result;
+    }
+    const map = new Map();
+    raw.forEach((f, key) => { const entries = resolve(key, 0); if (entries) map.set(key, { entries }); });
+    return map;
+  } catch (e) { console.warn('Monster fluff source failed', fluffFile, e); return new Map(); }
 }
 async function fetchMonsterSet() {
   const results = await Promise.all(Object.entries(MONSTER_SOURCE_FILES).map(async ([code, file]) => {
     try {
-      const j = await fetch(MONSTER_DATA_ROOT + file, { cache:'no-store' }).then(r => { if (!r.ok) throw new Error('Could not load ' + file); return r.json(); });
-      return (j.monster || []).map(monsterNormalize);
+      const [j, fluffMap] = await Promise.all([
+        fetch(MONSTER_DATA_ROOT + file, { cache:'no-store' }).then(r => { if (!r.ok) throw new Error('Could not load ' + file); return r.json(); }),
+        fetchMonsterFluff(file),
+      ]);
+      return (j.monster || []).map(m => monsterNormalize(m, fluffMap));
     } catch (e) { console.warn('Monster source failed', code, e); return []; }
   }));
   return results.flat();
@@ -13848,8 +13991,17 @@ function rollChaosGearRarity(chaosChance, monsterTierIdx = 0) {
   const floorIdx = Math.min(ceilIdx, Math.max(0, monsterTierIdx - 1));
   return BAL.rarityOrder[rn(floorIdx, ceilIdx)];
 }
-function rollChaosGear(chaosChance, monsterTierIdx = 0) {
-  const kind = ri(['weapon', 'armor', 'spell']);
+// A lich, ghost, ooze, or anything else with no actual weapon attack in its stat block
+// shouldn't be able to roll "wielding a heavy warhammer" — armor (some ward or scavenged
+// plating) and spell (a strange new ability) are vague enough to fit any creature, but a
+// weapon specifically only makes sense for something that already fights with one.
+function monsterHasWeaponAttack(monster) {
+  return !!(monster && (monster.actions || []).some(a => /weapon attack/i.test(a.text || '')));
+}
+function rollChaosGear(chaosChance, monsterTierIdx = 0, monster = null) {
+  const kinds = ['armor', 'spell'];
+  if (monsterHasWeaponAttack(monster)) kinds.push('weapon');
+  const kind = ri(kinds);
   const rarity = rollChaosGearRarity(chaosChance, monsterTierIdx);
   const idx = Math.max(0, BAL.rarityOrder.indexOf(rarity));
   if (kind === 'weapon') {
@@ -13972,13 +14124,13 @@ function buildBattleEntry(monster) {
   const monsterTierIdx = Math.max(0, BAL.rarityOrder.indexOf(monsterRarityTier(monster, variant)));
   const chaosGearList = [];
   if (Math.random() * 100 < chaosChance) {
-    let piece = rollChaosGear(chaosChance, monsterTierIdx);
+    let piece = rollChaosGear(chaosChance, monsterTierIdx, monster);
     let extraChance = chaosChance;
     while (piece && chaosGearList.length < 3) {
       chaosGearList.push(piece);
       if (piece.kind === 'armor' && ac !== null) ac += piece.acBonus;
       extraChance *= 0.5;
-      piece = Math.random() * 100 < extraChance ? rollChaosGear(chaosChance, monsterTierIdx) : null;
+      piece = Math.random() * 100 < extraChance ? rollChaosGear(chaosChance, monsterTierIdx, monster) : null;
     }
   }
 
@@ -14532,13 +14684,23 @@ function battleEffectivenessLabel(roll) {
   return { label: 'Critical Failure', cls: 'miss' };
 }
 
-// Picks one attack for the creature to use: real actions first (mixed in with a chaos-gear
-// spell action, if it has one, so it's sometimes chosen alongside its normal attacks rather
-// than always overriding them), then legendary/bonus actions, then traits, with a generic
-// fallback so this never comes up empty.
+// Picks one attack for the creature to use: real actions AND legendary actions together first
+// (mixed in with a chaos-gear spell action, if it has one, so it's sometimes chosen alongside
+// its normal attacks rather than always overriding them), then bonus actions, then traits, with
+// a generic fallback so this never comes up empty.
+// Legendary actions used to be their own separate, lower-priority pool that never even got
+// considered as long as `actions` had anything in it at all — for a boss-tier creature whose
+// `actions` array happens to hold exactly one entry (many spellcasters: their actual
+// spellcasting is a `trait`/`spellcasting` block this app doesn't parse into pickable attacks
+// yet, so a Lich's `actions` is just "Paralyzing Touch," full stop), that meant it was
+// mechanically incapable of ever doing anything else — see the Lich always using Paralyzing
+// Touch. Its own legendary actions (Cantrip, Frightening Gaze, Disrupt Life, plus a second
+// Paralyzing Touch) are real, already-present, already-parseable attack options; merging them
+// into the same pool as regular actions gives every legendary creature in the database the
+// variety its own stat block already provides, not just the Lich.
 function pickBattleAction(monster, entry) {
   const chaosSpells = (entry?.chaosGearList || []).filter(g => g.kind === 'spell').map(g => g.spellAction);
-  const pools = [[...(monster.actions || []), ...chaosSpells], monster.legendary, monster.bonusActions, monster.traits];
+  const pools = [[...(monster.actions || []), ...(monster.legendary || []), ...chaosSpells], monster.bonusActions, monster.traits];
   for (const pool of pools) {
     if (pool && pool.length) return ri(pool);
   }
@@ -14828,12 +14990,13 @@ function combatCardHtml(entry, mode, shellOnly) {
     data-entry-uid="${entry.uid}"
     ${isDm ? `oncontextmenu="combatCardContextMenu(event, ${entry.uid})"` : ''}>
     <div class="combat-card-head">
-      <div>
+      <div onmouseenter="showMonsterTooltip(event, ${entry.uid})" onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">
         <div class="combat-card-name">${escapeHtml(entry.displayName || m.name)}${traitBadges}${variantBadge}${chaosBadges}${bountyBadge}${defeatedBadge}</div>
-        <div class="combat-card-sub">${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))}</div>
+        <div class="combat-card-sub">${escapeHtml(m.size)} ${escapeHtml(m.type)} · CR ${escapeHtml(String(m.cr))} · ${escapeHtml(m.speed)}</div>
       </div>
       ${isDm ? `<button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>` : ''}
     </div>
+    ${m.desc ? `<div class="combat-card-desc">${escapeHtml(m.desc)}</div>` : ''}
     <div class="combat-card-stats">
       <span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span>
       <span class="combat-hp-row">HP ${hpHtml}</span>
