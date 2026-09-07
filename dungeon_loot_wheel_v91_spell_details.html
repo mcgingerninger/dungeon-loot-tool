@@ -2674,7 +2674,13 @@
 <!-- STORE TAB -->
 <div id="tab-store" class="tab-content">
   <div class="store-layout">
-    <details class="collapsible" open style="margin-bottom:1rem;">
+    <!-- Collapsed by default — every merchant/Mangler/Fleshmancer panel below already has its
+         own "Your Items" grid sitting right next to wherever you'd actually use one (the sell
+         zone, the Mangler's drop slots), so this top copy is a fallback, not the primary way in.
+         Leaving it open by default used to push every panel's real action zone down by another
+         ~230px of scrolling before you'd even reach the merchant list, on top of however far
+         down THAT panel's own sell/use zone already was. -->
+    <details class="collapsible" style="margin-bottom:1rem;">
       <summary>🎒 Your Inventory — drag an item onto a merchant below to buy, sell, or use it</summary>
       <div class="collapsible-body">
         <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'storeInventoryGrid')">
@@ -9894,6 +9900,12 @@ function generateStoreItem(merchantKey) {
 }
 
 let currentMerchant = null;
+// renderStoreTab() replaces the whole panel's innerHTML on every buy/sell action, which would
+// otherwise snap the Standing Stock / Today's Wares collapsibles shut again after every single
+// purchase — annoying mid-shopping-spree. Tracked here instead of read off the DOM so it
+// survives that full re-render.
+let storeStockSectionOpen = false;
+let storeDailySectionOpen = false;
 // Per-merchant persistent stock state, keyed by merchant key. Lazily initialized the first
 // time a merchant is ever visited (ensureMerchantStock), and from then on only touched by an
 // explicit restock — NOT regenerated every time the player switches merchants and back —
@@ -10159,10 +10171,12 @@ function renderStoreTab() {
       </div>
       <div class="store-gold-display">💰 Your Gold: <span id="storePlayerGoldDisplay">${coinPouchGpText(getPlayerGold())}</span></div>
     </div>
-    <h4 class="store-section-label">Standing Stock</h4>
-    <div class="store-grid">${staplesHtml}</div>
-    <h4 class="store-section-label">Today's Wares <button class="ic-action-btn" style="margin-left:0.6rem;" onclick="rerollStoreDaily()">🔄 Restock (resets stock)</button></h4>
-    <div class="store-grid">${dailyHtml}</div>
+    <!-- Selling/using items comes first now, right under the header — no scrolling past the
+         buy listings to reach it. The sell zone, till, and "Your Items" picker are all in one
+         tight block for exactly the reason the Mangler's own slots+grid already are: so
+         dragging (or right-clicking) an item into use never has to travel far down the page.
+         Standing Stock / Today's Wares move into collapsed-by-default sections below instead
+         of being the thing you always scroll past first. -->
     <h4 class="store-section-label">💰 Sell Your Goods</h4>
     <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Right-click or drag an item from your inventory below to stage it in the till — ${escapeHtml(m.name)} ${merchantTradeDescription(currentMerchant)} Nothing is sold until you click "Sell All."</p>
     <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to add it to the till</div>
@@ -10179,6 +10193,17 @@ function renderStoreTab() {
     </div>
     <div class="token-grid" id="traderSellGrid"></div>
     <div class="store-buy-msg" id="storeBuyMsg"></div>
+    <details class="collapsible"${storeStockSectionOpen ? ' open' : ''} ontoggle="storeStockSectionOpen=this.open" style="margin-top:1.2rem;">
+      <summary>🛍 Standing Stock</summary>
+      <div class="collapsible-body"><div class="store-grid">${staplesHtml}</div></div>
+    </details>
+    <details class="collapsible"${storeDailySectionOpen ? ' open' : ''} ontoggle="storeDailySectionOpen=this.open" style="margin-top:0.6rem;">
+      <summary>✨ Today's Wares</summary>
+      <div class="collapsible-body">
+        <button class="ic-action-btn" style="margin-bottom:0.6rem;" onclick="rerollStoreDaily()">🔄 Restock (resets stock)</button>
+        <div class="store-grid">${dailyHtml}</div>
+      </div>
+    </details>
   `;
   renderTraderSellTokenGrid();
   renderMerchantTill();
