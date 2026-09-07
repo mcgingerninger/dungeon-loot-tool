@@ -12962,6 +12962,26 @@ function hideTokenTooltip() {
   const tt = document.getElementById('itemTooltip');
   if (tt) tt.style.display = 'none';
 }
+// The tooltip is only ever positioned/hidden by mouseenter/mousemove/mouseleave on the card
+// that's showing it — but starting a native HTML5 drag near the top of a scrollable panel and
+// then scrolling mid-drag can move the hovered card out from under the cursor without ever
+// firing that mouseleave (the browser's own drag machinery swallows the normal mouse events
+// while a drag is in progress), leaving the tooltip glued in place at its last screen position
+// looking like it's stuck floating over unrelated content. A raw `scroll` fires continuously
+// during that native auto-scroll regardless of whether a drag is involved, so listening for it
+// here (rather than only on dragstart/dragend) catches the actual moment the tooltip's
+// cursor-relative position goes stale, drag or no drag. Also clears the drag-state module vars
+// (_draggedTokenKey etc., set by tokenDragStart/slotItemDragStart/inventoryItemDragStart) on
+// dragend — which, unlike drop, is guaranteed to fire whether the drag ended in a real drop or
+// was abandoned — so a scroll-interrupted drag can never leave a stale payload for some later,
+// unrelated drop to pick up.
+document.addEventListener('dragend', () => {
+  hideTokenTooltip();
+  _draggedTokenKey = null;
+  _draggedInvPlacement = null;
+  _draggedSlotId = null;
+}, true);
+window.addEventListener('scroll', hideTokenTooltip, true);
 // Same tooltip as the Token Library/Inventory (buildTooltipHtml), but for an item that isn't
 // in TOKEN_INDEX at all — combat loot (entry.loot.items) is generated fresh per kill and never
 // saved into the catalog or savedGeneratedItems unless/until the player clicks Loot, so there's
