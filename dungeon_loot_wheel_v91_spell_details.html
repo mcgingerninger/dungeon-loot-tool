@@ -14454,14 +14454,20 @@ const MONSTER_LOOT_CR_BANDS = [
   { max: 2, tier: 'common' }, { max: 5, tier: 'uncommon' }, { max: 9, tier: 'rare' },
   { max: 14, tier: 'superrare' }, { max: 20, tier: 'legendary' }, { max: Infinity, tier: 'celestial' },
 ];
-// A rolled variant tier ("this specific instance is a Legendary reskin") always wins over
-// the base creature's own CR band — a variant is explicitly "this monster, but stronger/
-// weaker than usual," and loot should reflect the instance actually fought, not the book stats.
+// A rolled variant can still push loot UP — an Elite/Legendary-tier variant is a genuine bonus
+// for however tough that specific fight turned out to be — but it can no longer drag loot DOWN
+// below what the creature actually is. A "Weak" or "Runt" variant (both tier:'common', the
+// lowest band, specifically so a debuff never used to add anything to whichever tier ended up
+// chosen) used to override an Ancient Red Dragon's loot to Common tier outright just because it
+// happened to roll a bad-day debuff for this one encounter — the variant knocks its combat stats
+// down for the fight, not its intrinsic worth or hoard, and its loot shouldn't read as if it did.
 function monsterRarityTier(monster, variant) {
-  if (variant && variant.tier) return variant.tier;
   const cr = crSortValue(monster.cr);
-  for (const band of MONSTER_LOOT_CR_BANDS) if (cr <= band.max) return band.tier;
-  return 'celestial';
+  let crTier = 'celestial';
+  for (const band of MONSTER_LOOT_CR_BANDS) { if (cr <= band.max) { crTier = band.tier; break; } }
+  if (!variant || !variant.tier) return crTier;
+  const order = BAL.rarityOrder;
+  return order.indexOf(variant.tier) > order.indexOf(crTier) ? variant.tier : crTier;
 }
 
 // ---------- Loot settings: one adjustable preset per monster rarity tier ----------
