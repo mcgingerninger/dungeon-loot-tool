@@ -620,115 +620,11 @@
   }
   .del-btn:hover { color: var(--danger); }
 
-  /* PRINT TAB */
-  .print-controls {
-    display: flex;
-    gap: 0.8rem;
-    margin-bottom: 1.2rem;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .print-filter-btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-family: 'Crimson Text', serif;
-    font-size: 0.95rem;
-    padding: 0.4rem 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .print-filter-btn:hover { border-color: var(--gold); color: var(--gold); }
-  .print-filter-btn.active { background: var(--surface2); border-color: var(--gold); color: var(--gold-bright); }
-
-  .print-go-btn {
-    background: linear-gradient(135deg, #7a5c1e, #c9a84c, #7a5c1e);
-    border: 2px solid var(--gold);
-    color: #0d0a07;
-    font-family: 'Crimson Text', serif;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 0.5rem 1.5rem;
-    cursor: pointer;
-    margin-left: auto;
-    transition: all 0.2s;
-  }
-  .print-go-btn:hover { box-shadow: 0 0 16px rgba(201,168,76,0.4); }
-
-  .copy-table-btn {
-    background: var(--surface2);
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    font-family: 'Crimson Text', serif;
-    font-size: 1rem;
-    padding: 0.5rem 1.5rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .copy-table-btn:hover { background: var(--gold); color: var(--bg); }
-
-  .print-preview {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    overflow-x: auto;
-  }
-
-  #printTable {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.95rem;
-  }
-
-  #printTable th {
-    background: var(--surface2);
-    color: var(--gold);
-    font-family: 'Crimson Text', serif;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 0.7rem 1rem;
-    text-align: left;
-    border-bottom: 2px solid var(--border);
-    letter-spacing: 0.06em;
-  }
-
-  #printTable td {
-    padding: 0.55rem 1rem;
-    border-bottom: 1px solid rgba(61,48,32,0.4);
-    vertical-align: top;
-  }
-
-  #printTable tr:hover td { background: var(--surface2); }
-
-  .tbl-rarity { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; white-space: nowrap; }
-  .tbl-name { font-weight: 600; white-space: nowrap; }
-  .tbl-desc { font-style: italic; color: var(--text-dim); line-height: 1.4; font-size: 0.9rem; }
-
-  .common-row .tbl-rarity { color: var(--common); }
-  .uncommon-row .tbl-rarity { color: var(--uncommon); }
-  .rare-row .tbl-rarity { color: var(--rare); }
-  .superrare-row .tbl-rarity { color: var(--superrare); }
-  .legendary-row .tbl-rarity { color: var(--legendary); }
-  .celestial-row .tbl-rarity { color: var(--celestial); }
-
   /* scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); }
   ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
-
-  /* PRINT STYLES */
-  @media print {
-    body { background: white; color: black; font-family: Georgia, serif; }
-    .tabs, h1, .subtitle, .print-controls, #tab-spin, #tab-compendium { display: none !important; }
-    #tab-print { display: block !important; padding: 0; max-width: 100%; }
-    .print-preview { background: white; border: none; }
-    #printTable th { background: #eee; color: black; border-bottom: 2px solid #333; }
-    #printTable td { color: black; border-bottom: 1px solid #ddd; }
-    .tbl-rarity { color: black !important; }
-    .tbl-desc { color: #444; }
-    .print-go-btn, .copy-table-btn { display: none; }
-  }
 
   @media (max-width: 700px) {
     .wheel-layout { grid-template-columns: 1fr; }
@@ -1497,6 +1393,11 @@
   /* 2/3-wide items: no padding/gap so the icon frame can stretch edge-to-edge instead of
      sitting as a small square next to a name label. */
   .inv-item.inv-item-fill { padding:0; gap:0; }
+  /* Doesn't fit whatever's currently focused (see the Mangler's dimFilter on its inventory-
+     grid mirror) — dimmed in place rather than hidden, since a slotted grid can't remove an
+     item from view without it also vanishing from the slot it actually occupies. Still fully
+     draggable — dragging it onto an incompatible drop slot is rejected there, same as always. */
+  .inv-item.inv-item-dimmed { opacity:0.32; filter:grayscale(0.7); }
   /* Recently Looted — a fixed 6x6 staging grid (reuses .inv-grid/.inv-row for the outer
      layout) that "Loot" now fills instead of the main inventory grid directly. Uniform
      1-slot-per-item (no footprint math like the main grid) since it's just a holding pen —
@@ -1992,7 +1893,6 @@
 
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('spin',this)">🎲 Loot</button>
-  <button class="tab-btn" onclick="showTab('print',this)">Print / Copy</button>
   <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Item Compendium</button>
@@ -2445,38 +2345,6 @@
 </div>
 
 <!-- PRINT TAB -->
-<div id="tab-print" class="tab-content">
-  <div class="print-controls">
-    <button class="print-filter-btn active" onclick="setPrintFilter('all',this)">All Rarities</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('common',this)">Common</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('uncommon',this)">Uncommon</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('rare',this)">Rare</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('superrare',this)">Super Rare</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('legendary',this)">Legendary</button>
-    <button class="print-filter-btn" onclick="setPrintFilter('celestial',this)">Celestial</button>
-    <button class="copy-table-btn" onclick="copyTable()">Copy Table</button>
-    <button class="print-go-btn" onclick="window.print()">🖨 Print</button>
-  </div>
-  <div class="print-preview">
-    <table id="printTable">
-      <thead>
-        <tr>
-          <th style="width:90px">Rarity</th>
-          <th style="width:160px">Item</th>
-          <th>Type</th>
-          <th>Slots</th>
-          <th>Value</th>
-          <th>Stats</th>
-          <th>Charges</th>
-          <th>Description</th>
-          <th>Effect</th>
-        </tr>
-      </thead>
-      <tbody id="printTableBody"></tbody>
-    </table>
-  </div>
-</div>
-
 <!-- GENERATE UNIQUE ITEM TAB -->
 <div id="tab-generate" class="tab-content">
   <div class="gen-layout">
@@ -2825,12 +2693,11 @@
 
       <div class="mangler-finished-work" id="manglerFinishedWork" style="display:none;"></div>
 
-      <h4 class="store-section-label">🎒 Your Items</h4>
-      <div class="token-toolbar">
-        <input type="text" id="manglerTokenSearch" class="token-search" placeholder="Search your items…" oninput="renderManglerTokenGrid()">
-        <span class="token-count" id="manglerTokenCount"></span>
+      <h4 class="store-section-label">🎒 Your Inventory</h4>
+      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part or weapon/armor piece straight from here into the slots above. Clicking a slot dims whatever doesn't fit it.</p>
+      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'manglerInvGrid')">
+        <div id="manglerInvGrid" class="inv-grid"></div>
       </div>
-      <div class="token-grid" id="manglerTokenGrid"></div>
     </div>
   </div>
 </div>
@@ -4397,7 +4264,6 @@ let isSpinning = false;
 // double-click mid-animation from resolving the loot roll twice (once synchronously right
 // there, and again a moment later when the already-queued frame would otherwise have fired).
 let _spinRafId = null;
-let printFilter = 'all';
 
 const rarityColors = { common:'#a0a8b0', uncommon:'#4caf7d', rare:'#5b9cf6', superrare:'#c47cf5', legendary:'#ff9f43', celestial:'#7de7ff' };
 
@@ -5437,7 +5303,6 @@ function showTab(tab, btn) {
   // both get refreshed on entry regardless of which is currently visible, so switching modes
   // mid-tab never shows stale content.
   if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); }
-  if (tab === 'print') renderPrintTable();
   // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
   // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
   // browsable Token Library plus Saved Loadouts.
@@ -6871,7 +6736,6 @@ function addItem() {
   document.getElementById('newItemCharges').value='';
   document.getElementById('newItemEffect').value='';
   renderItemsList();
-  if(printFilter!=='all'||true) renderPrintTable();
 }
 
 let editingItemIndex = null;
@@ -7050,62 +6914,11 @@ function saveEditedItem() {
 
   closeEditItemModal();
   renderItemsList();
-  renderPrintTable();
 }
 
 function removeItem(rarity, index) {
   lootData[rarity].splice(index,1);
   renderItemsList();
-  renderPrintTable();
-}
-
-// ===================== PRINT TABLE =====================
-function setPrintFilter(filter, btn) {
-  printFilter=filter;
-  document.querySelectorAll('.print-filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderPrintTable();
-}
-
-function renderPrintTable() {
-  const tbody=document.getElementById('printTableBody');
-  const cats=printFilter==='all'?['common','uncommon','rare','superrare','legendary','celestial']:[printFilter];
-  let rows='';
-  cats.forEach(cat=>{
-    lootData[cat].forEach(item=>{
-      const stats=[];
-      if(item.dmg) stats.push(`DMG ${item.dmg}`);
-      if(item.ac) stats.push(`AC ${item.ac}`);
-      if(item.hp) stats.push(`Heals ${item.hp}`);
-      rows+=`<tr class="${cat}-row">
-        <td class="tbl-rarity">${rarityNames[cat]}</td>
-        <td class="tbl-name">${item.name}</td>
-        <td>${item.type||'unknown'}</td>
-        <td>${item.slotSize||1}</td>
-        <td>${item.gp||'—'}</td>
-        <td>${stats.join(', ')}</td>
-        <td>${item.charges||''}</td>
-        <td class="tbl-desc">${item.desc}</td>
-        <td class="tbl-desc">${item.effect||''}</td>
-      </tr>`;
-    });
-  });
-  tbody.innerHTML=rows;
-}
-
-function copyTable() {
-  const cats=printFilter==='all'?['common','uncommon','rare','superrare','legendary','celestial']:[printFilter];
-  let text='Rarity\tItem\tType\tSlot Size\tValue (GP)\tDamage\tAC\tHeals\tCharges\tDescription\tEffect\n';
-  cats.forEach(cat=>{
-    lootData[cat].forEach(item=>{
-      text+=`${rarityNames[cat]}\t${item.name}\t${item.type||'unknown'}\t${item.slotSize||1}\t${item.gp||'—'}\t${item.dmg||''}\t${item.ac||''}\t${item.hp||''}\t${item.charges||''}\t${item.desc}\t${item.effect||''}\n`;
-    });
-  });
-  navigator.clipboard.writeText(text).then(()=>{
-    const btn=document.querySelector('.copy-table-btn');
-    const orig=btn.textContent; btn.textContent='Copied!';
-    setTimeout(()=>btn.textContent=orig,1500);
-  });
 }
 
 // ===================== UNIQUE ITEM GENERATOR =====================
@@ -8883,52 +8696,110 @@ function gpToNumber(gpStr) {
   return val * (unitMult[(m[3] || 'gp').toLowerCase()] ?? 1);
 }
 
-// ===================== PLAYER GOLD (COIN POUCH) =====================
-// Spendable gold isn't a hidden number — it's tracked on a real item, "Coin Pouch", that
-// sits in the inventory/token library like anything else. findPlayerCoinPouch() is the
-// single source of truth: it scans every token the player owns for the one flagged
-// isCoinPouch (a boolean marker, not a name match, so renaming it or finding a second one
-// wouldn't break anything) and reads its `coins` field. getOrCreatePlayerCoinPouch() mints
-// a fresh empty one the first time it's needed (e.g. the first purchase or sale of the
-// session) and places it in the inventory grid, same as any other acquired item.
-function findPlayerCoinPouch() {
-  buildTokenIndex();
-  const entry = Object.values(TOKEN_INDEX).find(e => e.item && e.item.isCoinPouch);
-  return entry ? entry.item : null;
-}
+// ===================== PLAYER GOLD (COIN PILE / PURSE / SINGLE COINS) =====================
+// Spendable gold isn't a hidden number — it's tracked on real items that sit in the
+// inventory/token library like anything else, same as the original single "Coin Pouch" did.
+// It's now split across up to three tiers by size, so how your wealth is represented changes
+// as it grows: a few gold rides as loose Single Coins, a working amount lives in a Coin
+// Purse, and a serious haul needs an actual Coin Pile on top of that — each one a real
+// inventory item with real weight, so a big fortune genuinely competes with your gear for
+// space. isCurrencyToken (a boolean marker, not a name match) + currencyTier ('pile'/'purse'/
+// 'coins') identify them; getPlayerGold() is the single source of truth, summing whichever
+// tiers currently exist (a session upgraded from the old single-pouch save format still has
+// its value folded in correctly — see the legacy-pouch handling in syncCurrencyTokens).
+const CURRENCY_TIER_DEFS = {
+  pile:  { name: 'Coin Pile',    desc: "A heavy heap of loose coin, more than any purse could hold — you'd need a sack or a wagon to move much of this at once.", effect: "Represents whatever your wealth exceeds one purse's worth of. Its value always tracks your gold automatically." },
+  purse: { name: 'Coin Purse',   desc: "A drawstring leather purse that jingles with whatever coin you've got on you.", effect: "Holds your spendable gold. Its value always matches the coin currently inside — buying and selling draw from and add to it automatically." },
+  coins: { name: 'Single Coins', desc: "A handful of loose coins — copper, silver, gold, whatever's on hand. Not even enough to bother pouching.", effect: "Loose pocket change. Its value always tracks your gold automatically." },
+};
+const CURRENCY_WEIGHT_PER_GP = 0.02; // ~1 lb per 50 coins, so a real fortune has real weight
 function coinPouchGpText(coins) { return formatGpAmount(Math.round((coins || 0) * 100) / 100); }
-function getOrCreatePlayerCoinPouch() {
-  const existing = findPlayerCoinPouch();
-  if (existing) return existing;
-  const item = {
-    name: 'Coin Pouch', rarity: 'common', type: 'treasure', subcategory: 'currency',
-    slotSize: 1, weight: 1, isCoinPouch: true, coins: 0,
-    desc: "A worn leather pouch that jingles with whatever coin you've got on you.",
-    effect: 'Holds your spendable gold. Its value always matches the coin currently inside — buying and selling draw from and add to this pouch automatically.',
-    gp: coinPouchGpText(0), tags: [],
-  };
-  placeItemIntoInventory(item);
-  return findPlayerCoinPouch() || item;
+// Scans every token the player owns for currency items (new tiered ones, plus any leftover
+// single "Coin Pouch" from before this system existed) and returns {tier -> {key, item}}.
+// A legacy pouch (isCoinPouch but no currencyTier) comes back under the 'legacy' key so
+// syncCurrencyTokens can fold its value in once and then delete it.
+function findCurrencyTokens() {
+  buildTokenIndex();
+  const found = {};
+  Object.keys(TOKEN_INDEX).forEach(key => {
+    const item = TOKEN_INDEX[key].item;
+    if (!item) return;
+    if (item.isCurrencyToken && item.currencyTier) found[item.currencyTier] = { key, item };
+    else if (item.isCoinPouch) found.legacy = { key, item };
+  });
+  return found;
 }
 function getPlayerGold() {
-  const pouch = findPlayerCoinPouch();
-  return pouch ? (pouch.coins || 0) : 0;
+  const tokens = findCurrencyTokens();
+  let total = 0;
+  ['pile', 'purse', 'coins', 'legacy'].forEach(tier => {
+    if (tokens[tier]) total += tokens[tier].item.coins || 0;
+  });
+  return Math.round(total * 100) / 100;
+}
+// Splits a total into the tiers that should exist to represent it — at most one Coin Pile
+// (everything above 1000, folded down to the nearest whole thousand) plus whatever's left
+// in either a Coin Purse (10 gp or more) or, below that, loose Single Coins. Never more than
+// two items at once, and the split always sums back to exactly `total`.
+function splitCurrencyTiers(total) {
+  total = Math.max(0, Math.round(total * 100) / 100);
+  if (total <= 0) return { pile: 0, purse: 0, coins: 0 };
+  const pile = Math.floor(total / 1000) * 1000;
+  const rem = Math.round((total - pile) * 100) / 100;
+  if (pile > 0) return { pile, purse: rem, coins: 0 };
+  if (rem >= 10) return { pile: 0, purse: rem, coins: 0 };
+  return { pile: 0, purse: 0, coins: rem };
+}
+// Creates, updates, or removes one tier's item to match `value` — updates in place (same
+// slot, same item identity) when that tier already exists, so a small change in your gold
+// doesn't make its coin item jump to a new spot in your inventory every time.
+function upsertCurrencyTierItem(tokens, tierKey, value) {
+  const existing = tokens[tierKey];
+  if (value <= 0) {
+    if (existing) removeTokenEverywhere(existing.key);
+    return;
+  }
+  const def = CURRENCY_TIER_DEFS[tierKey];
+  const weight = Math.max(0.1, Math.round(value * CURRENCY_WEIGHT_PER_GP * 10) / 10);
+  if (existing) {
+    existing.item.coins = value;
+    existing.item.weight = weight;
+    existing.item.gp = coinPouchGpText(value);
+    return;
+  }
+  placeItemIntoInventory({
+    name: def.name, rarity: 'common', type: 'treasure', subcategory: 'currency',
+    slotSize: 1, weight, isCurrencyToken: true, currencyTier: tierKey, coins: value,
+    desc: def.desc, effect: def.effect, gp: coinPouchGpText(value), tags: [],
+  });
+}
+// The single place gold is ever actually set. `newTotal` always comes from a caller that
+// derived it via getPlayerGold() (see addPlayerGold/spendPlayerGold below), which already
+// sums in a legacy single-pouch item if one's still around — so a legacy pouch found here is
+// simply deleted (its value is already accounted for in newTotal, not added again) once the
+// new tiered items are in place to replace it. Always renders the inventory grid afterward
+// since a tier item can be created, updated, or removed here.
+function syncCurrencyTokens(newTotal) {
+  const tokens = findCurrencyTokens();
+  const split = splitCurrencyTiers(newTotal);
+  upsertCurrencyTierItem(tokens, 'pile', split.pile);
+  upsertCurrencyTierItem(tokens, 'purse', split.purse);
+  upsertCurrencyTierItem(tokens, 'coins', split.coins);
+  if (tokens.legacy) removeTokenEverywhere(tokens.legacy.key);
+  renderInventoryGrid();
 }
 function addPlayerGold(amount) {
   if (!amount) return;
-  const pouch = getOrCreatePlayerCoinPouch();
-  pouch.coins = Math.round(((pouch.coins || 0) + amount) * 100) / 100;
-  pouch.gp = coinPouchGpText(pouch.coins);
+  syncCurrencyTokens(getPlayerGold() + amount);
   refreshGoldDisplays();
   scheduleSave();
 }
-// Returns false (spending nothing) if the pouch doesn't have enough — callers must check
-// the return value before handing over an item, never assume it succeeded.
+// Returns false (spending nothing) if there isn't enough gold — callers must check the
+// return value before handing over an item, never assume it succeeded.
 function spendPlayerGold(amount) {
-  const pouch = getOrCreatePlayerCoinPouch();
-  if ((pouch.coins || 0) < amount - 0.001) return false;
-  pouch.coins = Math.round(((pouch.coins || 0) - amount) * 100) / 100;
-  pouch.gp = coinPouchGpText(pouch.coins);
+  const current = getPlayerGold();
+  if (current < amount - 0.001) return false;
+  syncCurrencyTokens(current - amount);
   refreshGoldDisplays();
   scheduleSave();
   return true;
@@ -10187,11 +10058,10 @@ function renderStoreTab() {
       </div>
       <div class="token-grid" id="merchantTillGrid"></div>
     </div>
-    <div class="token-toolbar" style="margin-top:0.8rem;">
-      <input type="text" id="traderSellSearch" class="token-search" placeholder="Search your items…" oninput="renderTraderSellTokenGrid()">
-      <span class="token-count" id="traderSellCount"></span>
+    <h4 class="store-section-label" style="margin-top:0.8rem;">🎒 Your Inventory</h4>
+    <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'traderSellInvGrid')">
+      <div id="traderSellInvGrid" class="inv-grid"></div>
     </div>
-    <div class="token-grid" id="traderSellGrid"></div>
     <div class="store-buy-msg" id="storeBuyMsg"></div>
     <details class="collapsible"${storeStockSectionOpen ? ' open' : ''} ontoggle="storeStockSectionOpen=this.open" style="margin-top:1.2rem;">
       <summary>🛍 Standing Stock</summary>
@@ -10292,37 +10162,23 @@ function flashStoreBuyMessage(msg, isError) {
 }
 
 // ---------- General Trader: sell zone ----------
-// Its own embedded token library, same reason the Inventory tab has one — drag-and-drop
-// only works within a single visible tab, so the drag source has to live here too.
+// Dims (see traderSellInvGrid's dimFilter in INV_GRID_MIRRORS) anything the currently selected
+// merchant won't actually buy — avoids the confusing experience of dragging something over
+// only to get rejected — without hiding it outright, since a real slotted grid can't remove an
+// item from view without it also vanishing from the slot it occupies. Quest items and your own
+// currency tokens (Coin Pile/Purse/Single Coins) are dimmed everywhere, same as
+// addTokenToMerchantTill enforces — selling your own gold to a merchant for gold would be a
+// straight duplication exploit. Kept as its own named function (rather than inlining into the
+// mirror definition) so every existing call site that refreshes the sell view after a buy/sell/
+// restock still works unchanged.
+function traderSellDimFilter(item, rarity) {
+  if (item.isCurrencyToken || item.isCoinPouch) return false;
+  if (!item.interactions) classifyItemFull(item, rarity);
+  if (canInteract(item, 'quest_item')) return false;
+  return merchantWillBuy(currentMerchant, item);
+}
 function renderTraderSellTokenGrid() {
-  buildTokenIndex();
-  const searchEl = document.getElementById('traderSellSearch');
-  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const till = getMerchantTill(currentMerchant);
-  // Only shows what this specific merchant will actually buy (see merchantWillBuy) — avoids
-  // the confusing experience of browsing a list full of things you'd just get rejected for
-  // dropping. Quest items and the Coin Pouch itself are excluded everywhere, same as
-  // addTokenToMerchantTill enforces. Anything already staged in the till doesn't show here
-  // too — it's not "in your inventory" anymore once it's in the till.
-  const entries = Object.values(TOKEN_INDEX).filter(e => {
-    if (till.includes(e.key)) return false;
-    if (e.item.isCoinPouch) return false;
-    if (!(!search || e.item.name.toLowerCase().includes(search))) return false;
-    if (!e.item.interactions) classifyItemFull(e.item, e.rarity);
-    if (canInteract(e.item, 'quest_item')) return false;
-    return merchantWillBuy(currentMerchant, e.item);
-  });
-  const grid = document.getElementById('traderSellGrid');
-  const countEl = document.getElementById('traderSellCount');
-  if (countEl) countEl.textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '');
-  if (!grid) return;
-  if (!entries.length) {
-    grid.innerHTML = '<div class="empty-results" style="grid-column:1/-1;">Nothing in your inventory this merchant is interested in.</div>';
-    return;
-  }
-  // 'sell' as the right-click action — right-clicking a card here stages it in the till
-  // instead of the Inventory tab's usual "right-click equips" behavior.
-  grid.innerHTML = entries.map(e => tokenCardHtml(e, true, 'sell')).join('');
+  renderInventoryGrid();
 }
 // Per-merchant staging pile — nothing is actually sold until sellMerchantTill() runs. Lazily
 // created the first time a merchant's till is touched.
@@ -10346,7 +10202,7 @@ function addTokenToMerchantTill(key) {
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
   if (!entry) { flashTraderSellInvalid(); return; }
-  if (entry.item.isCoinPouch) { flashStoreBuyMessage(`You can't sell your own Coin Pouch.`, true); return; }
+  if (entry.item.isCurrencyToken || entry.item.isCoinPouch) { flashStoreBuyMessage(`You can't sell your own ${entry.item.name}.`, true); return; }
   if (!entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
   if (canInteract(entry.item, 'quest_item')) { flashTraderSellInvalid(); return; }
   if (!merchantWillBuy(currentMerchant, entry.item)) {
@@ -10565,7 +10421,6 @@ window.SpellCompendiumAPI = {
 
 // ===================== INIT =====================
 updateChanceDisplay();
-renderPrintTable();
 updateAddFormFields();
 // The hover tooltip sometimes stuck around after clicking away from an item — dynamically
 // re-rendering the grid/list under the cursor (dropping an item, filtering a search, etc.)
@@ -12216,7 +12071,7 @@ function clearInventory() {
 // Builds the grid markup once; idPrefix keeps element ids unique per rendered copy (two
 // copies of #inv-cell-0-0 in the DOM at once would be invalid and make getElementById
 // ambiguous) — see renderInventoryGrid, which mirrors this into every registered instance.
-function buildInventoryGridHtml(idPrefix) {
+function buildInventoryGridHtml(idPrefix, dimFilter) {
   let html = '';
   for (let row = 0; row < INV_ROWS; row++) {
     html += `<div class="inv-row">`;
@@ -12237,12 +12092,13 @@ function buildInventoryGridHtml(idPrefix) {
         const body = wide
           ? (entry ? itemPixelIcon(entry.item, null, rarity, true) : '')
           : `${entry ? itemPixelIcon(entry.item, 22, rarity) : ''}<span class="inv-item-name">${escapeHtml(name)}</span>`;
+        const dimmed = entry && dimFilter && !dimFilter(entry.item, rarity);
         // Deliberately NOT a drop target — only genuinely empty cells (below) accept
         // drops, so there's never any ambiguity about two different items overlapping.
         // Repositioning onto a spot that overlaps the item's OWN old footprint still
         // works because invCanPlaceAt ignores the dragged item's own cells; it just has
         // to be dropped starting on an empty cell, same as any other move.
-        html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}" id="${idPrefix}inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
+        html += `<div class="inv-item ${rarity}${wide ? ' inv-item-fill' : ''}${dimmed ? ' inv-item-dimmed' : ''}" id="${idPrefix}inv-cell-${row}-${col}" style="width:${p.w * 44 + (p.w - 1) * 3}px" draggable="true"
           ondragstart="inventoryItemDragStart(event,'${placementId}')"
           oncontextmenu="inventoryItemContextMenu(event,'${placementId}')"
           onmouseenter="showTokenTooltip(event,'${safeKey}')"
@@ -12258,19 +12114,26 @@ function buildInventoryGridHtml(idPrefix) {
   }
   return html;
 }
-// Every place the real inventory grid is rendered — the Inventory tab's own grid, plus a
-// mirrored copy on the Store tab so a merchant page can be dragged from/into directly without
-// leaving it. Same backing data (inventoryPlacements/inventoryGrid) everywhere, so a change
-// made through one copy is instantly reflected in the other the next time either re-renders —
-// which is every time this function runs, since both copies always re-render together.
+// Every place the real inventory grid is rendered — the Inventory tab's own grid, a mirrored
+// copy on the Store tab's top collapsible, and one next to each shop-panel's own "use an
+// item" zone (the Trader's sell zone, the Mangler's part/item slots) so nothing ever requires
+// a separate searchable token-card list or a trip back up to the top of the tab. Same backing
+// data (inventoryPlacements/inventoryGrid) everywhere, so a change made through any one copy
+// is instantly reflected in every other the next time any of them re-renders — which is every
+// time this function runs, since all copies always re-render together. dimFilter (optional)
+// visually dims — never hides — items that don't fit whatever's currently being worked on
+// (see manglerFocusFilter), since a real slot-based grid can't remove an item from view
+// without it also disappearing from the slot it actually occupies.
 const INV_GRID_MIRRORS = [
   { id: 'inventoryGrid', prefix: '' },
   { id: 'storeInventoryGrid', prefix: 'store-' },
+  { id: 'traderSellInvGrid', prefix: 'trader-', dimFilter: (item, rarity) => currentMerchant ? traderSellDimFilter(item, rarity) : true },
+  { id: 'manglerInvGrid', prefix: 'mangler-', dimFilter: (item, rarity) => manglerFocusFilter({ item, rarity }) },
 ];
 function renderInventoryGrid() {
-  INV_GRID_MIRRORS.forEach(({ id, prefix }) => {
+  INV_GRID_MIRRORS.forEach(({ id, prefix, dimFilter }) => {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = buildInventoryGridHtml(prefix);
+    if (el) el.innerHTML = buildInventoryGridHtml(prefix, dimFilter);
   });
   updateInventorySummary();
   if (typeof scheduleSave === 'function') scheduleSave();
@@ -16312,29 +16175,11 @@ function manglerFocusFilter(entry) {
   if (manglerFocus === 'part') return canInteract(entry.item, 'monster_material');
   return canInteract(entry.item, 'socket') || canInteract(entry.item, 'enchant');
 }
+// Kept as a thin wrapper (rather than renaming every one of its ~7 call sites) — the actual
+// rendering is the shared inventory-grid mirror now (manglerInvGrid in INV_GRID_MIRRORS),
+// which dims via manglerFocusFilter instead of filtering entries out of a token-card list.
 function renderManglerTokenGrid() {
-  buildTokenIndex();
-  const searchEl = document.getElementById('manglerTokenSearch');
-  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const entries = Object.values(TOKEN_INDEX)
-    .filter(e => !search || e.item.name.toLowerCase().includes(search))
-    .filter(manglerFocusFilter);
-  const grid = document.getElementById('manglerTokenGrid');
-  const countEl = document.getElementById('manglerTokenCount');
-  const plural = entries.length !== 1 ? 's' : '';
-  const noun = manglerFocus === 'part' ? 'monster part' + plural
-    : manglerFocus === 'item' ? 'weapon/armor item' + plural
-    : 'item' + plural;
-  if (countEl) countEl.textContent = entries.length + ' ' + noun;
-  if (!grid) return;
-  if (!entries.length) {
-    const emptyNoun = manglerFocus === 'part' ? 'monster parts' : manglerFocus === 'item' ? 'weapons or armor' : 'items';
-    grid.innerHTML = `<div class="empty-results" style="grid-column:1/-1;">No ${emptyNoun} match your search.</div>`;
-    return;
-  }
-  // Explicit arrow, not a bare `tokenCardHtml` reference — Array.map passes (item, index) to
-  // its callback, and index would otherwise land in tokenCardHtml's showSlotSelect parameter.
-  grid.innerHTML = entries.map(e => tokenCardHtml(e, true)).join('');
+  renderInventoryGrid();
 }
 
 // ===================== SAVE / LOAD (persistence) =====================
