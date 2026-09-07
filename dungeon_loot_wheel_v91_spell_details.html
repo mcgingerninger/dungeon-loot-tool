@@ -1813,6 +1813,15 @@
   .sheet-chip{background:var(--bg);border:1px solid var(--border);padding:.2rem .55rem;font-size:.78rem;white-space:nowrap}
   .sheet-chip.proficient{border-color:var(--gold);color:var(--gold)}
   .players-sheet-subrow{margin-top:.6rem}
+  .death-saves-panel{background:rgba(120,20,20,.12);border:1px solid var(--danger);padding:.6rem .8rem;margin-bottom:.8rem}
+  .death-saves-title{color:var(--danger);font-weight:600;font-size:.9rem;margin-bottom:.4rem}
+  .death-saves-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.3rem}
+  .death-saves-row label{font-size:.78rem;color:var(--text-dim);width:70px;flex-shrink:0}
+  .death-save-pips{display:flex;gap:.35rem}
+  .death-save-pip{width:16px;height:16px;border-radius:50%;border:2px solid var(--text-dim);cursor:pointer;flex-shrink:0}
+  .death-save-pip.success.filled{background:var(--uncommon);border-color:var(--uncommon)}
+  .death-save-pip.failure.filled{background:var(--danger);border-color:var(--danger)}
+  .death-saves-actions{display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap}
   .players-send-row{display:flex;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap}
   .players-send-row input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:.9rem;padding:.4rem .5rem}
   .players-send-results{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem}
@@ -2747,6 +2756,40 @@
   <div class="edit-modal" style="width:min(420px,100%);">
     <div class="edit-modal-header"><h3 id="weaponAttackTitle">⚔ Attack</h3><button class="edit-modal-close" onclick="closeWeaponAttackPopup()">×</button></div>
     <div class="edit-modal-body" id="weaponAttackBody"></div>
+  </div>
+</div>
+
+<!-- DM: full edit access to a viewed player's character sheet (Players tab). A modal rather
+     than inline fields on the sheet panel itself — that panel's innerHTML gets rebuilt on every
+     live snapshot of the viewed player (any of their own actions, or just the periodic autosave
+     heartbeat), which would otherwise fight the DM's typing/focus the same way the Players tab's
+     Send search box used to before it was pulled out of that rebuild cycle. Fields are filled
+     once from the live snapshot when opened (openDmEditPlayerModal) and only written back on an
+     explicit Save (saveDmEditPlayerModal), via the same dmSetPlayerInventoryFields cross-player
+     write the Take actions already use. -->
+<div id="dmEditPlayerModal" class="edit-modal-overlay" onclick="if(event.target===this) closeDmEditPlayerModal()">
+  <div class="edit-modal">
+    <div class="edit-modal-header"><h3>✎ Edit <span id="dmEditPlayerName"></span>'s Character</h3><button class="edit-modal-close" onclick="closeDmEditPlayerModal()">×</button></div>
+    <div class="edit-modal-body">
+      <div class="sheet-top-row">
+        <div class="sheet-field"><label>Class</label><input type="text" id="dmEditClass" placeholder="e.g. Fighter"></div>
+        <div class="sheet-field"><label>Level</label><input type="number" id="dmEditLevel" min="1" max="20"></div>
+        <div class="sheet-field"><label>Hit Dice</label><input type="text" id="dmEditHitDice" placeholder="e.g. 3d8"></div>
+      </div>
+      <div class="sheet-hp-ac-row">
+        <div class="sheet-field"><label>Current HP</label><input type="number" id="dmEditCurHp"></div>
+        <div class="sheet-field"><label>Max HP</label><input type="number" id="dmEditMaxHp"></div>
+        <div class="sheet-field"><label>Armor Class</label><input type="number" id="dmEditAc"></div>
+      </div>
+      <div class="sheet-abilities-grid" id="dmEditAbilitiesGrid"></div>
+      <div class="sheet-columns">
+        <div><h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Saving Throws</h3><div id="dmEditSavesList"></div></div>
+        <div><h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Skills</h3><div id="dmEditSkillsList"></div></div>
+      </div>
+      <p class="sheet-note">Changes apply the moment you click Save — the player's own screen updates silently, same as any other DM action.</p>
+    </div>
+    <div class="edit-modal-actions"><button class="edit-cancel-btn" onclick="closeDmEditPlayerModal()">Cancel</button><button class="edit-save-btn" onclick="saveDmEditPlayerModal()">Save Changes</button></div>
+    <div id="dmEditPlayerMsg" class="players-send-msg"></div>
   </div>
 </div>
 
@@ -12484,8 +12527,8 @@ function updateCharacterField(field, value) {
   if (field === 'characterClass') characterClass = value;
   else if (field === 'characterLevel') characterLevel = value;
   else if (field === 'characterHitDice') characterHitDice = value;
-  else if (field === 'characterCurrentHp') characterCurrentHp = value;
-  else if (field === 'characterMaxHp') characterMaxHp = value;
+  else if (field === 'characterCurrentHp') characterCurrentHp = Math.max(0, Math.min(value, characterMaxHp || value));
+  else if (field === 'characterMaxHp') { characterMaxHp = value; characterCurrentHp = Math.min(characterCurrentHp, characterMaxHp); }
   else if (field === 'characterAc') characterAc = value;
   renderCharacterSheet();
   if (typeof scheduleSave === 'function') scheduleSave();
@@ -14933,7 +14976,7 @@ function combatCardHtml(entry, mode, shellOnly) {
   const defeatedTag = entry.defeated ? ' combat-card-defeated' : '';
   const defeatedBadge = entry.defeated ? '<span class="combat-defeated-badge">☠ Defeated</span>' : '';
 
-  const targetingHtml = isDm ? combatTargetingHtml(entry) : '';
+  const targetingHtml = isDm && !entry.isCorpse ? combatTargetingHtml(entry) : '';
 
   let actionHtml;
   if (isDm) {
@@ -14997,10 +15040,12 @@ function combatCardHtml(entry, mode, shellOnly) {
       ${isDm ? `<button class="combat-card-remove" onclick="removeFromBattle(${entry.uid})" title="Remove from battle">×</button>` : ''}
     </div>
     ${m.desc ? `<div class="combat-card-desc">${escapeHtml(m.desc)}</div>` : ''}
-    <div class="combat-card-stats">
+    ${entry.isCorpse
+      ? `<div class="combat-card-stats"><span>☠ Remains — nothing left to fight, only to loot.</span></div>`
+      : `<div class="combat-card-stats">
       <span>AC ${entry.ac !== null ? escapeHtml(String(entry.ac)) : escapeHtml(String(m.ac))}</span>
       <span class="combat-hp-row">HP ${hpHtml}</span>
-    </div>
+    </div>`}
     ${targetingHtml}
     ${statLinesHtml}
     ${chaosLines}
@@ -15548,15 +15593,22 @@ function buildForeignCharacterSheetHtml(s) {
   const weaponsHtml = weapons.length
     ? weapons.map(w => `<div class="sheet-weapon-line"><span class="${w.rarity}">${escapeHtml(w.name)}</span> — ${escapeHtml(w.dmg)} damage</div>`).join('')
     : '<span class="sheet-chip-empty">No weapon equipped.</span>';
+  // Same clamp as applyStateBlob/startRosterListener — applyHpDelta's atomic increment has no
+  // clamp of its own, so the raw stored value can briefly sit out of range.
+  const maxHp = s.characterMaxHp != null ? s.characterMaxHp : null;
+  const curHp = s.characterCurrentHp != null && maxHp != null ? Math.max(0, Math.min(s.characterCurrentHp, maxHp)) : s.characterCurrentHp;
+  const deathSavesHtml = curHp != null && curHp <= 0 ? buildDeathSavesHtml(s) : '';
   return `
     <div class="players-sheet-toprow">
       <div class="players-sheet-field"><label>Class</label><div>${escapeHtml(s.characterClass || '—')}</div></div>
       <div class="players-sheet-field"><label>Level</label><div>${level}</div></div>
       <div class="players-sheet-field"><label>Prof. Bonus</label><div>${fmtMod(sheet.profBonus)}</div></div>
-      <div class="players-sheet-field"><label>HP</label><div>${s.characterCurrentHp != null ? s.characterCurrentHp : '—'} / ${s.characterMaxHp != null ? s.characterMaxHp : '—'}</div></div>
+      <div class="players-sheet-field"><label>HP</label><div>${curHp != null ? curHp : '—'} / ${maxHp != null ? maxHp : '—'}</div></div>
       <div class="players-sheet-field"><label>AC</label><div>${s.characterAc != null ? s.characterAc : sheet.suggestedAc}</div></div>
       <div class="players-sheet-field"><label>Hit Dice</label><div>${escapeHtml(s.characterHitDice || '—')}</div></div>
+      <button class="ic-action-btn" style="align-self:center;" onclick="openDmEditPlayerModal()">✎ Edit Stats</button>
     </div>
+    ${deathSavesHtml}
     <div class="sheet-weapons-info">${weaponsHtml}</div>
     <div class="sheet-chip-row">${abilitiesHtml}</div>
     <div class="players-sheet-subrow">
@@ -15568,6 +15620,207 @@ function buildForeignCharacterSheetHtml(s) {
       <div class="sheet-chip-row">${skillChips || '<span class="sheet-chip-empty">None selected</span>'}</div>
     </div>
   `;
+}
+// Shown on the DM's foreign character sheet only once a player's (clamped) current HP is 0 —
+// the "still active until the DM intervenes" model this was built around means hitting 0 never
+// gates anything in the PLAYER's own UI, this panel is the DM's manual tool for tracking it.
+// Pips fill in order (clicking one fills it and everything before it; clicking the last filled
+// one clears it and everything after), same convention as most VTT death-save trackers, and
+// each click writes immediately via dmSetPlayerInventoryFields — no separate Save step, same as
+// the Reserve checkboxes/Take buttons elsewhere in this app that also live inside a panel
+// that's rebuilt wholesale on every snapshot.
+function buildDeathSavesHtml(s) {
+  const successes = s.deathSaveSuccesses || 0;
+  const failures = s.deathSaveFailures || 0;
+  const pips = (kind, count) => [0, 1, 2].map(i => `<span class="death-save-pip ${kind}${i < count ? ' filled' : ''}" onclick="dmToggleDeathSave('${kind}', ${i})"></span>`).join('');
+  return `
+    <div class="death-saves-panel">
+      <div class="death-saves-title">💀 0 HP — Death Saves</div>
+      <div class="death-saves-row"><label>Successes</label><div class="death-save-pips">${pips('success', successes)}</div></div>
+      <div class="death-saves-row"><label>Failures</label><div class="death-save-pips">${pips('failure', failures)}</div></div>
+      <div class="death-saves-actions">
+        <button class="ic-action-btn" onclick="dmRollPlayerDeathSave()">🎲 Roll Death Save</button>
+        <button class="combat-danger-btn" onclick="dmKillViewedPlayerCharacter()">☠ Character Dies</button>
+      </div>
+      <div id="dmDeathSaveMsg" class="players-send-msg"></div>
+    </div>
+  `;
+}
+// Toggling a pip fills it and everything before it, or — clicking the last currently-filled
+// one — clears it and everything after, the same "fill in order" convention most VTT death-save
+// trackers use rather than independently-toggleable pips (a real death save track never has a
+// filled pip sitting after an empty one).
+function dmToggleDeathSave(kind, idx) {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const field = kind === 'success' ? 'deathSaveSuccesses' : 'deathSaveFailures';
+  const current = viewedPlayerState[field] || 0;
+  const next = current === idx + 1 ? idx : idx + 1;
+  if (typeof window.dmSetPlayerInventoryFields === 'function') window.dmSetPlayerInventoryFields(viewedPlayerUid, { [field]: next });
+}
+// Standard 5e death save: 10+ is a success, below 10 a failure, a nat 1 counts as two failures,
+// and a nat 20 immediately regains 1 HP and clears both counters — conscious again, same as the
+// real rule. Both counters cap at 3; reaching 3 failures doesn't auto-kill the character (see
+// dmKillViewedPlayerCharacter) — the DM confirms that separately, deliberately, per how "eventually
+// kill the character" was scoped: a DM-paced decision, not an automatic one.
+function dmRollPlayerDeathSave() {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const s = viewedPlayerState;
+  const roll = rn(1, 20);
+  const fields = {};
+  let msg;
+  if (roll === 20) {
+    fields.characterCurrentHp = 1; fields.deathSaveSuccesses = 0; fields.deathSaveFailures = 0;
+    msg = 'Natural 20 — back up to 1 HP, fully conscious!';
+  } else if (roll === 1) {
+    const failures = Math.min(3, (s.deathSaveFailures || 0) + 2);
+    fields.deathSaveFailures = failures;
+    msg = `Natural 1 — counts as two failures (${failures}/3).`;
+  } else if (roll >= 10) {
+    const successes = Math.min(3, (s.deathSaveSuccesses || 0) + 1);
+    fields.deathSaveSuccesses = successes;
+    msg = `Rolled ${roll} — success (${successes}/3).`;
+  } else {
+    const failures = Math.min(3, (s.deathSaveFailures || 0) + 1);
+    fields.deathSaveFailures = failures;
+    msg = `Rolled ${roll} — failure (${failures}/3).`;
+  }
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, fields).then(() => {
+    const el = document.getElementById('dmDeathSaveMsg');
+    if (el) el.textContent = msg;
+  });
+}
+// Builds a synthetic "monster" battle-roster entry for a dead player's remains — bypasses
+// buildBattleEntry entirely (no variant/chaos-gear rolling, no attacks, nothing that makes
+// sense for a corpse) and lands directly in the same defeated-with-loot shape combatCardHtml
+// already renders for a monster's post-kill loot drop, so the whole reveal/reserve/claim
+// pipeline (built for monster loot) works on it completely unchanged. `items` is expected to
+// already be in loot-item shape (id/rarity/reserved present on each).
+function buildPlayerCorpseEntry(username, items) {
+  const corpseMonster = {
+    name: `${username}'s Corpse`, source: 'PC', page: null, sourceLabel: 'Fallen Player',
+    size: 'Medium', type: 'Corpse', alignment: '—', ac: '—', acFrom: '', hp: '0', speed: '0 ft.', cr: '—',
+    str: null, dex: null, con: null, int: null, wis: null, cha: null,
+    skills: '—', saves: '—', senses: '—', languages: '—',
+    traits: [], actions: [], bonusActions: [], reactions: [], legendary: [],
+    desc: `The mortal remains of ${username}. Whatever they were carrying is still here, for now.`,
+  };
+  return {
+    uid: ++battleUidCounter, monster: corpseMonster, displayName: `${username}'s Corpse`,
+    variant: null, traits: [], chaosGearList: [],
+    hp: 0, maxHp: 0, hpRoll: null, ac: null, atkMod: 0, dmgMult: 1, statLines: [], lastResult: null,
+    defeated: true, isCorpse: true,
+    loot: { tier: 'common', gold: '0 gp', items }, lootRevealed: false,
+    targetMode: 'random', targetPlayerUid: null,
+  };
+}
+// The DM's deliberate, confirmed kill action — builds the corpse (everything the character
+// owns, equipped or stored, via their full savedGeneratedItems list, which is the one place
+// this app already tracks "every item instance this account owns" regardless of where it's
+// currently placed), adds it to the Combat roster exactly like a monster's post-kill drop, then
+// empties the (now-dead) character's own slots/inventory since it's all moved to the corpse —
+// playerSlots specifically gets reset to every known slot key set to null (not a bare {}), since
+// their own client's renderPlayerSlots() only ever updates the slot ids it finds keys for, and
+// a bare {} would leave every equipped-item icon on THEIR screen stuck showing whatever was
+// last equipped even though the data says otherwise.
+function dmKillViewedPlayerCharacter() {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const meta = (connectedPlayers || []).find(p => p.uid === viewedPlayerUid);
+  const username = meta ? meta.username : 'Player';
+  if (!confirm(`${username}'s character will die. A lootable corpse carrying everything they own — equipped gear included — is added to the Combat roster, and their inventory is emptied. Continue?`)) return;
+  const s = viewedPlayerState;
+  const items = (s.savedGeneratedItems || []).map(it => ({ ...it, reserved: false, claimedBy: null, claimedByUsername: null, claimedVia: null }));
+  battleRoster.push(buildPlayerCorpseEntry(username, items));
+  renderCombatRoster();
+  renderCombatLog();
+  if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
+  if (typeof scheduleSave === 'function') scheduleSave();
+  const emptySlots = {};
+  Object.keys(SLOT_CATEGORY).forEach(k => { emptySlots[k] = null; });
+  const emptyGrid = Array.from({ length: INV_ROWS }, () => Array(INV_COLS).fill(null));
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, {
+    playerSlots: emptySlots, inventoryPlacements: {}, inventoryGrid: emptyGrid,
+    savedGeneratedItems: [], recentlyLooted: [],
+    characterCurrentHp: 0, deathSaveSuccesses: 0, deathSaveFailures: 0, isDead: true,
+  }).then(() => flashPlayersMessage(`${username} has died — their corpse is now lootable in Combat.`))
+    .catch(() => flashPlayersMessage(`Corpse created, but failed to clear ${username}'s inventory — try again.`, true));
+}
+// Opens the edit-stats modal for the currently viewed player, filling every field from the live
+// snapshot exactly once (see the modal's own HTML comment for why this is a modal rather than
+// inline fields on the sheet panel itself).
+function openDmEditPlayerModal() {
+  if (!viewedPlayerUid || !viewedPlayerState) return;
+  const s = viewedPlayerState;
+  const meta = (connectedPlayers || []).find(p => p.uid === viewedPlayerUid);
+  const nameEl = document.getElementById('dmEditPlayerName');
+  if (nameEl) nameEl.textContent = meta ? meta.username : 'Player';
+  document.getElementById('dmEditClass').value = s.characterClass || '';
+  document.getElementById('dmEditLevel').value = s.characterLevel || 1;
+  document.getElementById('dmEditHitDice').value = s.characterHitDice || '';
+  document.getElementById('dmEditCurHp').value = s.characterCurrentHp != null ? s.characterCurrentHp : 10;
+  document.getElementById('dmEditMaxHp').value = s.characterMaxHp != null ? s.characterMaxHp : 10;
+  document.getElementById('dmEditAc').value = s.characterAc != null ? s.characterAc : 10;
+  const abilityScores = s.characterAbilityScores || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  document.getElementById('dmEditAbilitiesGrid').innerHTML = Object.keys(ABILITY_NAMES).map(abbr => `
+    <div class="sheet-ability-box">
+      <label>${ABILITY_NAMES[abbr]}</label>
+      <input type="number" id="dmEditAbility_${abbr}" value="${abilityScores[abbr] != null ? abilityScores[abbr] : 10}">
+    </div>
+  `).join('');
+  const saveProfs = s.saveProficiencies || [];
+  document.getElementById('dmEditSavesList').innerHTML = Object.keys(ABILITY_NAMES).map(abbr => {
+    const name = ABILITY_NAMES[abbr];
+    return `<div class="sheet-line-row"><label><input type="checkbox" id="dmEditSave_${abbr}" ${saveProfs.includes(name) ? 'checked' : ''}> ${name}</label></div>`;
+  }).join('');
+  const skillProfs = s.skillProficiencies || [];
+  document.getElementById('dmEditSkillsList').innerHTML = Object.keys(SKILL_ABILITY_MAP).map((skill, i) => {
+    return `<div class="sheet-line-row"><label><input type="checkbox" data-skill-idx="${i}" data-skill="${escapeHtml(skill)}" ${skillProfs.includes(skill) ? 'checked' : ''}> ${escapeHtml(skill)}</label></div>`;
+  }).join('');
+  const msgEl = document.getElementById('dmEditPlayerMsg');
+  if (msgEl) { msgEl.textContent = ''; msgEl.classList.remove('show'); }
+  document.getElementById('dmEditPlayerModal').classList.add('open');
+}
+function closeDmEditPlayerModal() {
+  document.getElementById('dmEditPlayerModal').classList.remove('open');
+}
+// Reads every field straight off the modal's own DOM (never re-rendered while open, so this is
+// always exactly what the DM sees) and writes it all in one dmSetPlayerInventoryFields call.
+// HP is clamped here too, on the way out, on top of every other clamp point already in place.
+function saveDmEditPlayerModal() {
+  if (!viewedPlayerUid) return;
+  const maxHp = parseInt(document.getElementById('dmEditMaxHp').value, 10) || 1;
+  let curHp = parseInt(document.getElementById('dmEditCurHp').value, 10);
+  if (!Number.isFinite(curHp)) curHp = maxHp;
+  curHp = Math.max(0, Math.min(curHp, maxHp));
+  const abilityScores = {};
+  Object.keys(ABILITY_NAMES).forEach(abbr => {
+    abilityScores[abbr] = parseInt(document.getElementById('dmEditAbility_' + abbr).value, 10) || 10;
+  });
+  const saveProficiencies = Object.keys(ABILITY_NAMES)
+    .filter(abbr => document.getElementById('dmEditSave_' + abbr).checked)
+    .map(abbr => ABILITY_NAMES[abbr]);
+  const skillProficiencies = [...document.querySelectorAll('#dmEditSkillsList input[type=checkbox]')]
+    .filter(el => el.checked).map(el => el.dataset.skill);
+  const fields = {
+    characterClass: document.getElementById('dmEditClass').value,
+    characterLevel: parseInt(document.getElementById('dmEditLevel').value, 10) || 1,
+    characterHitDice: document.getElementById('dmEditHitDice').value,
+    characterCurrentHp: curHp,
+    characterMaxHp: maxHp,
+    characterAc: parseInt(document.getElementById('dmEditAc').value, 10) || 10,
+    characterAbilityScores: abilityScores,
+    saveProficiencies, skillProficiencies,
+  };
+  // Reviving back above 0 HP clears any in-progress death save so a later drop to 0 starts
+  // fresh instead of picking up wherever the old attempt left off.
+  if (curHp > 0) { fields.deathSaveSuccesses = 0; fields.deathSaveFailures = 0; }
+  const msgEl = document.getElementById('dmEditPlayerMsg');
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, fields).then(() => {
+    if (msgEl) { msgEl.textContent = '✓ Saved.'; msgEl.style.color = ''; }
+    setTimeout(closeDmEditPlayerModal, 500);
+  }).catch(() => { if (msgEl) { msgEl.textContent = '✗ Failed to save — try again.'; msgEl.style.color = 'var(--danger)'; } });
 }
 // Read-only rendering of a FOREIGN player's equipment, laid out exactly like the real doll on
 // the local Inventory tab (same CSS classes/grid positions — see #tab-inventory's
@@ -16741,6 +16994,14 @@ function applyStateBlob(data) {
   if (data.saveProficiencies) saveProficiencies = data.saveProficiencies;
   if (typeof data.characterCurrentHp === 'number') characterCurrentHp = data.characterCurrentHp;
   if (typeof data.characterMaxHp === 'number') characterMaxHp = data.characterMaxHp;
+  // Clamped here rather than at every render site — this is the one place ANY incoming HP
+  // value (a local save/reload, or a remote combat-attack delta landing via applyHpDelta,
+  // which increments Firestore's stored number atomically with no clamp of its own since
+  // Firestore has no server-side "clamp after increment") gets folded into the live state, so
+  // it's the one place that's guaranteed to run regardless of source. A value already out of
+  // range self-corrects the moment this fires, and stays corrected once the next save pushes
+  // it back out.
+  characterCurrentHp = Math.max(0, Math.min(characterCurrentHp, characterMaxHp || characterCurrentHp));
   if (data.characterHitDice !== undefined) characterHitDice = data.characterHitDice;
   if (typeof data.characterAc === 'number') characterAc = data.characterAc;
   if (data.characterClass !== undefined) characterClass = data.characterClass;

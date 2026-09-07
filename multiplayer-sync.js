@@ -874,9 +874,17 @@ function startRosterListener() {
     snap.forEach((docSnap) => {
       const d = docSnap.data();
       const s = d.state || {};
+      // Clamped the same as the owning client's own applyStateBlob — applyHpDelta increments
+      // Firestore's stored number atomically with no clamp of its own, so an out-of-range value
+      // can genuinely be sitting in the doc for the moment between a combat hit landing and the
+      // target's own client next saving (which self-corrects it) — the DM's targeting picker
+      // shouldn't show a negative HP or one above max in that window.
+      const maxHp = s.characterMaxHp;
+      const currentHp = typeof s.characterCurrentHp === "number" && typeof maxHp === "number"
+        ? Math.max(0, Math.min(s.characterCurrentHp, maxHp)) : s.characterCurrentHp;
       mp.roster.set(docSnap.id, {
         username: d.username || "Unnamed", role: d.role, updatedAt: d.updatedAt,
-        currentHp: s.characterCurrentHp, maxHp: s.characterMaxHp, ac: s.characterAc,
+        currentHp, maxHp, ac: s.characterAc,
       });
     });
     renderAccountPanel();
