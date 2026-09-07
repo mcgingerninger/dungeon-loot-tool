@@ -12969,7 +12969,13 @@ const SPELL_SOURCE_ROOTS = {
 };
 const SPELL_SCHOOL_NAMES = {A:'Abjuration',C:'Conjuration',D:'Divination',E:'Enchantment',V:'Evocation',I:'Illusion',N:'Necromancy',T:'Transmutation',P:'Psionic'};
 const SPELL_SOURCE_NAMES = {
-  PHB:"Player's Handbook",XGE:"Xanathar's Guide to Everything",TCE:"Tasha's Cauldron of Everything",SCAG:"Sword Coast Adventurer's Guide",EEPC:"Elemental Evil Player's Companion",EGW:"Explorer's Guide to Wildemount",FTD:"Fizban's Treasury of Dragons",SCC:"Strixhaven: A Curriculum of Chaos",GGR:"Guildmasters' Guide to Ravnica",AI:"Acquisitions Incorporated",AAG:"Astral Adventurer's Guide",IDRotF:"Icewind Dale: Rime of the Frostmaiden",LLK:"Lost Laboratory of Kwalish",BMT:"The Book of Many Things",SatO:"Sigil and the Outlands",EFA:"Eberron: Forge of the Artificer",FRHoF:"Forgotten Realms: Heroes of the Frontier",AitFR:"Adventures in the Forgotten Realms"
+  PHB:"Player's Handbook",XGE:"Xanathar's Guide to Everything",TCE:"Tasha's Cauldron of Everything",SCAG:"Sword Coast Adventurer's Guide",EEPC:"Elemental Evil Player's Companion",EGW:"Explorer's Guide to Wildemount",FTD:"Fizban's Treasury of Dragons",SCC:"Strixhaven: A Curriculum of Chaos",GGR:"Guildmasters' Guide to Ravnica",AI:"Acquisitions Incorporated",AAG:"Astral Adventurer's Guide",IDRotF:"Icewind Dale: Rime of the Frostmaiden",LLK:"Lost Laboratory of Kwalish",BMT:"The Book of Many Things",SatO:"Sigil and the Outlands",EFA:"Eberron: Forge of the Artificer",FRHoF:"Forgotten Realms: Heroes of the Frontier",AitFR:"Adventures in the Forgotten Realms",
+  // Added for the expanded Monster Compendium source list (MONSTER_SOURCE_FILES) — these
+  // codes only ever show up on a monster's `source` field, never a spell's, but spellSourceLabel
+  // is shared by both (see monsterNormalize), so they live in the one shared name table.
+  MM:"Monster Manual",VGM:"Volo's Guide to Monsters",MTF:"Mordenkainen's Tome of Foes",MPMM:"Monsters of the Multiverse",MFF:"Mordenkainen's Fiendish Folio",BGG:"Bigby Presents: Glory of the Giants",
+  LMoP:"Lost Mine of Phandelver",HotDQ:"Hoard of the Dragon Queen",RtG:"Rise of Tiamat",OotA:"Out of the Abyss",SKT:"Storm King's Thunder",
+  TftYP:"Tales from the Yawning Portal",WDH:"Waterdeep: Dragon Heist",WDMM:"Waterdeep: Dungeon of the Mad Mage",BGDIA:"Baldur's Gate: Descent into Avernus"
 };
 const SPELL_SCHOOL_SHORT = SPELL_SCHOOL_NAMES;
 let spellDatabase = [];
@@ -13169,10 +13175,23 @@ function copySpellMetadata(i){
 // blocks from the same 5etools mirror, normalize, and render as a searchable table plus
 // a detail view. This is the data foundation for an eventual combat simulator, so every
 // creature keeps its full action/attack list, not just headline stats.
-// Starting with just the core Monster Manual — add more `code: 'file.json'` entries here
-// to pull in additional source books later without touching anything else.
+// Started with just the core Monster Manual; expanded to a curated set of the other major
+// monster supplements plus several Forgotten-Realms-set adventure books (out of ~96 total
+// bestiary files this mirror actually hosts — most of the rest are single-adventure exclusives
+// or reprints of the same handful of named NPCs, not worth the extra load time). Order matters:
+// listed earliest wins on a name collision (see the dedup pass in fetchMonsterSet below), so MM
+// stays canonical for anything reprinted elsewhere before broader supplements, before
+// adventure-specific one-offs.
 const MONSTER_DATA_ROOT = 'https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-src/main/data/bestiary/';
-const MONSTER_SOURCE_FILES = { MM: 'bestiary-mm.json' };
+const MONSTER_SOURCE_FILES = {
+  MM: 'bestiary-mm.json',
+  VGM: 'bestiary-vgm.json', MTF: 'bestiary-mtf.json', MPMM: 'bestiary-mpmm.json', TCE: 'bestiary-tce.json',
+  XGE: 'bestiary-xge.json', FTD: 'bestiary-ftd.json', BGG: 'bestiary-bgg.json', MFF: 'bestiary-mff.json',
+  // Forgotten Realms-set adventures (Sword Coast, Icewind Dale, Waterdeep, the Underdark, Baldur's Gate).
+  LMoP: 'bestiary-lmop.json', HotDQ: 'bestiary-hotdq.json', RtG: 'bestiary-rtg.json', OotA: 'bestiary-oota.json',
+  SKT: 'bestiary-skt.json', TftYP: 'bestiary-tftyp.json', WDH: 'bestiary-wdh.json', WDMM: 'bestiary-wdmm.json',
+  BGDIA: 'bestiary-bgdia.json', IDRotF: 'bestiary-idrotf.json',
+};
 const MONSTER_SIZE_NAMES = { T:'Tiny', S:'Small', M:'Medium', L:'Large', H:'Huge', G:'Gargantuan' };
 
 let monsterDatabase = [];
@@ -13349,7 +13368,17 @@ async function fetchMonsterSet() {
       return (j.monster || []).map(m => monsterNormalize(m, fluffMap));
     } catch (e) { console.warn('Monster source failed', code, e); return []; }
   }));
-  return results.flat();
+  // Promise.all resolves in the SAME order as the input array regardless of which fetch
+  // actually finished first, so `results` is already in MONSTER_SOURCE_FILES's own declared
+  // order — first-seen-wins dedup here means MM (listed first) stays canonical over a later
+  // supplement's reprint of the same name, and a broad supplement wins over an adventure book's
+  // one-off reprint, rather than every duplicate name showing up twice in search results.
+  const seen = new Set();
+  return results.flat().filter(m => {
+    if (seen.has(m.name)) return false;
+    seen.add(m.name);
+    return true;
+  });
 }
 async function loadMonsterDatabase(force = false) {
   const token = ++monsterLoadToken;
