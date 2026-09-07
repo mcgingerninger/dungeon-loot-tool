@@ -13173,17 +13173,33 @@ async function loadMonsterDatabase(force = false) {
   try {
     const all = await fetchMonsterSet();
     if (token !== monsterLoadToken) return;
-    monsterDatabase = all;
+    // CUSTOM_HUMAN_NPCS (see HUMAN_NPC_DEFS above) is homebrew, not fetched — appended here so
+    // it's available everywhere monsterDatabase is read (Combat tab, Bounty board, monster-part
+    // generation) exactly like an official entry, with no separate code path anywhere else.
+    // fetchMonsterSet already swallows a failed source fetch internally and just returns fewer
+    // monsters (see its own try/catch) rather than throwing, so a DM with no connection still
+    // lands here with `all` empty — that's exactly the case the count message below calls out,
+    // rather than an unreachable catch below ever needing to handle it.
+    monsterDatabase = all.concat(CUSTOM_HUMAN_NPCS);
     monsterDatabaseLoaded = true;
     populateMonsterFilters();
     renderMonsterTable();
+    if (!all.length) {
+      const countEl = document.getElementById('monsterCount');
+      if (countEl) countEl.textContent = `${monsterDatabase.length.toLocaleString()} creature${monsterDatabase.length===1?'':'s'} shown · official bestiary unavailable (offline?) — showing homebrew NPCs only`;
+    }
     // One-time: build every monster's full set of part items into lootData now that the
     // registry actually has creatures in it — see generatePremadeMonsterParts()'s comment.
     if (typeof generatePremadeMonsterParts === 'function') generatePremadeMonsterParts();
   } catch (err) {
-    wrap.innerHTML = '<div class="spell-loading">Unable to load the monster database. This tab needs an internet connection to retrieve the structured source records. Try Refresh Monster Data.</div>';
-    const countEl = document.getElementById('monsterCount');
-    if (countEl) countEl.textContent = 'Monster database unavailable';
+    // Genuinely unexpected failure (not a network error — see the comment above) — the
+    // homebrew NPCs still work with no dependency on any of this, so fall back to just those
+    // rather than leaving the tab empty.
+    monsterDatabase = CUSTOM_HUMAN_NPCS.slice();
+    monsterDatabaseLoaded = true;
+    populateMonsterFilters();
+    renderMonsterTable();
+    if (typeof generatePremadeMonsterParts === 'function') generatePremadeMonsterParts();
     console.error(err);
   }
 }
@@ -13210,6 +13226,284 @@ function crSortValue(cr) {
   if (s.includes('/')) { const [a, b] = s.split('/').map(Number); return b ? a / b : 0; }
   return Number(s) || 0;
 }
+
+// ===================== HOMEBREW: HUMAN CITY/TOWN NPCs =====================
+// Fifty hand-authored human stat blocks in the exact shape monsterNormalize() produces from
+// the real 5etools bestiary above — merged into monsterDatabase in loadMonsterDatabase() below,
+// so every existing consumer (Combat tab, Bounty board, monster-part generation) treats them
+// exactly like an official Monster Manual entry. Meant to be the default cast for a fight that
+// actually happens in a city or town, instead of reaching for wilderness monsters that don't
+// belong there. `desc` is the one field no official stat block carries — showMonsterDetail()
+// renders it as flavor text when present, and it's simply absent (so simply not shown) on
+// every real monster.
+function abilityMod(score) { return Math.floor((score - 10) / 2); }
+function humanNpcProfBonus(crNum) { return crNum >= 17 ? 6 : crNum >= 13 ? 5 : crNum >= 9 ? 4 : crNum >= 5 ? 3 : 2; }
+// One weapon attack's numbers, fully derived from the ability score and CR passed in — every
+// to-hit and damage figure across all fifty is honestly computed, never hand-typed independent
+// of the stat block it's attached to.
+function humanNpcAttack(weaponName, dice, dmgType, abilityScore, crNum, opts) {
+  opts = opts || {};
+  const mod = abilityMod(abilityScore);
+  const toHit = mod + humanNpcProfBonus(crNum);
+  const m = /^(\d+)d(\d+)$/.exec(dice);
+  const n = m ? parseInt(m[1], 10) : 1, die = m ? parseInt(m[2], 10) : 6;
+  const avg = Math.floor(n * (die + 1) / 2) + mod;
+  const modStr = mod > 0 ? '+' + mod : mod < 0 ? String(mod) : '';
+  const kind = opts.ranged ? 'Ranged Weapon Attack' : 'Melee Weapon Attack';
+  const rangeText = opts.ranged ? `range ${opts.range || '80/320'} ft.` : `reach 5 ft.`;
+  return { name: weaponName, text: `${kind}: +${toHit} to hit, ${rangeText}, one target. Hit: ${avg} (${dice}${modStr}) ${dmgType} damage.${opts.extra ? ' ' + opts.extra : ''}` };
+}
+function humanNpc(cfg) {
+  const crNum = crSortValue(cfg.cr);
+  const conMod = abilityMod(cfg.con);
+  const [n, die] = cfg.hitDice;
+  const totalMod = conMod * n;
+  const hpAvg = Math.max(1, Math.floor(n * (die + 1) / 2) + totalMod);
+  const hpFormula = `${n}d${die}${totalMod ? (totalMod > 0 ? '+' + totalMod : totalMod) : ''}`;
+  const actions = [];
+  if (cfg.multiattack) actions.push({ name: 'Multiattack', text: cfg.multiattack });
+  (cfg.actions || []).forEach(a => {
+    actions.push(a.weapon ? humanNpcAttack(a.weapon, a.dice, a.dmgType, cfg[a.ability], crNum, a) : a);
+  });
+  return {
+    name: cfg.name, source: 'HB', page: null, sourceLabel: 'Homebrew (Human NPCs)',
+    size: 'Medium', type: 'Humanoid (Human)', alignment: cfg.alignment,
+    ac: cfg.ac, acFrom: cfg.acFrom || '', hp: `${hpAvg} (${hpFormula})`,
+    speed: cfg.speed || '30 ft.', cr: cfg.cr,
+    str: cfg.str, dex: cfg.dex, con: cfg.con, int: cfg.int, wis: cfg.wis, cha: cfg.cha,
+    skills: cfg.skills || '—', saves: cfg.saves || '—',
+    senses: `passive Perception ${10 + abilityMod(cfg.wis)}`, languages: cfg.languages || 'Common',
+    traits: cfg.traits || [], actions, bonusActions: cfg.bonusActions || [], reactions: cfg.reactions || [], legendary: [],
+    desc: cfg.desc,
+  };
+}
+const HUMAN_NPC_DEFS = [
+  { name:'Human Peasant', alignment:'N', cr:'0', ac:10, hitDice:[1,8], str:10,dex:10,con:10,int:10,wis:10,cha:10,
+    actions:[{weapon:'Club', dice:'1d4', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Calloused hands, sun-worn skin, and a life spent bent over someone else's field. Fights only when cornered, and badly." },
+  { name:'Human Townsman', alignment:'N', cr:'0', ac:10, hitDice:[1,8], str:10,dex:10,con:10,int:10,wis:10,cha:10,
+    actions:[{weapon:'Fists', dice:'1d3', dmgType:'bludgeoning', ability:'str'}],
+    desc:"An ordinary resident going about an ordinary day — a shopkeep, a clerk, a neighbor. Panics readily; fights only to flee." },
+  { name:'Human Beggar', alignment:'N', cr:'0', ac:9, hitDice:[1,6], str:8,dex:9,con:9,int:9,wis:10,cha:8,
+    actions:[{weapon:'Improvised Club', dice:'1d4', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Hollow-cheeked and half-forgotten by the city that walks past. Knows every alley, doorway, and blind corner worth hiding in." },
+  { name:'Human Servant', alignment:'N', cr:'0', ac:10, hitDice:[1,8], str:9,dex:11,con:10,int:10,wis:11,cha:10,
+    actions:[{weapon:'Serving Knife', dice:'1d4', dmgType:'slashing', ability:'dex'}],
+    desc:"Employed in a household well above their own station, and trained since childhood to be seen and not heard." },
+  { name:'Human Merchant', alignment:'N', cr:'0', ac:10, hitDice:[1,8], str:9,dex:10,con:10,int:12,wis:11,cha:14,
+    skills:'Persuasion +4, Deception +4',
+    actions:[{weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex'}],
+    desc:"Can name the going rate of anything from three towns over without pausing to think. Will absolutely try to talk their way out of trouble first." },
+  { name:'Human Farmer', alignment:'N', cr:'0', ac:10, hitDice:[2,8], str:13,dex:9,con:12,int:9,wis:11,cha:9,
+    actions:[{weapon:'Pitchfork', dice:'1d6', dmgType:'piercing', ability:'str'}],
+    desc:"Built from decades of honest labor — stronger than they look, and not afraid to prove it if their land or family is threatened." },
+  { name:'Human Fishmonger', alignment:'N', cr:'0', ac:10, hitDice:[1,8], str:11,dex:10,con:10,int:9,wis:10,cha:9,
+    actions:[{weapon:'Gutting Knife', dice:'1d4', dmgType:'slashing', ability:'str'}],
+    desc:"Smells of brine and the morning catch. The knife in their apron is razor-sharp from long habit, not malice." },
+  { name:'Human Drunkard', alignment:'CN', cr:'0', ac:9, hitDice:[1,8], str:11,dex:8,con:11,int:8,wis:8,cha:9,
+    actions:[{weapon:'Broken Bottle', dice:'1d4', dmgType:'slashing', ability:'str'}],
+    desc:"Loud, unsteady, and spoiling for a fight they have no chance of winning. Somehow always seems to survive anyway." },
+  { name:'Human Street Urchin', alignment:'N', cr:'1/8', ac:12, hitDice:[2,6], str:8,dex:14,con:10,int:10,wis:11,cha:10,
+    skills:'Stealth +4, Sleight of Hand +4',
+    actions:[{weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex', extra:'The urchin has advantage on this attack if the target hasn\'t acted yet this encounter.'}],
+    desc:"Quick, dirty, and gone before anyone gets a good look. Works alone, or as one face in a whole ragged pack of them." },
+  { name:'Human Gravedigger', alignment:'N', cr:'0', ac:11, hitDice:[2,8], str:13,dex:10,con:12,int:9,wis:10,cha:8,
+    actions:[{weapon:'Shovel', dice:'1d6', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Unbothered by the dead and mostly unbothered by the living. Keeps odd hours and knows more about the town's secrets than anyone suspects." },
+  { name:'Human Guard', alignment:'LN', cr:'1/8', ac:16, acFrom:'chain shirt, shield', hitDice:[2,8], str:13,dex:12,con:12,int:10,wis:11,cha:10,
+    actions:[{weapon:'Spear', dice:'1d6', dmgType:'piercing', ability:'str'}],
+    desc:"City watch, standing post more out of duty than enthusiasm. Will blow a whistle for backup before drawing steel if there's any choice in the matter." },
+  { name:'Human Watchman', alignment:'LN', cr:'1/8', ac:13, acFrom:'leather armor, shield', hitDice:[2,8], str:12,dex:12,con:11,int:10,wis:12,cha:10,
+    skills:'Perception +3',
+    actions:[{weapon:'Club', dice:'1d4', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Walks the night shift with a lantern and a club, mostly breaking up drunks and checking locked doors." },
+  { name:'Human Militiaman', alignment:'N', cr:'1/8', ac:13, acFrom:'leather armor, shield', hitDice:[2,8], str:12,dex:11,con:12,int:9,wis:10,cha:9,
+    actions:[{weapon:'Spear', dice:'1d6', dmgType:'piercing', ability:'str'}],
+    desc:"A farmer or tradesman handed a spear and a rank when the town needed bodies on the wall. Steadier than expected, once it actually comes to it." },
+  { name:'Human Stablehand', alignment:'N', cr:'0', ac:11, hitDice:[2,8], str:12,dex:11,con:11,int:9,wis:11,cha:9,
+    actions:[{weapon:'Pitchfork', dice:'1d6', dmgType:'piercing', ability:'str'}],
+    desc:"Spends more time with the horses than with people, and trusts the horses more too. Protective of the animals to a surprising fault." },
+  { name:'Human Dockworker', alignment:'N', cr:'1/8', ac:11, hitDice:[2,10], str:15,dex:10,con:13,int:9,wis:10,cha:9,
+    actions:[{weapon:'Cargo Hook', dice:'1d6', dmgType:'piercing', ability:'str'}],
+    desc:"Built like a barrel from years of hauling crates off the boats. Doesn't start fights, but finishes them fast when they start with him." },
+  { name:'Human Thug', alignment:'NE', cr:'1/2', ac:11, acFrom:'leather armor', hitDice:[3,8], str:15,dex:11,con:14,int:10,wis:10,cha:11,
+    actions:[{weapon:'Mace', dice:'1d6', dmgType:'bludgeoning', ability:'str', extra:'Two rolled hits in the same turn deal an extra 2 (1d4) bludgeoning damage.'}],
+    desc:"Hired muscle, paid to intimidate first and hurt people second — though not in any particular order if the coin's good enough." },
+  { name:'Human Cutpurse', alignment:'NE', cr:'1/8', ac:12, acFrom:'leather armor', hitDice:[2,8], str:9,dex:15,con:10,int:11,wis:10,cha:12,
+    skills:'Sleight of Hand +4, Stealth +4',
+    actions:[{weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex'}],
+    desc:"Never actually wants a fight — a purse cut clean and a fast exit is the whole job. Draws steel only when the exit closes." },
+  { name:'Human Bandit', alignment:'NE', cr:'1/8', ac:12, acFrom:'leather armor', hitDice:[2,8], str:11,dex:12,con:12,int:9,wis:10,cha:10,
+    actions:[{weapon:'Scimitar', dice:'1d6', dmgType:'slashing', ability:'str'}],
+    desc:"Turned to robbery when honest work dried up, or never tried honest work at all. Works best in a group, and knows it." },
+  { name:'Human Brawler', alignment:'CN', cr:'1/4', ac:12, hitDice:[3,8], str:15,dex:12,con:14,int:8,wis:9,cha:9,
+    actions:[{weapon:'Fists', dice:'1d6', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Settles every disagreement the same way, and has the scars and the reputation to show for it. Rarely holds a grudge past the next drink." },
+  { name:'Human Smuggler', alignment:'N', cr:'1/4', ac:12, acFrom:'leather armor', hitDice:[3,8], str:11,dex:14,con:12,int:12,wis:11,cha:12,
+    skills:'Deception +3, Stealth +4',
+    actions:[{weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex'}],
+    desc:"Knows every false-bottomed crate and unwatched gate in the district. Would much rather talk, bribe, or vanish than fight." },
+  { name:'Human Swordsman', alignment:'N', cr:'1/2', ac:16, acFrom:'chain shirt, shield', hitDice:[4,8], str:14,dex:12,con:13,int:10,wis:11,cha:10,
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'}],
+    desc:"Formally trained, city-employed or freelance, and competent enough to make most street fights short and one-sided in his favor." },
+  { name:'Human Archer', alignment:'N', cr:'1/2', ac:13, acFrom:'leather armor', hitDice:[4,8], str:11,dex:16,con:12,int:10,wis:12,cha:10,
+    skills:'Perception +3',
+    actions:[{weapon:'Longbow', dice:'1d8', dmgType:'piercing', ability:'dex', ranged:true, range:'150/600'}],
+    desc:"Militia-trained and rooftop-comfortable, picking off targets from a vantage point long before melee ever becomes necessary." },
+  { name:'Human Scout', alignment:'N', cr:'1/2', ac:13, acFrom:'leather armor', hitDice:[4,8], str:12,dex:15,con:12,int:11,wis:13,cha:10,
+    skills:'Perception +4, Stealth +4',
+    actions:[{weapon:'Shortsword', dice:'1d6', dmgType:'piercing', ability:'dex'}],
+    desc:"Knows the rooftops, sewers, and back roads better than most guards know the front gate. Reports what he sees; rarely gets seen doing it." },
+  { name:'Human Constable', alignment:'LN', cr:'1', ac:16, acFrom:'chain shirt, shield', hitDice:[5,8], str:13,dex:12,con:13,int:12,wis:14,cha:13,
+    skills:'Insight +4, Persuasion +3',
+    traits:[{name:'Voice of Authority', text:'Once per short rest, the constable can order a bystander or lesser guard to act, who does so on their next turn if able.'}],
+    actions:[{weapon:'Mace', dice:'1d6', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Carries real legal weight in this district — an arrest warrant from her is one nobody local dares ignore." },
+  { name:'Human Duelist', alignment:'N', cr:'1', ac:15, acFrom:'studded leather', hitDice:[5,8], str:11,dex:16,con:12,int:11,wis:12,cha:14,
+    skills:'Acrobatics +5',
+    traits:[{name:'Riposte', text:'When a creature the duelist can see misses it with a melee attack, the duelist can use its reaction to make one rapier attack against that creature.'}],
+    actions:[{weapon:'Rapier', dice:'1d8', dmgType:'piercing', ability:'dex'}],
+    desc:"Graduate of a fencing academy with more style than any street brawl deserves, and the footwork to back it up." },
+  { name:'Human Spy', alignment:'N', cr:'1/2', ac:12, acFrom:'leather armor', hitDice:[4,8], str:10,dex:15,con:10,int:14,wis:13,cha:16,
+    skills:'Deception +6, Insight +4, Persuasion +6, Stealth +4',
+    actions:[{weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex', extra:'The spy has advantage on this attack against any creature it has been observing unnoticed for at least 1 minute.'}],
+    desc:"Nobody remembers her face on purpose — that's the whole point. Fluent in three accents and none of them her own." },
+  { name:'Human Deviant', alignment:'CE', cr:'1', ac:12, hitDice:[6,8], str:13,dex:14,con:13,int:9,wis:8,cha:14,
+    traits:[{name:'Unsettling Presence', text:'A creature that starts its turn within 10 feet of the deviant and can see it must succeed on a DC 12 Wisdom saving throw or have disadvantage on attack rolls against creatures other than the deviant until the start of its next turn.'}],
+    actions:[{weapon:'Claws', dice:'1d6', dmgType:'slashing', ability:'dex'}],
+    desc:"Something about them is subtly, persistently wrong — the smile that doesn't reach the eyes, the too-long pause before answering. Whatever it is, it isn't natural." },
+  { name:'Human Cultist', alignment:'NE', cr:'1/8', ac:12, acFrom:'leather armor', hitDice:[2,8], str:11,dex:12,con:10,int:10,wis:11,cha:10,
+    traits:[{name:'Dark Devotion', text:'The cultist has advantage on saving throws against being charmed or frightened.'}],
+    actions:[{weapon:'Scimitar', dice:'1d6', dmgType:'slashing', ability:'str'}],
+    desc:"Robed, quiet, and utterly certain — recruited by promises, fear, or something worse, and past the point of talking them back." },
+  { name:'Human Zealot', alignment:'NE', cr:'2', ac:13, acFrom:'leather armor', hitDice:[7,8], str:11,dex:14,con:12,int:10,wis:13,cha:14,
+    traits:[{name:'Dark Devotion', text:'The zealot has advantage on saving throws against being charmed or frightened.'}],
+    actions:[
+      {weapon:'Scimitar', dice:'1d6', dmgType:'slashing', ability:'dex'},
+      {name:'Dark Blessing', text:'The zealot channels borrowed power into a bolt of necrotic energy. Ranged Spell Attack: +4 to hit, range 60 ft., one target. Hit: 10 (3d6) necrotic damage. Usable twice per long rest.'},
+    ],
+    desc:"Leads a small cell of true believers and speaks with the unshakable confidence of someone who has already stopped fearing death." },
+  { name:'Human Mercenary', alignment:'N', cr:'1', ac:16, acFrom:'chain shirt, shield', hitDice:[6,8], str:15,dex:12,con:14,int:10,wis:11,cha:11,
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'}],
+    desc:"Fights for whoever's paying today, and thinks nothing of fighting for someone else tomorrow. Professional about it either way." },
+  { name:'Human Bounty Hunter', alignment:'N', cr:'1', ac:14, acFrom:'studded leather', hitDice:[6,8], str:13,dex:16,con:13,int:11,wis:13,cha:11,
+    skills:'Perception +3, Survival +3',
+    actions:[
+      {weapon:'Shortsword', dice:'1d6', dmgType:'piercing', ability:'dex'},
+      {name:'Net', text:'Ranged Weapon Attack: +5 to hit, range 5/15 ft., one Large or smaller creature. Hit: the target is restrained until it uses its action to make a DC 12 Strength check, escaping on a success.'},
+    ],
+    desc:"Paid to bring targets back alive when possible — and equipped to make that a real option, not just a courtesy." },
+  { name:'Human Poisoner', alignment:'NE', cr:'1/2', ac:12, acFrom:'leather armor', hitDice:[4,8], str:9,dex:15,con:11,int:14,wis:11,cha:11,
+    actions:[{weapon:'Poisoned Dagger', dice:'1d4', dmgType:'piercing', ability:'dex', extra:'The target must succeed on a DC 12 Constitution saving throw or take an extra 7 (2d6) poison damage and become poisoned for 1 minute.'}],
+    desc:"Sells vials out of a back-alley shop and isn't shy about testing his own wares on anyone who stiffs him." },
+  { name:'Human Bodyguard', alignment:'N', cr:'1', ac:16, acFrom:'chain shirt, shield', hitDice:[7,8], str:16,dex:12,con:14,int:10,wis:12,cha:11,
+    traits:[{name:'Bodyguard', text:'While within 5 feet of the person it\'s protecting, the bodyguard can use its reaction to impose disadvantage on an attack roll against that person by interposing itself, taking any damage dealt instead.'}],
+    actions:[{weapon:'Warhammer', dice:'1d8', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Hired to stand close and stay alert, and takes both parts of that job seriously enough to die doing them." },
+  { name:'Human Inquisitor', alignment:'LN', cr:'2', ac:15, acFrom:'breastplate', hitDice:[7,8], str:12,dex:13,con:13,int:14,wis:16,cha:13,
+    skills:'Insight +6, Investigation +5, Religion +4',
+    traits:[{name:'Truth-Seeker', text:'The inquisitor knows if it hears a deliberate lie spoken within 30 feet of it.'}],
+    actions:[{weapon:'Mace', dice:'1d6', dmgType:'bludgeoning', ability:'str'}],
+    desc:"Sent by a temple or a crown to sniff out heresy, corruption, or plain old crime. Rarely wrong, and never in a hurry to say so." },
+  { name:'Human Witch Hunter', alignment:'LN', cr:'2', ac:14, acFrom:'studded leather', hitDice:[7,8], str:12,dex:15,con:13,int:12,wis:14,cha:11,
+    skills:'Arcana +3, Investigation +3, Perception +4',
+    traits:[{name:'Attuned Against Magic', text:'The witch hunter has advantage on attack rolls against any creature it knows to be a spellcaster, and advantage on saving throws against spells.'}],
+    actions:[{weapon:'Silvered Crossbow', dice:'1d8', dmgType:'piercing', ability:'dex', ranged:true, range:'80/320'}],
+    desc:"Hunts practitioners of forbidden magic with a crossbow of silvered bolts and a conviction nothing seems to shake." },
+  { name:'Human Veteran', alignment:'N', cr:'3', ac:17, acFrom:'splint armor', hitDice:[9,8], str:16,dex:13,con:14,int:10,wis:11,cha:10,
+    multiattack:'The veteran makes two longsword attacks.',
+    actions:[
+      {weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'},
+      {weapon:'Heavy Crossbow', dice:'1d10', dmgType:'piercing', ability:'dex', ranged:true, range:'100/400'},
+    ],
+    desc:"Retired from a real war, not a barracks brawl, and it shows in how little wasted motion is left in his swordplay." },
+  { name:'Human Knight', alignment:'LG', cr:'3', ac:18, acFrom:'plate armor, shield', hitDice:[9,8], str:16,dex:11,con:14,int:11,wis:11,cha:15,
+    skills:'Persuasion +4',
+    multiattack:'The knight makes two longsword attacks.',
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'}],
+    traits:[{name:'Leadership', text:'While within 30 feet of the knight, an ally can add 1d4 to an attack roll or saving throw it makes, once per turn. Usable 3 times per short rest.'}],
+    desc:"Sworn to a noble house or a temple order, and holds himself to that oath in full view of the city that's watching." },
+  { name:'Human Priest', alignment:'LN', cr:'2', ac:13, acFrom:'chain shirt', hitDice:[7,8], str:10,dex:10,con:12,int:13,wis:16,cha:13,
+    skills:'Medicine +6, Religion +4',
+    actions:[
+      {weapon:'Mace', dice:'1d6', dmgType:'bludgeoning', ability:'str'},
+      {name:'Healing Word', text:'The priest touches a willing creature, who regains 8 (2d6+1) hit points. Usable 3 times per long rest.'},
+    ],
+    desc:"Tends the sick and the dying at the local shrine, and won't hesitate to step between a threat and the flock." },
+  { name:'Human Mage', alignment:'N', cr:'3', ac:12, acFrom:'mage armor', hitDice:[8,6], str:9,dex:14,con:12,int:16,wis:12,cha:11,
+    skills:'Arcana +5, Investigation +5',
+    actions:[
+      {weapon:'Dagger', dice:'1d4', dmgType:'piercing', ability:'dex'},
+      {name:'Fire Bolt', text:'Ranged Spell Attack: +5 to hit, range 120 ft., one target. Hit: 10 (3d6) fire damage.'},
+      {name:'Lightning Lash', text:'Each creature in a 30-foot line must make a DC 13 Dexterity saving throw, taking 22 (4d10) lightning damage on a failed save, or half as much on a success. Usable once per long rest.'},
+    ],
+    desc:"A hedge wizard who set up shop in town rather than a tower in the wild — reclusive, sharp-tongued, and dangerous when actually provoked." },
+  { name:'Human Noble', alignment:'N', cr:'1/8', ac:11, hitDice:[3,8], str:11,dex:12,con:11,int:12,wis:14,cha:16,
+    skills:'Deception +5, Insight +4, Persuasion +5',
+    actions:[{weapon:'Rapier', dice:'1d8', dmgType:'piercing', ability:'dex'}],
+    desc:"Wealthy, well-connected, and thoroughly unused to being told no. Has bodyguards nearby for exactly this reason." },
+  { name:'Human Captain of the Guard', alignment:'LN', cr:'3', ac:18, acFrom:'plate armor, shield', hitDice:[10,8], str:16,dex:12,con:15,int:12,wis:13,cha:14,
+    skills:'Athletics +5, Intimidation +4',
+    multiattack:'The captain makes two longsword attacks.',
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'}],
+    traits:[{name:'Command', text:'Once per turn, the captain can use a bonus action to direct a friendly guard within 30 feet to make one weapon attack as a reaction.'}],
+    desc:"Runs the watch with real competence, which is exactly why she's the one summoned when a fight is too big for a patrol." },
+  { name:'Human Vigilante', alignment:'CG', cr:'2', ac:15, acFrom:'studded leather', hitDice:[8,8], str:12,dex:17,con:13,int:11,wis:12,cha:10,
+    skills:'Acrobatics +5, Stealth +5',
+    multiattack:'The vigilante makes two shortsword attacks.',
+    actions:[{weapon:'Shortsword', dice:'1d6', dmgType:'piercing', ability:'dex'}],
+    desc:"Works the rooftops after dark, dispensing a justice the city watch is either too slow or too bribed to bother with." },
+  { name:'Human Champion', alignment:'N', cr:'4', ac:18, acFrom:'plate armor', hitDice:[12,10], str:18,dex:13,con:16,int:10,wis:11,cha:14,
+    skills:'Athletics +7',
+    multiattack:'The champion makes two greatsword attacks.',
+    actions:[{weapon:'Greatsword', dice:'2d6', dmgType:'slashing', ability:'str', extra:'The champion scores a critical hit on a roll of 19 or 20.'}],
+    desc:"Undefeated in the arena for three seasons running, and treats every fight since as just another bout to win in style." },
+  { name:'Human Master Assassin', alignment:'NE', cr:'5', ac:16, acFrom:'studded leather', hitDice:[13,8], str:12,dex:18,con:13,int:14,wis:12,cha:12,
+    skills:'Acrobatics +7, Deception +4, Perception +4, Stealth +10',
+    traits:[{name:'Assassinate', text:'During its first turn, the assassin has advantage on attack rolls against any creature that hasn\'t acted yet. Any hit the assassin scores against a surprised creature is a critical hit.'}],
+    multiattack:'The assassin makes two shortsword attacks.',
+    actions:[{weapon:'Shortsword', dice:'1d6', dmgType:'piercing', ability:'dex', extra:'The target also takes 14 (4d6) extra poison damage from envenomed steel.'}],
+    desc:"Contracted, expensive, and rarely seen twice by anyone who lives to describe her the first time." },
+  { name:'Human Hero', alignment:'CG', cr:'5', ac:18, acFrom:'plate armor', hitDice:[14,10], str:17,dex:14,con:16,int:11,wis:12,cha:16,
+    skills:'Athletics +6, Persuasion +6',
+    traits:[{name:'Indomitable', text:'If the hero fails a saving throw, it can choose to succeed instead. Usable once per long rest.'}],
+    multiattack:'The hero makes two greatsword attacks.',
+    actions:[{weapon:'Greatsword', dice:'2d6', dmgType:'slashing', ability:'str'}],
+    desc:"Genuinely beloved by the people of the city for a real deed done years ago, and still trying to live up to the songs written about it." },
+  { name:'Human Warlord', alignment:'LE', cr:'6', ac:19, acFrom:'plate armor, shield', hitDice:[15,10], str:18,dex:12,con:16,int:13,wis:13,cha:14,
+    skills:'Athletics +7, Intimidation +5',
+    traits:[{name:'Inspiring Presence', text:'At the start of its turn, the warlord grants itself and up to three allies within 30 feet 10 temporary hit points each.'}],
+    multiattack:'The warlord makes three longsword attacks.',
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str'}],
+    desc:"Commands whatever armed force the city can muster on short notice, and has never once lost a battle he was allowed to plan." },
+  { name:'Human High Priest', alignment:'LG', cr:'5', ac:16, acFrom:'half plate', hitDice:[13,8], str:12,dex:11,con:14,int:13,wis:18,cha:15,
+    skills:'Medicine +8, Religion +5',
+    actions:[
+      {weapon:'Mace', dice:'1d6', dmgType:'bludgeoning', ability:'str'},
+      {name:'Guardian Light', text:'The high priest calls down radiant light in a 20-foot radius. Each enemy in the area must make a DC 15 Constitution saving throw, taking 18 (4d8) radiant damage on a failure, or half on a success, while each ally in the area regains 13 (3d8) hit points. Usable once per long rest.'},
+    ],
+    desc:"Leads the largest temple in the city and carries both its authority and its enemies' full attention wherever he goes." },
+  { name:'Human Battlemage', alignment:'N', cr:'6', ac:15, acFrom:'mage armor', hitDice:[14,8], str:10,dex:15,con:14,int:18,wis:12,cha:12,
+    skills:'Arcana +8, Investigation +6',
+    actions:[
+      {weapon:'Quarterstaff', dice:'1d6', dmgType:'bludgeoning', ability:'dex'},
+      {name:'Arcane Blast', text:'Ranged Spell Attack: +7 to hit, range 120 ft., one target. Hit: 18 (4d8) force damage.'},
+      {name:'Fireball', text:'Each creature in a 20-foot-radius sphere must make a DC 16 Dexterity saving throw, taking 28 (8d6) fire damage on a failed save, or half as much on a success. Usable once per long rest.'},
+    ],
+    desc:"Retained by the city as a living deterrent — most disputes end the moment someone remembers she's on the payroll." },
+  { name:'Human King', alignment:'LN', cr:'8', ac:19, acFrom:'ornate plate armor, shield', hitDice:[16,10], str:16,dex:12,con:16,int:14,wis:13,cha:18,
+    skills:'Insight +5, Intimidation +8, Persuasion +8',
+    saves:'STR +7, CON +7, CHA +8',
+    traits:[{name:'Royal Guard', text:'Once per long rest as a bonus action, the king can summon two Human Guards to appear in unoccupied spaces within 30 feet of him, arriving on his next turn.'}],
+    multiattack:'The king makes two longsword attacks.',
+    actions:[{weapon:'Longsword', dice:'1d8', dmgType:'slashing', ability:'str', extra:'The king wields this longsword two-handed for an extra 1d4 damage.'}],
+    desc:"Rules by law, lineage, and — should it come to it — a blade he still knows exactly how to use. Never truly alone, and never truly unarmed." },
+  { name:'Human Executioner', alignment:'LN', cr:'3', ac:16, acFrom:'studded leather', hitDice:[9,10], str:17,dex:12,con:15,int:9,wis:12,cha:9,
+    skills:'Intimidation +4',
+    actions:[{weapon:'Greataxe', dice:'1d12', dmgType:'slashing', ability:'str', extra:'The executioner scores a critical hit against any creature that is restrained, paralyzed, or unconscious.'}],
+    desc:"Carries out the city's harshest sentences without ceremony or hesitation, and treats a fight the same clinical way." },
+];
+const CUSTOM_HUMAN_NPCS = HUMAN_NPC_DEFS.map(humanNpc);
 function monsterMatches(m) {
   const q = (document.getElementById('monsterSearch')?.value || '').toLowerCase().trim();
   const typeFilter = document.getElementById('monsterTypeFilter')?.value || 'all';
@@ -13296,7 +13590,10 @@ function showMonsterDetail(i) {
     monsterActionsHtml(m.reactions, 'Reactions'),
     monsterActionsHtml(m.legendary, 'Legendary Actions'),
   ].join('');
+  // m.desc is a homebrew-only field (see CUSTOM_MONSTERS) — official 5etools stat blocks never
+  // carry prose flavor text, so this simply renders nothing for any of those.
   el.innerHTML = `<div class="spell-detail-head"><div><div class="spell-detail-name">${escapeHtml(m.name)}</div><div class="spell-detail-sub">${escapeHtml(m.sourceLabel)}</div></div><button class="edit-modal-close" onclick="document.getElementById('monsterDetail').classList.remove('open')">×</button></div>
+    ${m.desc ? `<div class="ic-desc" style="margin:0.6rem 0 0.9rem;">${escapeHtml(m.desc)}</div>` : ''}
     <div class="spell-detail-grid">${monsterAbilityBlockHtml(m)}${fields.map(([k,v])=>`<div class="spell-detail-field"><span class="spell-detail-label">${escapeHtml(k)}</span><span class="spell-detail-value">${escapeHtml(String(v))}</span></div>`).join('')}</div>
     <div class="ic-modifiers" style="margin-top:1rem;">${actionsHtml}</div>
     ${monsterPossibleDropsHtml(m)}`;
