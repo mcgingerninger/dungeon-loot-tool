@@ -304,6 +304,23 @@ async function connectAsRole(uid, role, roomCode, username) {
   // browser's fresh localStorage. Only push if there's genuinely nothing there yet;
   // startPlayerListener()'s first snapshot handles pulling existing state down either way.
   const existing = await getDoc(playerDocRef(roomCode, uid));
+  // mp.pushRev resets to 0 on every fresh page load/reconnect, but a RETURNING account's doc
+  // already carries a `rev` left over from its previous session (whatever it last pushed).
+  // Without seeding from that value here, the very first reconnect snapshot — which is always
+  // this account's OWN pre-existing (and by now possibly stale, pre-this-session) data being
+  // pulled back down by design (see the comment below) — compares its old `rev` against a
+  // freshly-reset `mp.pushRev` of 0/1 in startPlayerListener's self-echo guard. Two independent
+  // counters from two different sessions essentially never happen to collide, so the guard's
+  // "is this echo stale?" check silently fails to recognize it as stale, and if ANY local change
+  // is made (and pushed) before that delayed initial snapshot finishes its own round trip, the
+  // late-arriving stale snapshot overwrites the fresh change moments later — exactly the
+  // "applied a hit, watched the HP revert almost immediately" bug this fixes. Seeding here means
+  // the FIRST comparison after reconnecting is already apples-to-apples with this account's own
+  // history instead of starting from a counter that's lying about being at rev 0.
+  if (existing.exists()) {
+    const existingRev = existing.data().rev;
+    if (typeof existingRev === "number" && existingRev > mp.pushRev) mp.pushRev = existingRev;
+  }
   mp.connected = true;
   if (!existing.exists()) {
     // refreshLocalStateCache() just captured whatever THIS BROWSER's current in-memory state
@@ -740,8 +757,13 @@ function pushBattlefieldState(battleRoster, battleLog) {
     // write, never removed the item from what they could see and try to click. There is nothing
     // for a player to find via devtools that the DM hasn't chosen to share.
     const payload = (battleRoster || []).map((entry) => {
-      const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed } = entry;
-      const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated };
+      const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed, isCorpse } = entry;
+      // isCorpse was missing from this list — combatCardHtml on a PLAYER's own client reads
+      // entry.isCorpse to show "☠ Remains" instead of a null-AC/0-HP stat line and to hide the
+      // attack-targeting picker, but since it never reached players' battlefieldRoster, every
+      // corpse (a dead player's own body, or a DM-stashed chest/loadout) rendered to players
+      // like a garden-variety defeated monster instead.
+      const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, isCorpse };
       if (loot && lootRevealed) out.loot = { tier: loot.tier, gold: loot.gold, items: loot.items.filter((it) => !it.reserved && !it.claimedBy) };
       return out;
     });
@@ -833,6 +855,13 @@ function startPlayerListener() {
     // setPlayerInventoryFields) but deliberately never touches `rev` when doing so, so those
     // writes always compare as >= mp.pushRev here and are never mistaken for a stale echo.
     if (typeof remote.rev === "number" && remote.rev < mp.pushRev) return;
+    // Belt-and-suspenders alongside the connect-time seeding in connectAsRole (see its comment
+    // for the full bug this closes): if a snapshot ever arrives carrying a `rev` higher than
+    // what this client thinks it has issued — e.g. the connect-time seed raced with a push and
+    // lost, or a different session for this same account pushed after this one started — treat
+    // that as the new floor going forward, so the guard below can't be fooled by a stale echo
+    // that happens to share the OLD, now-outdated mp.pushRev value on some later push.
+    if (typeof remote.rev === "number" && remote.rev > mp.pushRev) mp.pushRev = remote.rev;
     // Every push this client makes to its OWN doc round-trips straight back through this same
     // listener (Firestore always echoes a client's own writes back to it) — and with the guard
     // above, that echo's `rev` always equals mp.pushRev exactly, so it was never being dropped.
