@@ -321,7 +321,7 @@ async function connectAsRole(uid, role, roomCode, username) {
       savedGeneratedItems: [], playerSlots: {}, recentlyLooted: [],
       characterAbilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
       characterLevel: 1, skillProficiencies: [], saveProficiencies: [],
-      characterCurrentHp: 10, characterMaxHp: 10, characterHitDice: "", characterAc: 10, characterClass: "",
+      characterCurrentHp: 10, characterMaxHp: 10, characterMaxHpEffective: 10, characterHitDice: "", characterAc: 10, characterClass: "",
     };
     const created = await pushOwnState(blankState);
     if (!created) {
@@ -879,7 +879,10 @@ function startRosterListener() {
       // can genuinely be sitting in the doc for the moment between a combat hit landing and the
       // target's own client next saving (which self-corrects it) — the DM's targeting picker
       // shouldn't show a negative HP or one above max in that window.
-      const maxHp = s.characterMaxHp;
+      // characterMaxHpEffective is the gear-inclusive ceiling (base + equipped "Maximum Hit
+      // Points" bonuses) — falls back to the raw base for any doc saved before this field
+      // existed, same fallback pattern the app's own loadAppState uses.
+      const maxHp = typeof s.characterMaxHpEffective === "number" ? s.characterMaxHpEffective : s.characterMaxHp;
       const currentHp = typeof s.characterCurrentHp === "number" && typeof maxHp === "number"
         ? Math.max(0, Math.min(s.characterCurrentHp, maxHp)) : s.characterCurrentHp;
       mp.roster.set(docSnap.id, {
