@@ -2622,7 +2622,30 @@
       <button class="generate-btn" onclick="rollFleshCandidates()">🩸 Summon 3 Limbs</button>
       <div class="flesh-candidates" id="fleshCandidates"></div>
       <div class="flesh-confirm" id="fleshConfirm" style="display:none;"></div>
+
+      <h4 class="store-section-label">🩸 Rework Crafting Material</h4>
+      <p class="flesh-intro">
+        Or drag a monster part in here instead — no gamble, no chance of rejection. It's reworked
+        straight into a graft ready to attach. The better the part's own rarity, the stronger
+        (and, at the highest tiers, the more numerous) its beneficial effects will be.
+      </p>
+      <div class="mangler-slots-row">
+        <div class="mangler-drop-slot" id="fleshMaterialSlot" ondragover="slotDragOver(event)" ondrop="fleshMaterialDrop(event)">
+          <div class="mangler-drop-label">🩸 Crafting Material</div>
+          <div class="mangler-drop-content" id="fleshMaterialContent">Drag a monster part here</div>
+        </div>
+      </div>
+      <div class="mangler-preview" id="fleshWorkshopPreview"></div>
+      <button class="generate-btn" id="fleshReworkBtn" onclick="reworkPartIntoGraft()" disabled>🩸 Rework (select a part first)</button>
+      <div class="store-buy-msg" id="fleshWorkshopMsg"></div>
+
       <div class="flesh-result" id="fleshResult"></div>
+
+      <h4 class="store-section-label">🎒 Your Inventory</h4>
+      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part straight from here into the slot above. Anything that isn't a monster part is dimmed.</p>
+      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'fleshInvGrid')">
+        <div id="fleshInvGrid" class="inv-grid"></div>
+      </div>
 
       <details class="collapsible">
         <summary>⚖ Flesh Effect Weights</summary>
@@ -3079,8 +3102,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v91).
-const APP_VERSION = 'v91';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v92).
+const APP_VERSION = 'v92';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 </script>
@@ -4016,7 +4039,11 @@ const ARMOR_MATERIAL_PARTS  = new Set(['hide', 'horn', 'wing', 'bone', 'shell', 
 const REAGENT_PARTS         = new Set(['eye', 'fang', 'claw', 'venomsac', 'heart', 'tongue']);
 const RITUAL_PARTS          = new Set(['eye', 'horn', 'venomsac', 'heart', 'bone', 'tongue']);
 const SUMMON_PARTS          = new Set(['heart', 'bone']);
-const FLESHMANCER_PARTS     = new Set(['eye', 'heart', 'tongue', 'venomsac']);
+// Was scoped to just eye/heart/tongue/venomsac — a leftover stub from before the Fleshmancer
+// actually had a way to consume a monster part at all. Expanded to every part type now that
+// PART_TO_LIMB_CATEGORY (below) gives each of the 14 a sensible graft target, so "drag in a
+// monster part" means any monster part, not just a thematic handful of them.
+const FLESHMANCER_PARTS     = new Set(['eye', 'heart', 'tongue', 'venomsac', 'claw', 'talon', 'fang', 'horn', 'wing', 'shell', 'bone', 'hide', 'pelt', 'tail']);
 const TROPHY_PARTS          = new Set(['eye', 'hide', 'horn', 'wing', 'tail', 'heart', 'shell', 'pelt', 'talon']);
 const INTERACTIONS = {
   // ---- Equipment ----
@@ -7983,6 +8010,221 @@ const FLESH_QUALITY_ADJECTIVES = {
   transcendent: 'Perfected',
 };
 
+// ===================== FLESHMANCER: REWORK CRAFTING MATERIAL =====================
+// A second, deterministic path onto a graft — drag a monster part in directly instead of
+// paying gold for a fully random roll (see "Summon 3 Limbs" above). No outcome roll, no
+// chance of rejection: the part's own rarity decides how strong (and, at the top tiers, how
+// many) beneficial effects the result carries, the same way the Monster Mangler already scales
+// its own reforging off a part's rarity — reusing that exact MANGLER_RARITY_MAGNITUDE table
+// rather than inventing a second one, so "better part = better result" means the same thing
+// in both places.
+
+// Not every monster part has a perfect anatomical human equivalent (a wing or tail has no
+// direct slot on a person) — this picks the closest sensible FLESH_LIMB_DEFS category rather
+// than adding a separate "which slot do you want" picker on top of the drag-and-drop flow. A
+// deliberate simplification, documented rather than hidden.
+const PART_TO_LIMB_CATEGORY = {
+  eye: 'eye', tongue: 'tongue', heart: 'heart',
+  claw: 'hand', talon: 'hand', fang: 'hand',
+  horn: 'ear', venomsac: 'tongue',
+  wing: 'arm', shell: 'arm', bone: 'arm',
+  hide: 'leg', pelt: 'leg', tail: 'leg',
+};
+// Reworking is priced the same way the Mangler prices a combine — flat by rarity tier, not
+// randomized like the gold-based "Summon 3 Limbs" roll's per-candidate cost.
+function fleshGraftReworkCost(partRarity) {
+  return MANGLER_COST_BY_RARITY[partRarity] || MANGLER_COST_BY_RARITY.common;
+}
+// New effects specifically for grafts made this way — distinct from MONSTER_PART_EFFECT_POOL
+// (which targets weapons/armor for the Mangler) since a limb doesn't have dmg/ac fields to
+// bump the same way. Keyed by FLESH_LIMB_DEFS category, every entry a genuine beneficial
+// bonus (no debuffs/curses here — the point of this path is a reliable result, unlike the
+// gambling-flavored random roll), scaled by the same magnitude number the Mangler uses.
+const FLESH_GRAFT_EFFECT_POOL = {
+  arm: [
+    { id:'graftmight', label:'Grafted Might', text:m => `+${m} to Strength-based ability checks.` },
+    { id:'ironthrow', label:'Iron Throw', text:m => `+${m} to damage rolls with thrown weapons.` },
+    { id:'crushinggrip', label:'Crushing Grip', text:m => `+${m} to grapple and shove checks.` },
+  ],
+  hand: [
+    { id:'nimblegrip', label:'Nimble Grip', text:m => `+${m} to Sleight of Hand checks and Dexterity-based weapon attack rolls.` },
+    { id:'ironclaw', label:'Iron Claw', text:m => `+${m * 2} damage on unarmed strikes.` },
+    { id:'lockbreaker', label:'Lockbreaker', text:m => `+${m} to checks made to pick locks or disarm traps.` },
+  ],
+  leg: [
+    { id:'swiftgait', label:'Swift Gait', text:m => `+${m * 5} ft. to walking speed.` },
+    { id:'suresteps', label:'Sure Steps', text:() => `Advantage on saves and checks made to avoid being knocked Prone.` },
+    { id:'coiledspring', label:'Coiled Spring', text:m => `+${m * 5} ft. to your long and high jump distance.` },
+  ],
+  foot: [
+    { id:'silentsole', label:'Silent Sole', text:m => `+${m} to Stealth checks made while moving.` },
+    { id:'softlanding', label:'Soft Landing', text:m => `Reduces effective fall height by ${m * 10} ft. for fall damage purposes.` },
+    { id:'suretread', label:'Sure Tread', text:() => `Never treats difficult terrain as difficult while moving at a normal pace.` },
+  ],
+  eye: [
+    { id:'graftsight', label:'Grafted Sight', text:() => `Grants Darkvision 60 ft. (or +60 ft. if you already have it).` },
+    { id:'keenglance', label:'Keen Glance', text:m => `+${m} to Perception checks.` },
+    { id:'piercinggaze', label:'Piercing Gaze', text:() => `Advantage on checks made to detect illusions or invisible creatures within 30 ft.` },
+  ],
+  ear: [
+    { id:'sharphearing', label:'Sharp Hearing', text:m => `+${m} to Perception checks made by hearing.` },
+    { id:'echosense', label:'Echo Sense', text:() => `Blindsight 10 ft. (blind beyond this radius) as long as you can hear.` },
+    { id:'stalwarthearing', label:'Stalwart Hearing', text:() => `Advantage on saving throws against being deafened.` },
+  ],
+  finger: [
+    { id:'gracefultouch', label:'Graceful Touch', text:m => `+${m} to Sleight of Hand checks.` },
+    { id:'spellconduit', label:'Spell Conduit', text:m => `+${m} to spell attack rolls.` },
+    { id:'deftpick', label:'Deft Pick', text:m => `+${m} to checks made to pick locks or pick pockets.` },
+  ],
+  heart: [
+    { id:'vitalcore', label:'Vital Core', text:m => `+${m * 3} to maximum hit points.` },
+    { id:'steadypulse', label:'Steady Pulse', text:m => `+${m} to Constitution saving throws.` },
+    { id:'undyingwill', label:'Undying Will', text:() => `Once per long rest, drop to 1 HP instead of 0 when you would be reduced to 0.` },
+  ],
+  tongue: [
+    { id:'silvertongue', label:'Silver Tongue', text:m => `+${m} to Persuasion and Deception checks.` },
+    { id:'venomtolerant', label:'Venom-Tolerant', text:() => `Resistance to poison damage; advantage on saving throws against poison.` },
+    { id:'truevoice', label:'True Voice', text:m => `+${m} to Intimidation checks.` },
+  ],
+};
+// Picks N non-repeating beneficial effects from the target category's pool (N = the part's
+// own rarity magnitude, capped at however many that category actually has), each scaled by
+// that same magnitude — a common part becomes one modest bonus, a celestial part becomes up
+// to four meaningfully stacked ones, same shape as MANGLER_RARITY_MAGNITUDE everywhere else.
+function rollFleshGraftEffects(limbCategory, partRarity) {
+  const pool = FLESH_GRAFT_EFFECT_POOL[limbCategory] || FLESH_GRAFT_EFFECT_POOL.arm;
+  const magnitude = MANGLER_RARITY_MAGNITUDE[partRarity] || 1;
+  const count = Math.min(magnitude, pool.length);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map(t => ({ type: t.label, text: t.text(magnitude) }));
+}
+
+let fleshMaterialKey = null;
+function flashFleshWorkshopMessage(msg, isError) {
+  const el = document.getElementById('fleshWorkshopMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._fleshWorkshopMsgTimer);
+  window._fleshWorkshopMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+function fleshMaterialDrop(evt) {
+  evt.preventDefault();
+  const key = dragPayloadKey(getDragPayload(evt));
+  if (!key) return;
+  if (!TOKEN_INDEX[key]) buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  if (entry && !entry.item.interactions) classifyItemFull(entry.item, entry.rarity);
+  if (!entry || !canInteract(entry.item, 'fleshmancer_input')) {
+    flashManglerSlotInvalid('fleshMaterialSlot');
+    flashFleshWorkshopMessage('That has to be a monster part.', true);
+    return;
+  }
+  fleshMaterialKey = key;
+  renderFleshWorkshop();
+}
+function renderFleshWorkshop() {
+  buildTokenIndex();
+  const entry = fleshMaterialKey ? TOKEN_INDEX[fleshMaterialKey] : null;
+  if (fleshMaterialKey && !entry) fleshMaterialKey = null;
+  const content = document.getElementById('fleshMaterialContent');
+  const preview = document.getElementById('fleshWorkshopPreview');
+  const btn = document.getElementById('fleshReworkBtn');
+  const slotEl = document.getElementById('fleshMaterialSlot');
+  if (slotEl) slotEl.classList.toggle('mangler-slot-focused', !!entry);
+  if (content) {
+    content.innerHTML = entry
+      ? `${itemPixelIcon(entry.item, 26, entry.rarity)}<span>${escapeHtml(entry.item.name)}</span>`
+      : 'Drag a monster part here';
+  }
+  if (entry) {
+    const category = PART_TO_LIMB_CATEGORY[entry.item.partType] || 'arm';
+    const magnitude = MANGLER_RARITY_MAGNITUDE[entry.rarity] || 1;
+    const cost = fleshGraftReworkCost(entry.rarity);
+    const partLabel = MONSTER_PART_TYPE_LABEL[entry.item.partType] || entry.item.name;
+    const rarityLabel = rarityNames[entry.rarity] || entry.rarity;
+    const categoryLabel = SUBCATEGORY_LABELS[category] || category;
+    if (preview) preview.innerHTML = `<div class="mangler-preview-line">Result: a <b>${escapeHtml(categoryLabel)}</b> graft reworked from the <b>${escapeHtml(partLabel)}</b> (${escapeHtml(rarityLabel)}), carrying <b>${magnitude}</b> beneficial effect${magnitude > 1 ? 's' : ''}.</div><div class="mangler-preview-cost">💰 Cost: ${cost} gp</div>`;
+    const blocked = !!_pendingFleshItem;
+    if (btn) { btn.disabled = blocked; btn.textContent = blocked ? '🩸 Save/discard your pending graft first' : `🩸 Rework (${cost} gp)`; }
+  } else {
+    if (preview) preview.innerHTML = '';
+    if (btn) { btn.disabled = true; btn.textContent = '🩸 Rework (select a part first)'; }
+  }
+}
+// The actual commit — deterministic, no roll, no rejection chance (unlike attemptFleshAttach
+// below). Shares the exact same _pendingFleshItem / #fleshResult / Save-Loot-Discard commit
+// pattern the random-roll flow uses (see saveFleshItem/lootFleshItem/discardFleshItem), so
+// both paths end the same way regardless of how the graft was produced.
+function reworkPartIntoGraft() {
+  buildTokenIndex();
+  const entry = fleshMaterialKey ? TOKEN_INDEX[fleshMaterialKey] : null;
+  if (!entry) { flashFleshWorkshopMessage('Drag a monster part in first.', true); return; }
+  if (_pendingFleshItem) { flashFleshWorkshopMessage('Save or discard your current graft result first.', true); return; }
+  const part = entry.item;
+  const partRarity = entry.rarity;
+  const category = PART_TO_LIMB_CATEGORY[part.partType] || 'arm';
+  const candidates = FLESH_LIMB_DEFS.filter(d => d.category === category);
+  const limbDef = candidates.length ? ri(candidates) : FLESH_LIMB_DEFS[0];
+  const cost = fleshGraftReworkCost(partRarity);
+  if (!spendPlayerGold(cost)) {
+    flashFleshWorkshopMessage(`Reworking this costs ${cost} gp — you have ${coinPouchGpText(getPlayerGold())}.`, true);
+    return;
+  }
+  const mods = rollFleshGraftEffects(category, partRarity);
+  const effectText = mods.map(m => m.text).join(' ');
+  const partLabel = (MONSTER_PART_TYPE_LABEL[part.partType] || 'monstrous remains').toLowerCase();
+  const item = {
+    name: `${limbDef.name} of the ${part.sourceMonster || 'Beast'}`, rarity: partRarity, type: 'limb', subcategory: limbDef.category,
+    gp: formatGpAmount(cost), dmg:'', ac:'', hp:'', requirement:'', charges:'',
+    slotSize: limbDef.slotSize, mods, effect: effectText,
+    desc: `A ${limbDef.name.toLowerCase()} reworked from ${part.name.toLowerCase()} — ${partLabel} worked directly into living tissue.`,
+    flavor: `Reworked from ${part.name}.`,
+    tags: [],
+  };
+  item.weight = computeItemWeight(item);
+  _pendingFleshItem = item;
+  removeTokenEverywhere(fleshMaterialKey);
+  fleshMaterialKey = null;
+
+  const modsHtml = mods.map(m => `
+    <div class="ic-mod-group">
+      <div class="ic-mod-label">${escapeHtml(m.type)}</div>
+      <div class="ic-mod-entry">${colorizeModifierText(m.text, m.type)}</div>
+    </div>
+  `).join('');
+  const resultEl = document.getElementById('fleshResult');
+  if (resultEl) resultEl.innerHTML = `
+    <div class="flesh-outcome success">
+      <h4>✓ Reworked Successfully</h4>
+      <p>The ${escapeHtml(part.name)} has been worked into a graftable ${escapeHtml((SUBCATEGORY_LABELS[item.subcategory] || item.subcategory).toLowerCase())}.</p>
+      <p class="flesh-cost-note">${formatGpAmount(cost)} spent.</p>
+    </div>
+    <div class="item-card ${item.rarity}" style="margin-top:1rem;">
+      <div class="item-card-header">
+        <div class="item-card-title">
+          <div class="ic-name">${escapeHtml(item.name)}</div>
+          <div class="ic-subtitle">Limb · ${SUBCATEGORY_LABELS[item.subcategory] || item.subcategory} · Slot ${item.slotSize} · ${item.gp}</div>
+        </div>
+        <div class="ic-rarity-badge">${rarityNames[item.rarity] || item.rarity}</div>
+      </div>
+      <div class="item-card-body">
+        <div class="ic-desc">${escapeHtml(item.desc)}</div>
+        <div class="ic-modifiers">${modsHtml}</div>
+      </div>
+      <div class="item-card-actions" id="fleshSaveActions">
+        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>
+        <button class="ic-action-btn" onclick="lootFleshItem()">🎒 Loot</button>
+        <button class="ic-action-btn" onclick="discardFleshItem()">🗑 Discard</button>
+      </div>
+    </div>
+  `;
+  renderFleshWorkshop();
+  renderInventoryGrid();
+  flashFleshWorkshopMessage(`${part.name} reworked into ${item.name}.`);
+}
+
 // Holds the most recently rolled (but not yet saved) successful graft, so the "Save
 // Item" button on the result card knows what to commit to lootData.
 let _pendingFleshItem = null;
@@ -8811,6 +9053,7 @@ function renderStoreTab() {
     const portraitSlot = document.getElementById('fleshPortraitSlot');
     if (portraitSlot) portraitSlot.innerHTML = merchantPortraitSvg('fleshmancer');
     renderFleshCandidates();
+    renderFleshWorkshop();
     return;
   }
 
@@ -10522,6 +10765,11 @@ function slotDrop(evt, slotId) {
     if (fromSlotId === slotId) return;
     const key = playerSlots[fromSlotId];
     if (!key) return;
+    // Dragging a two-handed weapon from one of its own paired slots onto the other is a
+    // no-op — it already occupies both. Without this check, placeTokenInSlot would re-confirm
+    // both slots hold it, then the plain playerSlots[fromSlotId]=null below would immediately
+    // clear the slot it was just re-placed into, leaving it stuck "half equipped."
+    if (pairedWeaponSlot(fromSlotId) === slotId && playerSlots[slotId] === key) return;
     if (placeTokenInSlot(key, slotId)) {
       playerSlots[fromSlotId] = null;
       renderPlayerSlots();
@@ -10532,6 +10780,13 @@ function slotDrop(evt, slotId) {
   placeTokenInSlot(raw, slotId);
 }
 
+// weapon1/weapon2 are the only slot pair where a single item can legitimately occupy both at
+// once (a two-handed weapon needs both hands) — this returns the paired slot id for either
+// one, or null for every other slot. Shared by the equip check below and every unequip path
+// further down, so a two-hander's second slot reference never gets left stranded.
+function pairedWeaponSlot(slotId) {
+  return slotId === 'weapon1' ? 'weapon2' : (slotId === 'weapon2' ? 'weapon1' : null);
+}
 function placeTokenInSlot(key, slotId) {
   if (!TOKEN_INDEX[key]) buildTokenIndex();
   const entry = TOKEN_INDEX[key];
@@ -10542,7 +10797,32 @@ function placeTokenInSlot(key, slotId) {
     flashSlotInvalid(slotId);
     return false;
   }
+  // Two-handed weapons need both hands free — a two-hander occupies weapon1 AND weapon2
+  // simultaneously (the same token key written into both), and a one-handed weapon can't go
+  // into either slot while a two-hander already has both. Every equip path (drag onto a
+  // specific slot, drag "near" the doll, slot-to-slot move, right-click equip) funnels through
+  // this one function, so this single check covers every one of them.
+  const otherSlotId = pairedWeaponSlot(slotId);
+  if (otherSlotId) {
+    const isTwoHanded = entry.item.subcategory === 'twohanded';
+    const otherKey = playerSlots[otherSlotId];
+    if (isTwoHanded && otherKey && otherKey !== key) {
+      // The other hand is already holding something else — no free hand for a two-hander.
+      flashSlotInvalid(otherSlotId);
+      flashSlotInvalid(slotId);
+      return false;
+    }
+    if (!isTwoHanded && otherKey) {
+      const otherEntry = TOKEN_INDEX[otherKey];
+      if (otherEntry && otherEntry.item.subcategory === 'twohanded') {
+        // The other slot is one half of an already-equipped two-hander — both hands are full.
+        flashSlotInvalid(slotId);
+        return false;
+      }
+    }
+  }
   playerSlots[slotId] = key;
+  if (otherSlotId && entry.item.subcategory === 'twohanded') playerSlots[otherSlotId] = key;
   renderPlayerSlots();
   renderActiveEffects();
   return true;
@@ -10581,6 +10861,8 @@ function flashSlotInvalid(slotId) {
 function unequipSlot(slotId) {
   const key = playerSlots[slotId];
   playerSlots[slotId] = null;
+  const pairSlot = pairedWeaponSlot(slotId);
+  if (pairSlot && playerSlots[pairSlot] === key) playerSlots[pairSlot] = null;
   clearActiveEffectsForKey(key);
   renderPlayerSlots();
   renderActiveEffects();
@@ -10679,6 +10961,8 @@ function unequipSlotToStorage(slotId) {
   if (!spot) { flashSlotInvalid(slotId); flashInvMessage(`No room in your inventory for ${entry.item.name}.`, true); return; }
   placeNewInventoryItem(key, spot.row, spot.col);
   playerSlots[slotId] = null;
+  const pairSlot = pairedWeaponSlot(slotId);
+  if (pairSlot && playerSlots[pairSlot] === key) playerSlots[pairSlot] = null;
   clearActiveEffectsForKey(key);
   renderInventoryGrid();
   renderPlayerSlots();
@@ -10689,19 +10973,30 @@ function unequipSlotToStorage(slotId) {
 // respecting each item's slot-size footprint and whatever's already stored there — first
 // come, first served in slot order. Anything that doesn't fit (inventory's full) stays
 // equipped instead of vanishing, and its slot flashes red so it's obvious at a glance
-// which items didn't move.
+// which items didn't move. Dedupes by KEY (not slot) before deciding, so a two-handed
+// weapon spanning weapon1+weapon2 is resolved once — as a single item — rather than being
+// processed twice and risking one half getting cleared while the other stays stuck.
 function clearAllSlots() {
   buildTokenIndex();
   const stillEquipped = [];
+  const seenKeys = new Set();
   Object.keys(playerSlots).forEach(slotId => {
     const key = playerSlots[slotId];
-    if (!key) return;
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    const pairSlot = pairedWeaponSlot(slotId);
+    const isPaired = pairSlot && playerSlots[pairSlot] === key;
     const entry = TOKEN_INDEX[key];
     const w = entry ? Math.min(3, Math.max(1, entry.item.slotSize || 1)) : 1;
     const spot = findFirstOpenInventorySpot(w);
-    if (!spot) { stillEquipped.push(slotId); return; }
+    if (!spot) {
+      stillEquipped.push(slotId);
+      if (isPaired) stillEquipped.push(pairSlot);
+      return;
+    }
     placeNewInventoryItem(key, spot.row, spot.col);
     playerSlots[slotId] = null;
+    if (isPaired) playerSlots[pairSlot] = null;
     clearActiveEffectsForKey(key);
   });
   renderInventoryGrid();
@@ -11007,6 +11302,7 @@ const INV_GRID_MIRRORS = [
   { id: 'storeInventoryGrid', prefix: 'store-' },
   { id: 'traderSellInvGrid', prefix: 'trader-', dimFilter: (item, rarity) => currentMerchant ? traderSellDimFilter(item, rarity) : true },
   { id: 'manglerInvGrid', prefix: 'mangler-', dimFilter: (item, rarity) => manglerFocusFilter({ item, rarity }) },
+  { id: 'fleshInvGrid', prefix: 'flesh-', dimFilter: (item, rarity) => { if (!item.interactions) classifyItemFull(item, rarity); return canInteract(item, 'fleshmancer_input'); } },
 ];
 function renderInventoryGrid() {
   INV_GRID_MIRRORS.forEach(({ id, prefix, dimFilter }) => {
@@ -11216,10 +11512,26 @@ function extractStatDeltasFromText(text) {
 // amount}] }. slots/resolveItem are parameters (not hard-coded to this account's own
 // playerSlots/TOKEN_INDEX) so the Players tab can compute the exact same sheet math for a
 // VIEWED player's own data — see computeCharacterSheetFor below and resolveForeignItem.
+// weapon1/weapon2 are the only pair of slots that can share the same key at once — a two-
+// handed weapon occupies both simultaneously (see pairedWeaponSlot). Every function below
+// that derives stats/AC/attacks from equipped gear needs to count that item exactly once, not
+// once per slot it happens to fill twice over. Returns [slotId, key] pairs with duplicate
+// keys collapsed down to their first-seen slot.
+function uniqueEquippedSlotEntries(slots) {
+  const seen = new Set();
+  const out = [];
+  Object.keys(slots).forEach(slotId => {
+    const key = slots[slotId];
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push([slotId, key]);
+  });
+  return out;
+}
 function collectEquippedStatBreakdown(slots, resolveItem) {
   const breakdown = {};
-  Object.values(slots).forEach(key => {
-    const entry = key && resolveItem(key);
+  uniqueEquippedSlotEntries(slots).forEach(([slotId, key]) => {
+    const entry = resolveItem(key);
     if (!entry) return;
     extractStatDeltasFromText(entry.item.effect).forEach(({ stat, amount }) => {
       (breakdown[stat] = breakdown[stat] || []).push({ itemName: entry.item.name, amount });
@@ -11251,8 +11563,8 @@ function describeStatSources(sources) {
 function collectEquippedAcBreakdown(slots, resolveItem) {
   let base = 10, baseSource = null;
   const flatSources = [];
-  Object.entries(slots).forEach(([slotId, key]) => {
-    const entry = key && resolveItem(key);
+  uniqueEquippedSlotEntries(slots).forEach(([slotId, key]) => {
+    const entry = resolveItem(key);
     if (!entry) return;
     const raw = String(entry.item.ac || '').trim();
     if (!raw) return;
@@ -11268,9 +11580,14 @@ function collectEquippedAcBreakdown(slots, resolveItem) {
 // weapon-attack roll (see rollEquippedWeaponAttack) has one shared place to find "what's in the
 // player's main hand right now" instead of re-deriving it inline.
 function collectEquippedWeaponInfo(slots, resolveItem) {
+  const seen = new Set();
   return ['weapon1', 'weapon2'].map(slotId => {
     const key = slots[slotId];
-    const entry = key && resolveItem(key);
+    // A two-handed weapon fills both slots with the same key — list it once, as "your
+    // weapon," not twice as if it were two separate choices in an attack picker.
+    if (!key || seen.has(key)) return null;
+    seen.add(key);
+    const entry = resolveItem(key);
     if (!entry || !String(entry.item.dmg || '').trim()) return null;
     return { slotId, name: entry.item.name, dmg: entry.item.dmg, rarity: entry.rarity };
   }).filter(Boolean);
@@ -11647,8 +11964,13 @@ function renderActiveEffects() {
   // "which slot happened to be equipped into first, ever," not any stable visual order. That
   // made this list's row order silently depend on equip history and appear to reshuffle
   // itself every time a different slot got its first-ever item.
+  // A two-handed weapon fills weapon1 AND weapon2 with the same key (see pairedWeaponSlot) —
+  // dedupe by key here too, purely cosmetic (this function only ever displays text, never
+  // sums a total), but without it the same weapon's card would show up twice in this list.
+  const seenKeys = new Set();
   const filled = Object.keys(SLOT_LABELS)
     .filter(slotId => playerSlots[slotId] && TOKEN_INDEX[playerSlots[slotId]])
+    .filter(slotId => { const k = playerSlots[slotId]; if (seenKeys.has(k)) return false; seenKeys.add(k); return true; })
     .map(slotId => [slotId, playerSlots[slotId]]);
 
   let timedHtml = '';
