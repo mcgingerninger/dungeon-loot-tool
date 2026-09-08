@@ -1341,27 +1341,38 @@
   .inv-summary-bar strong { color:var(--gold); }
 
   /* ---- Character Sheet sub-tab (shares the Inventory tab) ---- */
-  .sheet-top-row, .sheet-hp-ac-row { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
-  .sheet-field { display:flex; flex-direction:column; gap:0.3rem; min-width:110px; }
-  .sheet-field label { font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; }
-  .sheet-field input[type=text], .sheet-field input[type=number] { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.4rem 0.5rem; font-family:'Crimson Text',serif; font-size:0.95rem; width:110px; }
-  .sheet-field strong { color:var(--gold-bright); font-size:1.1rem; }
-  .sheet-ac-suggest-btn { margin-top:0.3rem; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); font-size:0.72rem; padding:0.25rem 0.5rem; cursor:pointer; }
-  .sheet-ac-suggest-btn:hover { border-color:var(--gold); color:var(--gold); }
-  .sheet-abilities-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:0.7rem; margin-bottom:1.2rem; }
-  .sheet-ability-box { background:var(--surface); border:1px solid var(--border); padding:0.6rem; text-align:center; }
-  .sheet-ability-box label { display:block; font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.3rem; }
-  .sheet-ability-box input { width:100%; box-sizing:border-box; background:var(--bg); border:1px solid var(--border); color:var(--text); text-align:center; font-family:'Crimson Text',serif; font-size:1rem; padding:0.25rem; margin-bottom:0.3rem; }
-  .sheet-ability-total { color:var(--gold-bright); font-size:0.95rem; }
-  .sheet-item-bonus { color:var(--uncommon); font-size:0.72rem; }
-  .sheet-columns { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+  .sheet-top-row { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.7rem; align-items:flex-end; }
+  .sheet-field { display:flex; flex-direction:column; gap:0.25rem; min-width:100px; }
+  .sheet-field-narrow { min-width:64px; }
+  .sheet-field label { font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; }
+  .sheet-field input[type=text], .sheet-field input[type=number] { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.32rem 0.45rem; font-family:'Crimson Text',serif; font-size:0.92rem; width:100%; box-sizing:border-box; }
+  .sheet-field strong { color:var(--gold-bright); font-size:1.05rem; }
+  .sheet-static-val { display:inline-block; padding:0.32rem 0; }
+  /* Armor Class is fully computed (see computeCharacterSheetFor) — this is its display in both
+     the Character Sheet tab and the Inventory tab's Equipment view (#invEquipAcValue). */
+  .sheet-ac-value { font-size:1.05rem; cursor:default; }
+  .sheet-hp-bonus-note { font-size:0.68rem; font-weight:400; text-transform:none; letter-spacing:0; margin-left:0.2rem; }
+  .equip-ac-readout { display:inline-block; background:var(--surface); border:1px solid var(--border); padding:0.4rem 0.8rem; margin-bottom:0.6rem; font-size:0.95rem; cursor:default; }
+  .sheet-abilities-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(105px,1fr)); gap:0.5rem; margin-bottom:0.8rem; }
+  .sheet-ability-box { background:var(--surface); border:1px solid var(--border); padding:0.45rem; text-align:center; }
+  .sheet-ability-box label { display:block; font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.25rem; }
+  .sheet-ability-box input { width:100%; box-sizing:border-box; background:var(--bg); border:1px solid var(--border); color:var(--text); text-align:center; font-family:'Crimson Text',serif; font-size:0.95rem; padding:0.2rem; margin-bottom:0.2rem; }
+  .sheet-ability-total { color:var(--gold-bright); font-size:0.9rem; }
+  .sheet-columns { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
   @media (max-width:700px) { .sheet-columns { grid-template-columns:1fr; } }
-  .sheet-line-row { display:flex; justify-content:space-between; align-items:center; padding:0.25rem 0; border-bottom:1px solid var(--border); font-size:0.88rem; }
+  .sheet-section-title { color:var(--gold); font-size:0.9rem; letter-spacing:0.04em; margin:0 0 0.3rem; padding-bottom:0.2rem; border-bottom:1px solid var(--border); }
+  .sheet-line-row { display:flex; justify-content:space-between; align-items:center; padding:0.18rem 0; border-bottom:1px solid var(--border); font-size:0.84rem; }
   .sheet-line-row label { display:flex; align-items:center; gap:0.4rem; cursor:pointer; }
   .sheet-line-val { color:var(--gold); font-family:'Share Tech Mono',monospace; }
-  .sheet-note { color:var(--text-dim); font-style:italic; font-size:0.8rem; margin-top:1rem; }
-  .sheet-weapons-info { margin-bottom:1.2rem; }
-  .sheet-weapon-line { display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; padding:0.3rem 0; }
+  /* Buff/debuff coloring shared by every computed stat readout — abilities, saves, skills, AC,
+     Max HP — driven by computeCharacterSheetFor's per-stat `status`. A title attribute (set
+     alongside this class in JS) carries the "which item did this" hover text; no separate
+     tooltip widget needed. */
+  .sheet-line-val.stat-buff, .sheet-ability-total.stat-buff, .sheet-ac-value.stat-buff, .sheet-hp-bonus-note.stat-buff { color:var(--uncommon); cursor:help; }
+  .sheet-line-val.stat-debuff, .sheet-ability-total.stat-debuff, .sheet-ac-value.stat-debuff, .sheet-hp-bonus-note.stat-debuff { color:var(--danger); cursor:help; }
+  .sheet-note { color:var(--text-dim); font-style:italic; font-size:0.78rem; margin-top:0.8rem; }
+  .sheet-weapons-info { margin-bottom:0.9rem; }
+  .sheet-weapon-line { display:flex; align-items:center; gap:0.6rem; font-size:0.88rem; padding:0.25rem 0; }
   .sheet-attack-btn { background:var(--surface); border:1px solid var(--gold); color:var(--gold); font-family:'Crimson Text',serif; font-size:0.82rem; padding:0.2rem 0.6rem; cursor:pointer; margin-left:auto; }
   .sheet-attack-btn:hover { background:var(--gold); color:var(--bg); }
   .weapon-attack-line { display:flex; justify-content:space-between; font-size:0.95rem; padding:0.3rem 0; border-bottom:1px solid var(--border); }
@@ -1828,6 +1839,10 @@
   .sheet-chip-empty{color:var(--text-dim);font-style:italic;font-size:.82rem}
   .sheet-chip{background:var(--bg);border:1px solid var(--border);padding:.2rem .55rem;font-size:.78rem;white-space:nowrap}
   .sheet-chip.proficient{border-color:var(--gold);color:var(--gold)}
+  /* Wins over .proficient above (same specificity, declared later) so a buffed/debuffed save
+     or skill still shows its color even while also proficient. */
+  .sheet-chip.stat-buff{border-color:var(--uncommon);color:var(--uncommon);cursor:help}
+  .sheet-chip.stat-debuff{border-color:var(--danger);color:var(--danger);cursor:help}
   .players-sheet-subrow{margin-top:.6rem}
   .death-saves-panel{background:rgba(120,20,20,.12);border:1px solid var(--danger);padding:.6rem .8rem;margin-bottom:.8rem}
   .death-saves-title{color:var(--danger);font-weight:600;font-size:.9rem;margin-bottom:.4rem}
@@ -2793,17 +2808,17 @@
         <div class="sheet-field"><label>Level</label><input type="number" id="dmEditLevel" min="1" max="20"></div>
         <div class="sheet-field"><label>Hit Dice</label><input type="text" id="dmEditHitDice" placeholder="e.g. 3d8"></div>
       </div>
-      <div class="sheet-hp-ac-row">
-        <div class="sheet-field"><label>Current HP</label><input type="number" id="dmEditCurHp"></div>
-        <div class="sheet-field"><label>Max HP</label><input type="number" id="dmEditMaxHp"></div>
-        <div class="sheet-field"><label>Armor Class</label><input type="number" id="dmEditAc"></div>
+      <div class="sheet-top-row">
+        <div class="sheet-field sheet-field-narrow"><label>Current HP</label><input type="number" id="dmEditCurHp"></div>
+        <div class="sheet-field sheet-field-narrow"><label>Max HP</label><input type="number" id="dmEditMaxHp"></div>
+        <div class="sheet-field sheet-field-narrow"><label>Armor Class</label><strong id="dmEditAcValue" class="sheet-ac-value sheet-static-val" title="AC is computed from ability scores and equipped gear — adjust those to change it.">10</strong></div>
       </div>
       <div class="sheet-abilities-grid" id="dmEditAbilitiesGrid"></div>
       <div class="sheet-columns">
-        <div><h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Saving Throws</h3><div id="dmEditSavesList"></div></div>
-        <div><h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Skills</h3><div id="dmEditSkillsList"></div></div>
+        <div><h3 class="sheet-section-title">Saving Throws</h3><div id="dmEditSavesList"></div></div>
+        <div><h3 class="sheet-section-title">Skills</h3><div id="dmEditSkillsList"></div></div>
       </div>
-      <p class="sheet-note">Changes apply the moment you click Save — the player's own screen updates silently, same as any other DM action.</p>
+      <p class="sheet-note">Changes apply the moment you click Save — the player's own screen updates silently, same as any other DM action. Armor Class is computed automatically and can't be set directly here.</p>
     </div>
     <div class="edit-modal-actions"><button class="edit-cancel-btn" onclick="closeDmEditPlayerModal()">Cancel</button><button class="edit-save-btn" onclick="saveDmEditPlayerModal()">Save Changes</button></div>
     <div id="dmEditPlayerMsg" class="players-send-msg"></div>
@@ -2892,6 +2907,9 @@
   </div>
 
   <div id="invEquipPanel">
+  <div class="equip-ac-readout" title="Computed from your ability scores and equipped gear — hover when green/red to see which item is affecting it.">
+    🛡 Armor Class: <strong id="invEquipAcValue" class="sheet-ac-value">10</strong>
+  </div>
   <div class="player-top-row" ondragover="slotDragOver(event)" ondrop="smartEquipDrop(event)">
     <div class="player-board">
       <div class="player-doll">
@@ -2956,7 +2974,7 @@
 
   <div id="invSheetPanel" style="display:none;">
     <div id="firstTimeSetupBanner" class="first-time-setup-banner" style="display:none;">
-      <span>👋 Welcome! Fill in your ability scores, level, HP, AC, and pick your skill/save proficiencies below — your DM sees these live and uses them for combat.</span>
+      <span>👋 Welcome! Fill in your ability scores, level, and HP below, and pick your skill/save proficiencies — AC is worked out automatically from your gear. Your DM sees all of this live and uses it for combat.</span>
       <button onclick="dismissFirstTimeSetupBanner()">Got it</button>
     </div>
     <div class="sheet-top-row">
@@ -2964,33 +2982,29 @@
         <label>Class</label>
         <input type="text" id="sheetClass" placeholder="e.g. Fighter" oninput="updateCharacterField('characterClass', this.value)">
       </div>
-      <div class="sheet-field">
+      <div class="sheet-field sheet-field-narrow">
         <label>Level</label>
         <input type="number" id="sheetLevel" min="1" max="20" value="1" oninput="updateCharacterField('characterLevel', parseInt(this.value,10)||1)">
       </div>
-      <div class="sheet-field">
-        <label>Proficiency Bonus</label>
-        <strong id="sheetProfBonus">+2</strong>
+      <div class="sheet-field sheet-field-narrow">
+        <label>Prof.</label>
+        <strong id="sheetProfBonus" class="sheet-static-val">+2</strong>
       </div>
       <div class="sheet-field">
         <label>Hit Dice</label>
         <input type="text" id="sheetHitDice" placeholder="e.g. 3d8" oninput="updateCharacterField('characterHitDice', this.value)">
       </div>
-    </div>
-
-    <div class="sheet-hp-ac-row">
-      <div class="sheet-field">
-        <label>Current HP</label>
+      <div class="sheet-field sheet-field-narrow">
+        <label>Cur HP</label>
         <input type="number" id="sheetCurHp" oninput="updateCharacterField('characterCurrentHp', parseInt(this.value,10)||0)">
       </div>
-      <div class="sheet-field">
-        <label>Max HP</label>
+      <div class="sheet-field sheet-field-narrow">
+        <label>Max HP <span id="sheetMaxHpBonus" class="sheet-hp-bonus-note"></span></label>
         <input type="number" id="sheetMaxHp" oninput="updateCharacterField('characterMaxHp', parseInt(this.value,10)||0)">
       </div>
-      <div class="sheet-field">
+      <div class="sheet-field sheet-field-narrow">
         <label>Armor Class</label>
-        <input type="number" id="sheetAc" oninput="updateCharacterField('characterAc', parseInt(this.value,10)||10)">
-        <button class="sheet-ac-suggest-btn" onclick="applySuggestedAc()">Use suggested: <span id="sheetAcSuggestVal">10</span></button>
+        <strong id="sheetAcValue" class="sheet-ac-value sheet-static-val">10</strong>
       </div>
     </div>
 
@@ -3000,15 +3014,15 @@
 
     <div class="sheet-columns">
       <div>
-        <h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Saving Throws</h3>
+        <h3 class="sheet-section-title">Saving Throws</h3>
         <div id="sheetSavesList"></div>
       </div>
       <div>
-        <h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;">Skills</h3>
+        <h3 class="sheet-section-title">Skills</h3>
         <div id="sheetSkillsList"></div>
       </div>
     </div>
-    <p class="sheet-note">Equipped-item bonuses are picked up by scanning each item's effect text for patterns like "+2 Strength" or "+1 AC" — a best-effort match, not a guaranteed-complete rules engine. Hand-tune any field above if something looks off.</p>
+    <p class="sheet-note">Armor Class, saving throws, and skills are computed automatically from your ability scores and equipped gear — hover a green/red value to see which item is affecting it. Item bonuses are picked up by scanning each item's effect text for patterns like "+2 Strength" or "+1 AC" — a best-effort match, not a guaranteed-complete rules engine.</p>
   </div>
 
   <details class="collapsible loadouts-collapsible">
@@ -11168,7 +11182,7 @@ function fmtMod(n) { return (n >= 0 ? '+' : '') + n; }
 // always spell out in full (see pickBuffEffect/pickDebuffEffect/pickNamedTrait) — e.g. "+3 AC"
 // instead of "+3 Armor Class". Mapped to the canonical name so both phrasings land on the
 // same sheet field. Deliberately does NOT include "Armor Class"/"AC" itself — see the note
-// on collectEquippedAcFieldContribution below for why AC is sourced only from the item's own
+// on collectEquippedAcBreakdown below for why AC is sourced only from the item's own
 // dedicated `ac` field, never from this text scan.
 const SHEET_STAT_ALIASES = { 'Max HP': 'Maximum Hit Points', 'Max Hit Points': 'Maximum Hit Points' };
 let _sheetStatVocabRegex = null;
@@ -11196,41 +11210,57 @@ function extractStatDeltasFromText(text) {
   }
   return out;
 }
-// Sums extractStatDeltasFromText across every currently-equipped item (doll slots, limbs,
-// companion — everything in playerSlots), so a stat bonus from any equipped gear applies
-// automatically without needing to special-case any particular slot or item type.
-// slots/resolveItem are parameters (not hard-coded to this account's own playerSlots/
-// TOKEN_INDEX) so the Players tab can compute the exact same sheet math for a VIEWED player's
-// own data — see computeCharacterSheetFor below and resolveForeignItem.
-function collectEquippedStatBonuses(slots, resolveItem) {
-  const totals = {};
+// Same text scan as before, but now keeps track of WHICH equipped item each delta came from
+// (not just the running total) — every buffed/debuffed stat on the sheet needs to name its
+// source for the hover tooltip, not just show a net number. Returns { [statName]: [{itemName,
+// amount}] }. slots/resolveItem are parameters (not hard-coded to this account's own
+// playerSlots/TOKEN_INDEX) so the Players tab can compute the exact same sheet math for a
+// VIEWED player's own data — see computeCharacterSheetFor below and resolveForeignItem.
+function collectEquippedStatBreakdown(slots, resolveItem) {
+  const breakdown = {};
   Object.values(slots).forEach(key => {
     const entry = key && resolveItem(key);
     if (!entry) return;
     extractStatDeltasFromText(entry.item.effect).forEach(({ stat, amount }) => {
-      totals[stat] = (totals[stat] || 0) + amount;
+      (breakdown[stat] = breakdown[stat] || []).push({ itemName: entry.item.name, amount });
     });
   });
-  return totals;
+  return breakdown;
+}
+function sumBreakdown(sources) { return (sources || []).reduce((a, s) => a + s.amount, 0); }
+// 'buff' / 'debuff' / '' (neutral — no color, no tooltip) based on the net numeric effect of
+// whatever equipped gear affects this particular stat.
+function statusFor(net) { return net > 0 ? 'buff' : net < 0 ? 'debuff' : ''; }
+// Turns a list of {itemName, amount[, viaAbility][, isBaseOverride]} into the hover-tooltip
+// text — e.g. "Ring of Protection (+1), Gauntlets of Ogre Power (+2 Strength)". viaAbility
+// marks an entry that's affecting THIS stat only indirectly, by having already bumped the
+// ability score this stat derives from (see the modDelta plumbing in computeCharacterSheetFor).
+function describeStatSources(sources) {
+  return (sources || []).map(s => s.isBaseOverride
+    ? `${s.itemName} (base ${s.amount + 10})`
+    : `${s.itemName} (${fmtMod(s.amount)}${s.viaAbility ? ' ' + s.viaAbility : ''})`
+  ).join(', ');
 }
 // AC is deliberately sourced ONLY from items' own dedicated `ac` field, never from the
 // effect-text scan above — several items (e.g. a shield with ac:"+2" AND effect text reading
 // "+2 AC. ...") carry the exact same bonus in both places, and summing both would double it.
 // An item's own `ac` field can independently be either an absolute base AC ("13" — replaces
 // the sheet's default base of 10, armor slot only) or, on any slot, a flat bonus ("+1", "+2") —
-// a dedicated field several item types (armor, rings, shields) already carry.
-function collectEquippedAcFieldContribution(slots, resolveItem) {
-  let base = 10, flatBonus = 0;
+// a dedicated field several item types (armor, rings, shields) already carry. Also breakdown-
+// aware, same reasoning as collectEquippedStatBreakdown above.
+function collectEquippedAcBreakdown(slots, resolveItem) {
+  let base = 10, baseSource = null;
+  const flatSources = [];
   Object.entries(slots).forEach(([slotId, key]) => {
     const entry = key && resolveItem(key);
     if (!entry) return;
     const raw = String(entry.item.ac || '').trim();
     if (!raw) return;
-    if (slotId === 'armor' && /^\d+$/.test(raw)) { base = parseInt(raw, 10); return; }
+    if (slotId === 'armor' && /^\d+$/.test(raw)) { base = parseInt(raw, 10); baseSource = entry.item.name; return; }
     const m = /^([+-]\d+)$/.exec(raw);
-    if (m) flatBonus += parseInt(m[1], 10);
+    if (m) flatSources.push({ itemName: entry.item.name, amount: parseInt(m[1], 10) });
   });
-  return { base, flatBonus };
+  return { base, baseSource, flatSources };
 }
 // Both weapon slots' name/damage-dice, read straight off the item's own `dmg` field (the same
 // field the Combat tab's monster stat blocks use) — parameterized the same way as everything
@@ -11304,36 +11334,67 @@ function closeWeaponAttackPopup() {
   if (modal) modal.classList.remove('open');
 }
 // The single computation function everything else reads from — ability totals/modifiers,
-// proficiency bonus, every skill and saving throw total, and a suggested AC — folding in
-// equipped-item bonuses at read time so there's nothing to keep in sync when gear changes.
-// Parameterized (not hard-coded to this account's own state) so the Players tab can show a
-// VIEWED player's real sheet using their own synced data — see computeCharacterSheet below for
-// the local-account convenience wrapper every other caller in this file already used.
+// proficiency bonus, every skill and saving throw total, and AC — folding in equipped-item
+// bonuses at read time so there's nothing to keep in sync when gear changes. Every stat also
+// carries a `status` ('buff'/'debuff'/'') and `tooltip` (readable "which item did this" text)
+// for the sheet's hover/color treatment. Parameterized (not hard-coded to this account's own
+// state) so the Players tab can show a VIEWED player's real sheet using their own synced data —
+// see computeCharacterSheet below for the local-account convenience wrapper every other caller
+// in this file already used.
 function computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, resolveItem) {
-  const bonuses = collectEquippedStatBonuses(slots, resolveItem);
+  const breakdown = collectEquippedStatBreakdown(slots, resolveItem);
   const abilities = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
     const full = ABILITY_NAMES[abbr];
     const base = abilityScores[abbr] != null ? abilityScores[abbr] : 10;
-    const bonus = bonuses[full] || 0;
+    const sources = breakdown[full] || [];
+    const bonus = sumBreakdown(sources);
     const total = base + bonus;
-    abilities[abbr] = { base, bonus, total, mod: abilityModifier(total) };
+    const mod = abilityModifier(total);
+    // How much this bonus actually moved the modifier — a +1 that doesn't cross an even/odd
+    // boundary changes the raw score but not the modifier, so it shouldn't paint every skill
+    // and save riding on this ability as buffed when nothing about their total actually moved.
+    const modDelta = mod - abilityModifier(base);
+    abilities[abbr] = { base, bonus, total, mod, modDelta, sources, status: statusFor(bonus), tooltip: describeStatSources(sources) };
   });
   const profBonus = proficiencyBonusForLevel(level || 1);
-  const saveFlatBonus = bonuses['Saving Throws'] || 0;
+  const saveFlatSources = breakdown['Saving Throws'] || [];
+  const saveFlatTotal = sumBreakdown(saveFlatSources);
   const saves = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
-    const proficient = (saveProfs || []).includes(ABILITY_NAMES[abbr]);
-    saves[abbr] = abilities[abbr].mod + (proficient ? profBonus : 0) + saveFlatBonus;
+    const a = abilities[abbr];
+    const full = ABILITY_NAMES[abbr];
+    const proficient = (saveProfs || []).includes(full);
+    const total = a.mod + (proficient ? profBonus : 0) + saveFlatTotal;
+    const viaAbility = a.modDelta ? a.sources.map(s => ({ itemName: s.itemName, amount: s.amount, viaAbility: full })) : [];
+    const sources = [...viaAbility, ...saveFlatSources];
+    saves[abbr] = { total, sources, status: statusFor(a.modDelta + saveFlatTotal), tooltip: describeStatSources(sources) };
   });
   const skills = {};
   Object.keys(SKILL_ABILITY_MAP).forEach(skill => {
+    const abbr = SKILL_ABILITY_MAP[skill];
+    const a = abilities[abbr];
     const proficient = (skillProfs || []).includes(skill);
-    skills[skill] = abilities[SKILL_ABILITY_MAP[skill]].mod + (proficient ? profBonus : 0) + (bonuses[skill] || 0);
+    const directSources = breakdown[skill] || [];
+    const directTotal = sumBreakdown(directSources);
+    const total = a.mod + (proficient ? profBonus : 0) + directTotal;
+    const viaAbility = a.modDelta ? a.sources.map(s => ({ itemName: s.itemName, amount: s.amount, viaAbility: ABILITY_NAMES[abbr] })) : [];
+    const sources = [...viaAbility, ...directSources];
+    skills[skill] = { total, sources, status: statusFor(a.modDelta + directTotal), tooltip: describeStatSources(sources) };
   });
-  const acField = collectEquippedAcFieldContribution(slots, resolveItem);
-  const suggestedAc = acField.base + abilities.dex.mod + acField.flatBonus;
-  return { abilities, profBonus, saves, skills, suggestedAc };
+  const acField = collectEquippedAcBreakdown(slots, resolveItem);
+  const dex = abilities.dex;
+  const baseSourceEntry = acField.baseSource ? [{ itemName: acField.baseSource, amount: acField.base - 10, isBaseOverride: true }] : [];
+  const viaDex = dex.modDelta ? dex.sources.map(s => ({ itemName: s.itemName, amount: s.amount, viaAbility: 'Dexterity' })) : [];
+  const acFlatTotal = sumBreakdown(acField.flatSources);
+  const acSources = [...baseSourceEntry, ...acField.flatSources, ...viaDex];
+  const acTotal = acField.base + dex.mod + acFlatTotal;
+  const acNet = (acField.base - 10) + acFlatTotal + dex.modDelta;
+  const ac = { total: acTotal, sources: acSources, status: statusFor(acNet), tooltip: describeStatSources(acSources) };
+  const maxHpSources = breakdown['Maximum Hit Points'] || [];
+  const maxHpBonus = sumBreakdown(maxHpSources);
+  const maxHp = { bonus: maxHpBonus, sources: maxHpSources, status: statusFor(maxHpBonus), tooltip: describeStatSources(maxHpSources) };
+  return { abilities, profBonus, saves, skills, ac, maxHp };
 }
 function computeCharacterSheet() {
   buildTokenIndex();
@@ -11349,7 +11410,6 @@ function updateCharacterField(field, value) {
   else if (field === 'characterHitDice') characterHitDice = value;
   else if (field === 'characterCurrentHp') characterCurrentHp = Math.max(0, Math.min(value, characterMaxHp || value));
   else if (field === 'characterMaxHp') { characterMaxHp = value; characterCurrentHp = Math.min(characterCurrentHp, characterMaxHp); }
-  else if (field === 'characterAc') characterAc = value;
   renderCharacterSheet();
   if (typeof scheduleSave === 'function') scheduleSave();
 }
@@ -11370,10 +11430,13 @@ function toggleSaveProficiency(abilityName) {
   renderCharacterSheet();
   if (typeof scheduleSave === 'function') scheduleSave();
 }
-function applySuggestedAc() {
-  const sheet = computeCharacterSheet();
-  characterAc = sheet.suggestedAc;
-  renderCharacterSheet();
+// AC is fully derived now (ability scores + equipped gear, exactly like Saves/Skills already
+// were) rather than a manually-typed field the player had to remember to sync — see
+// renderCharacterSheet, which keeps `characterAc` (still the field multiplayer-sync.js's
+// roster listener reads for DM targeting) assigned to the freshly computed total on every
+// render, including the equip/unequip hook in renderPlayerSlots.
+function syncCharacterAc(sheet) {
+  characterAc = sheet.ac.total;
   if (typeof scheduleSave === 'function') scheduleSave();
 }
 function setInventoryViewMode(mode) {
@@ -11402,13 +11465,20 @@ function dismissFirstTimeSetupBanner() {
   const banner = document.getElementById('firstTimeSetupBanner');
   if (banner) banner.style.display = 'none';
 }
+// Small shared helper for every color+hover-tooltip stat readout on the sheet (and the
+// Inventory tab's own AC line) — a stat with no item affecting it renders plain, with no title
+// attribute at all (an empty title still shows a blank tooltip on hover in some browsers).
+function statValueHtml(value, stat) {
+  const cls = stat.status ? ` stat-${stat.status}` : '';
+  const title = stat.tooltip ? ` title="${escapeHtml(stat.tooltip)}"` : '';
+  return `<span class="sheet-line-val${cls}"${title}>${value}</span>`;
+}
 function renderCharacterSheet() {
   const classEl = document.getElementById('sheetClass');
   const levelEl = document.getElementById('sheetLevel');
   const hitDiceEl = document.getElementById('sheetHitDice');
   const curHpEl = document.getElementById('sheetCurHp');
   const maxHpEl = document.getElementById('sheetMaxHp');
-  const acEl = document.getElementById('sheetAc');
   if (!classEl) return; // sheet panel not in the DOM yet (shouldn't happen, but stay defensive)
   // Only overwrite an input's value when it's not the one currently focused — otherwise every
   // keystroke into e.g. Level would fight the render triggered by that same keystroke.
@@ -11417,13 +11487,35 @@ function renderCharacterSheet() {
   if (document.activeElement !== hitDiceEl) hitDiceEl.value = characterHitDice || '';
   if (document.activeElement !== curHpEl) curHpEl.value = characterCurrentHp;
   if (document.activeElement !== maxHpEl) maxHpEl.value = characterMaxHp;
-  if (document.activeElement !== acEl) acEl.value = characterAc;
 
   const sheet = computeCharacterSheet();
+  syncCharacterAc(sheet);
   const profBonusEl = document.getElementById('sheetProfBonus');
   if (profBonusEl) profBonusEl.textContent = fmtMod(sheet.profBonus);
-  const suggestEl = document.getElementById('sheetAcSuggestVal');
-  if (suggestEl) suggestEl.textContent = sheet.suggestedAc;
+
+  // AC and Max HP are both fully computed now (like Saves/Skills already were) instead of a
+  // manually-typed number the player had to remember to update — the sheet just always shows
+  // what the currently equipped gear actually produces, colored/hoverable the same way.
+  const acEl = document.getElementById('sheetAcValue');
+  if (acEl) {
+    acEl.textContent = sheet.ac.total;
+    acEl.className = 'sheet-ac-value' + (sheet.ac.status ? ' stat-' + sheet.ac.status : '');
+    if (sheet.ac.tooltip) acEl.title = sheet.ac.tooltip; else acEl.removeAttribute('title');
+  }
+  const maxHpLabelEl = document.getElementById('sheetMaxHpBonus');
+  if (maxHpLabelEl) {
+    maxHpLabelEl.textContent = sheet.maxHp.bonus ? `(${fmtMod(sheet.maxHp.bonus)} from gear)` : '';
+    maxHpLabelEl.className = 'sheet-hp-bonus-note' + (sheet.maxHp.status ? ' stat-' + sheet.maxHp.status : '');
+    if (sheet.maxHp.tooltip) maxHpLabelEl.title = sheet.maxHp.tooltip; else maxHpLabelEl.removeAttribute('title');
+  }
+  // Inventory tab's Equipment view gets the same live AC readout right by the paper doll, so
+  // switching gear shows its effect without needing to flip over to the Character Sheet tab.
+  const equipAcEl = document.getElementById('invEquipAcValue');
+  if (equipAcEl) {
+    equipAcEl.textContent = sheet.ac.total;
+    equipAcEl.className = 'sheet-ac-value' + (sheet.ac.status ? ' stat-' + sheet.ac.status : '');
+    if (sheet.ac.tooltip) equipAcEl.title = sheet.ac.tooltip; else equipAcEl.removeAttribute('title');
+  }
 
   const weaponsEl = document.getElementById('sheetWeaponsInfo');
   if (weaponsEl) {
@@ -11439,15 +11531,14 @@ function renderCharacterSheet() {
 
   const grid = document.getElementById('sheetAbilitiesGrid');
   if (grid) {
-    const focusedAbbr = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.abilityAbbr : null;
     grid.innerHTML = Object.keys(ABILITY_NAMES).map(abbr => {
       const a = sheet.abilities[abbr];
-      const bonusNote = a.bonus ? `<div class="sheet-item-bonus">${fmtMod(a.bonus)} from gear</div>` : '';
+      const totalCls = a.status ? ' stat-' + a.status : '';
+      const title = a.tooltip ? ` title="${escapeHtml(a.tooltip)}"` : '';
       return `<div class="sheet-ability-box">
         <label>${ABILITY_NAMES[abbr]}</label>
         <input type="number" data-ability-abbr="${abbr}" value="${a.base}" onchange="updateAbilityScore('${abbr}', this.value)">
-        <div class="sheet-ability-total">${a.total} (${fmtMod(a.mod)})</div>
-        ${bonusNote}
+        <div class="sheet-ability-total${totalCls}"${title}>${a.total} (${fmtMod(a.mod)})</div>
       </div>`;
     }).join('');
     // onchange (not oninput) on the ability inputs means no re-render fights the user mid-type,
@@ -11459,14 +11550,14 @@ function renderCharacterSheet() {
     savesEl.innerHTML = Object.keys(ABILITY_NAMES).map(abbr => {
       const name = ABILITY_NAMES[abbr];
       const proficient = saveProficiencies.includes(name);
-      return `<div class="sheet-line-row"><label><input type="checkbox" ${proficient ? 'checked' : ''} onchange="toggleSaveProficiency('${name}')"> ${name}</label><span class="sheet-line-val">${fmtMod(sheet.saves[abbr])}</span></div>`;
+      return `<div class="sheet-line-row"><label><input type="checkbox" ${proficient ? 'checked' : ''} onchange="toggleSaveProficiency('${name}')"> ${name}</label>${statValueHtml(fmtMod(sheet.saves[abbr].total), sheet.saves[abbr])}</div>`;
     }).join('');
   }
   const skillsEl = document.getElementById('sheetSkillsList');
   if (skillsEl) {
     skillsEl.innerHTML = Object.keys(SKILL_ABILITY_MAP).map(skill => {
       const proficient = skillProficiencies.includes(skill);
-      return `<div class="sheet-line-row"><label><input type="checkbox" ${proficient ? 'checked' : ''} onchange="toggleSkillProficiency('${skill.replace(/'/g, "\\'")}')"> ${escapeHtml(skill)}</label><span class="sheet-line-val">${fmtMod(sheet.skills[skill])}</span></div>`;
+      return `<div class="sheet-line-row"><label><input type="checkbox" ${proficient ? 'checked' : ''} onchange="toggleSkillProficiency('${skill.replace(/'/g, "\\'")}')"> ${escapeHtml(skill)}</label>${statValueHtml(fmtMod(sheet.skills[skill].total), sheet.skills[skill])}</div>`;
     }).join('');
   }
 }
@@ -11526,6 +11617,11 @@ function renderPlayerSlots() {
     el.onmousemove = (evt) => moveTokenTooltip(evt);
     el.onmouseleave = () => hideTokenTooltip();
   });
+  // Equipping/unequipping gear is the one path that changes AC/saves/skills without going
+  // through the Character Sheet tab's own inputs — re-running its render here keeps AC (and
+  // the Inventory tab's own live AC readout, and characterAc for multiplayer/DM targeting)
+  // in sync immediately, even while the Sheet sub-view isn't the one currently visible.
+  if (typeof renderCharacterSheet === 'function') renderCharacterSheet();
   if (typeof scheduleSave === 'function') scheduleSave();
 }
 
@@ -14436,14 +14532,26 @@ function buildForeignCharacterSheetHtml(s) {
   const sheet = computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, key => resolveForeignItem(key, s.savedGeneratedItems));
   const abilitiesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
     const a = sheet.abilities[abbr];
-    return `<div class="sheet-chip" title="${ABILITY_NAMES[abbr]}${a.bonus ? ' (' + fmtMod(a.bonus) + ' from gear)' : ''}"><strong>${abbr.toUpperCase()}</strong> ${a.total} (${fmtMod(a.mod)})</div>`;
+    const cls = a.status ? ' stat-' + a.status : '';
+    const title = a.tooltip ? ` title="${escapeHtml(ABILITY_NAMES[abbr] + ' — ' + a.tooltip)}"` : ` title="${ABILITY_NAMES[abbr]}"`;
+    return `<div class="sheet-chip${cls}"${title}><strong>${abbr.toUpperCase()}</strong> ${a.total} (${fmtMod(a.mod)})</div>`;
   }).join('');
   const saveChips = Object.keys(ABILITY_NAMES)
     .filter(abbr => saveProfs.includes(ABILITY_NAMES[abbr]))
-    .map(abbr => `<div class="sheet-chip proficient">${ABILITY_NAMES[abbr]} ${fmtMod(sheet.saves[abbr])}</div>`).join('');
+    .map(abbr => {
+      const sv = sheet.saves[abbr];
+      const cls = sv.status ? ' stat-' + sv.status : '';
+      const title = sv.tooltip ? ` title="${escapeHtml(sv.tooltip)}"` : '';
+      return `<div class="sheet-chip proficient${cls}"${title}>${ABILITY_NAMES[abbr]} ${fmtMod(sv.total)}</div>`;
+    }).join('');
   const skillChips = Object.keys(SKILL_ABILITY_MAP)
     .filter(skill => skillProfs.includes(skill))
-    .map(skill => `<div class="sheet-chip proficient">${escapeHtml(skill)} ${fmtMod(sheet.skills[skill])}</div>`).join('');
+    .map(skill => {
+      const sk = sheet.skills[skill];
+      const cls = sk.status ? ' stat-' + sk.status : '';
+      const title = sk.tooltip ? ` title="${escapeHtml(sk.tooltip)}"` : '';
+      return `<div class="sheet-chip proficient${cls}"${title}>${escapeHtml(skill)} ${fmtMod(sk.total)}</div>`;
+    }).join('');
   const weapons = collectEquippedWeaponInfo(slots, key => resolveForeignItem(key, s.savedGeneratedItems));
   const weaponsHtml = weapons.length
     ? weapons.map(w => `<div class="sheet-weapon-line"><span class="${w.rarity}">${escapeHtml(w.name)}</span> — ${escapeHtml(w.dmg)} damage</div>`).join('')
@@ -14459,7 +14567,7 @@ function buildForeignCharacterSheetHtml(s) {
       <div class="players-sheet-field"><label>Level</label><div>${level}</div></div>
       <div class="players-sheet-field"><label>Prof. Bonus</label><div>${fmtMod(sheet.profBonus)}</div></div>
       <div class="players-sheet-field"><label>HP</label><div>${curHp != null ? curHp : '—'} / ${maxHp != null ? maxHp : '—'}</div></div>
-      <div class="players-sheet-field"><label>AC</label><div>${s.characterAc != null ? s.characterAc : sheet.suggestedAc}</div></div>
+      <div class="players-sheet-field"><label>AC</label><div class="sheet-ac-value${sheet.ac.status ? ' stat-' + sheet.ac.status : ''}"${sheet.ac.tooltip ? ` title="${escapeHtml(sheet.ac.tooltip)}"` : ''}>${sheet.ac.total}</div></div>
       <div class="players-sheet-field"><label>Hit Dice</label><div>${escapeHtml(s.characterHitDice || '—')}</div></div>
       <button class="ic-action-btn" style="align-self:center;" onclick="openDmEditPlayerModal()">✎ Edit Stats</button>
     </div>
@@ -14615,8 +14723,14 @@ function openDmEditPlayerModal() {
   document.getElementById('dmEditHitDice').value = s.characterHitDice || '';
   document.getElementById('dmEditCurHp').value = s.characterCurrentHp != null ? s.characterCurrentHp : 10;
   document.getElementById('dmEditMaxHp').value = s.characterMaxHp != null ? s.characterMaxHp : 10;
-  document.getElementById('dmEditAc').value = s.characterAc != null ? s.characterAc : 10;
   const abilityScores = s.characterAbilityScores || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  // AC is read-only here (computed from ability scores + gear, same as the player's own sheet)
+  // — computed fresh from what's currently on record rather than trusting a possibly-stale
+  // stored characterAc, since gear changes made through other flows keep it in sync but this
+  // modal itself has no way to change equipment.
+  const acSheet = computeCharacterSheetFor(abilityScores, s.characterLevel || 1, s.skillProficiencies || [], s.saveProficiencies || [], s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems));
+  const dmAcEl = document.getElementById('dmEditAcValue');
+  if (dmAcEl) dmAcEl.textContent = acSheet.ac.total;
   document.getElementById('dmEditAbilitiesGrid').innerHTML = Object.keys(ABILITY_NAMES).map(abbr => `
     <div class="sheet-ability-box">
       <label>${ABILITY_NAMES[abbr]}</label>
@@ -14657,13 +14771,20 @@ function saveDmEditPlayerModal() {
     .map(abbr => ABILITY_NAMES[abbr]);
   const skillProficiencies = [...document.querySelectorAll('#dmEditSkillsList input[type=checkbox]')]
     .filter(el => el.checked).map(el => el.dataset.skill);
+  const level = parseInt(document.getElementById('dmEditLevel').value, 10) || 1;
+  // AC isn't a field the DM sets directly anymore — recompute it right now from the ability
+  // scores/proficiencies just edited (plus whatever gear this player already has on, which this
+  // modal doesn't touch) so Firestore's characterAc doesn't sit stale until the player's own
+  // client happens to re-render and push a fresh one.
+  const s = viewedPlayerState || {};
+  const acSheet = computeCharacterSheetFor(abilityScores, level, skillProficiencies, saveProficiencies, s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems));
   const fields = {
     characterClass: document.getElementById('dmEditClass').value,
-    characterLevel: parseInt(document.getElementById('dmEditLevel').value, 10) || 1,
+    characterLevel: level,
     characterHitDice: document.getElementById('dmEditHitDice').value,
     characterCurrentHp: curHp,
     characterMaxHp: maxHp,
-    characterAc: parseInt(document.getElementById('dmEditAc').value, 10) || 10,
+    characterAc: acSheet.ac.total,
     characterAbilityScores: abilityScores,
     saveProficiencies, skillProficiencies,
   };
