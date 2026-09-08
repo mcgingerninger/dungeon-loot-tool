@@ -715,12 +715,12 @@
     padding: 0.25rem 0.6rem; border: 1px solid; text-transform: uppercase; letter-spacing: 0.08em;
     white-space: nowrap; flex-shrink: 0; margin-top: 0.3rem;
   }
-  .item-card.common   .ic-rarity-badge { color: var(--common); border-color: var(--common); }
-  .item-card.uncommon .ic-rarity-badge { color: var(--uncommon); border-color: var(--uncommon); }
-  .item-card.rare     .ic-rarity-badge { color: var(--rare); border-color: var(--rare); }
-  .item-card.superrare .ic-rarity-badge{ color: var(--superrare); border-color: var(--superrare); }
-  .item-card.legendary .ic-rarity-badge{ color: var(--legendary); border-color: var(--legendary); }
-  .item-card.celestial .ic-rarity-badge{ color: var(--celestial); border-color: var(--celestial); }
+  .item-card.common   .ic-rarity-badge { color: var(--common); border-color: var(--common); text-shadow:0 0 4px rgba(200,200,200,0.25); }
+  .item-card.uncommon .ic-rarity-badge { color: var(--uncommon); border-color: var(--uncommon); text-shadow:0 0 6px rgba(107,207,138,0.3); }
+  .item-card.rare     .ic-rarity-badge { color: var(--rare); border-color: var(--rare); text-shadow: 0 0 10px rgba(91,156,246,0.4); }
+  .item-card.superrare .ic-rarity-badge{ color: var(--superrare); border-color: var(--superrare); text-shadow: 0 0 10px rgba(196,124,245,0.4); }
+  .item-card.legendary .ic-rarity-badge{ color: var(--legendary); border-color: var(--legendary); animation: textLegendaryEmber 2s ease-in-out infinite; }
+  .item-card.celestial .ic-rarity-badge{ color: var(--celestial); border-color: var(--celestial); animation: textCelestialPulse 2.4s ease-in-out infinite; }
 
   /* ---- Legendary (embered/smoldering) and celestial (pulsing light) item effects ----
      Applied to itemPixelIcon()'s frame span (icon-fx-legendary/icon-fx-celestial, added
@@ -786,6 +786,61 @@
   .token-card.legendary .token-card-name, .combat-loot-item.legendary .combat-loot-item-name { color: var(--legendary); }
   .rl-item.celestial .rl-item-name, .inv-item.celestial .inv-item-name,
   .token-card.celestial .token-card-name, .combat-loot-item.celestial .combat-loot-item-name { color: var(--celestial); }
+
+  /* ===== Badge/tag text effects — creature badges (variant/trait/chaos/bounty/defeated) and
+     item tags (.ic-tag.t-*). Rarity-tiered badges reuse textLegendaryEmber/textCelestialPulse
+     above for legendary/celestial (same convention as item names) so the "only the top two
+     tiers actually animate" rule stays consistent app-wide; common/uncommon/rare/superrare get
+     a static glow scaled up by tier instead of motion. Non-tiered badges (trait/chaos/bounty/
+     defeated/tags) each get their own small thematic keyframe below. */
+  @keyframes textTraitShimmer {
+    0%,100% { text-shadow:0 0 3px rgba(201,168,76,0.45); }
+    50%     { text-shadow:0 0 8px rgba(201,168,76,0.85), 0 0 2px rgba(255,244,214,0.5); }
+  }
+  @keyframes textDefeatedFade {
+    0%,100% { text-shadow:0 0 3px rgba(224,82,82,0.55); opacity:0.85; }
+    50%     { text-shadow:0 0 1px rgba(224,82,82,0.25); opacity:0.6; }
+  }
+  @keyframes textChaosGlitch {
+    0%,84%,100% { text-shadow:0 0 3px currentColor; transform:translateX(0); }
+    86% { text-shadow:2px 0 4px currentColor,-2px 0 4px rgba(196,124,245,0.6); transform:translateX(-0.5px); }
+    89% { text-shadow:-1px 0 3px currentColor,1px 0 3px rgba(80,220,200,0.5); transform:translateX(0.5px); }
+    92% { text-shadow:0 0 6px currentColor; transform:translateX(0); }
+  }
+  @keyframes textBountyPing {
+    0%,100% { text-shadow:0 0 3px currentColor; }
+    50%     { text-shadow:0 0 9px currentColor, 0 0 3px currentColor; }
+  }
+  @keyframes tagFlicker {
+    0%,100% { text-shadow:0 0 4px currentColor; opacity:1; }
+    8%      { text-shadow:0 0 1px currentColor; opacity:.82; }
+    16%     { text-shadow:0 0 7px currentColor; opacity:1; }
+    24%     { text-shadow:0 0 2px currentColor; opacity:.9; }
+    45%     { text-shadow:0 0 6px currentColor; opacity:1; }
+    70%     { text-shadow:0 0 3px currentColor; opacity:.92; }
+  }
+  @keyframes tagGlowPulse {
+    0%,100% { text-shadow:0 0 2px currentColor; }
+    50%     { text-shadow:0 0 7px currentColor, 0 0 2px currentColor; }
+  }
+  @keyframes tagCrackle {
+    0%,88%,100% { text-shadow:0 0 2px currentColor; }
+    90%         { text-shadow:0 0 9px currentColor, 0 0 2px #fff; }
+    92%         { text-shadow:0 0 2px currentColor; }
+    95%         { text-shadow:0 0 11px currentColor, 0 0 3px #fff; }
+  }
+  @keyframes tagBreathe {
+    0%,100% { opacity:.72; text-shadow:0 0 2px currentColor; }
+    50%     { opacity:1;   text-shadow:0 0 6px currentColor; }
+  }
+  @keyframes tagHueShift {
+    0%,100% { filter:hue-rotate(0deg); text-shadow:0 0 4px currentColor; }
+    50%     { filter:hue-rotate(30deg); text-shadow:0 0 7px currentColor; }
+  }
+  @keyframes tagWarp {
+    0%,100% { text-shadow:0 0 3px currentColor; letter-spacing:0.04em; }
+    50%     { text-shadow:0 0 9px currentColor, 0 0 3px currentColor; letter-spacing:0.08em; }
+  }
 
   .item-card-body { padding: 1rem 1.4rem; display: flex; flex-direction: column; gap: 0.9rem; }
 
@@ -1028,16 +1083,16 @@
   .ic-interactions { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.3rem; }
   .ic-interaction-chip { font-family:'Share Tech Mono',monospace; font-size:0.65rem; padding:0.1rem 0.4rem; border:1px solid rgba(91,156,246,0.4); color:#8fbcf7; background:rgba(0,0,0,0.2); letter-spacing:0.04em; }
   .ic-tag { font-family:'Share Tech Mono',monospace; font-size:0.65rem; padding:0.1rem 0.4rem; border:1px solid rgba(201,168,76,0.25); color:var(--text-dim); background:rgba(0,0,0,0.2); letter-spacing:0.04em; }
-  .ic-tag.t-fire    { color:#ff7043; border-color:rgba(255,112,67,0.4); }
-  .ic-tag.t-cold    { color:#80d8ff; border-color:rgba(128,216,255,0.4); }
-  .ic-tag.t-storm   { color:#b39ddb; border-color:rgba(179,157,219,0.4); }
-  .ic-tag.t-shadow  { color:#b0bec5; border-color:rgba(176,190,197,0.35); }
-  .ic-tag.t-holy    { color:#fff176; border-color:rgba(255,241,118,0.4); }
-  .ic-tag.t-arcane  { color:#80cbc4; border-color:rgba(128,203,196,0.4); }
-  .ic-tag.t-nature  { color:#a5d6a7; border-color:rgba(165,214,167,0.4); }
-  .ic-tag.t-void    { color:#ce93d8; border-color:rgba(206,147,216,0.4); }
-  .ic-tag.t-melee   { color:var(--danger); border-color:rgba(224,82,82,0.35); }
-  .ic-tag.t-ranged  { color:#ffcc80; border-color:rgba(255,204,128,0.35); }
+  .ic-tag.t-fire    { color:#ff7043; border-color:rgba(255,112,67,0.4); animation: tagFlicker 2.2s infinite ease-in-out; }
+  .ic-tag.t-cold    { color:#80d8ff; border-color:rgba(128,216,255,0.4); animation: tagGlowPulse 3.4s infinite ease-in-out; }
+  .ic-tag.t-storm   { color:#b39ddb; border-color:rgba(179,157,219,0.4); animation: tagCrackle 4s infinite; }
+  .ic-tag.t-shadow  { color:#b0bec5; border-color:rgba(176,190,197,0.35); animation: tagBreathe 4.2s infinite ease-in-out; }
+  .ic-tag.t-holy    { color:#fff176; border-color:rgba(255,241,118,0.4); animation: tagGlowPulse 2.6s infinite ease-in-out; }
+  .ic-tag.t-arcane  { color:#80cbc4; border-color:rgba(128,203,196,0.4); animation: tagHueShift 3.2s infinite ease-in-out; }
+  .ic-tag.t-nature  { color:#a5d6a7; border-color:rgba(165,214,167,0.4); animation: tagBreathe 3.4s infinite ease-in-out; }
+  .ic-tag.t-void    { color:#ce93d8; border-color:rgba(206,147,216,0.4); animation: tagWarp 3.8s infinite ease-in-out; }
+  .ic-tag.t-melee   { color:var(--danger); border-color:rgba(224,82,82,0.35); text-shadow: 0 0 4px currentColor; }
+  .ic-tag.t-ranged  { color:#ffcc80; border-color:rgba(255,204,128,0.35); animation: tagCrackle 5s infinite; }
   .synergy-bar { font-size:0.8rem; color:var(--text-dim); font-style:italic; padding:0.4rem 0.8rem; border-left:2px solid var(--gold); margin-top:0.3rem; background:rgba(201,168,76,0.04); }
 
   /* ===================== CHEST TAB ===================== */
@@ -1774,25 +1829,28 @@
   .combat-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
   .combat-card-name{font-size:1.05rem;color:var(--gold-bright);font-weight:600}
   .combat-variant-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle}
-  .combat-variant-badge.common{color:var(--common)}
-  .combat-variant-badge.uncommon{color:var(--uncommon)}
-  .combat-variant-badge.rare{color:var(--rare)}
-  .combat-variant-badge.superrare{color:var(--superrare)}
-  .combat-variant-badge.legendary{color:var(--legendary)}
-  .combat-trait-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--gold);color:var(--gold);vertical-align:middle}
+  .combat-variant-badge.common{color:var(--common); text-shadow:0 0 4px rgba(200,200,200,0.25);}
+  .combat-variant-badge.uncommon{color:var(--uncommon); text-shadow:0 0 6px rgba(107,207,138,0.3);}
+  .combat-variant-badge.rare{color:var(--rare); text-shadow:0 0 10px rgba(91,156,246,0.4);}
+  .combat-variant-badge.superrare{color:var(--superrare); text-shadow:0 0 10px rgba(196,124,245,0.4);}
+  .combat-variant-badge.legendary{color:var(--legendary); animation: textLegendaryEmber 2s ease-in-out infinite;}
+  .combat-trait-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--gold);color:var(--gold);vertical-align:middle;animation: textTraitShimmer 2.8s ease-in-out infinite;}
   .combat-card-sub{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.15rem}
   .combat-card-desc{font-style:italic;color:var(--text-dim);font-size:.78rem;line-height:1.35;margin:.35rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .combat-card-remove{background:transparent;border:none;color:var(--border);cursor:pointer;font-size:1.1rem;line-height:1;transition:color .15s}
   .combat-card-remove:hover{color:var(--danger)}
   .combat-card-stats{display:flex;gap:1rem;align-items:center;font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--text-dim)}
   .combat-hp-dice{color:var(--text-dim);font-style:italic}
-  .combat-hp-row{display:flex;align-items:center;gap:0.4rem}
-  .combat-hp-slider{width:90px;accent-color:var(--uncommon);cursor:pointer}
+  .combat-hp-row{display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap}
+  .combat-hp-slider{width:70px;accent-color:var(--uncommon);cursor:pointer}
+  .hp-nudge-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:.7rem;line-height:1;padding:.1rem .28rem;border-radius:3px;transition:color .15s,border-color .15s}
+  .hp-nudge-btn:hover{color:var(--uncommon);border-color:var(--uncommon)}
+  .hp-nudge-btn.hp-nudge-down:hover{color:var(--danger);border-color:var(--danger)}
   .combat-card-mods{font-size:.78rem;line-height:1.5;color:var(--text-dim)}
   .combat-variant-chance-val{font-family:'Share Tech Mono',monospace;color:var(--gold);min-width:2.6em;display:inline-block}
   .combat-chaos-chance-val{font-family:'Share Tech Mono',monospace;color:var(--superrare);min-width:2.6em;display:inline-block}
   .combat-variant-note{color:var(--text-dim);font-size:.82rem;font-style:italic;line-height:1.5}
-  .combat-chaos-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--superrare);color:var(--superrare);vertical-align:middle}
+  .combat-chaos-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--superrare);color:var(--superrare);vertical-align:middle;animation: textChaosGlitch 3.6s infinite;}
   .combat-chaos-badge.common{border-color:var(--common);color:var(--common)}
   .combat-chaos-badge.uncommon{border-color:var(--uncommon);color:var(--uncommon)}
   .combat-chaos-badge.rare{border-color:var(--rare);color:var(--rare)}
@@ -1862,7 +1920,7 @@
      same-named stock bestiary entry (e.g. a bounty that happened to roll the "Ancient"
      variant on a Brass Dragon looks, by name, identical to the real Ancient Brass Dragon
      stat block already in the registry). */
-  .combat-bounty-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle}
+  .combat-bounty-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid currentColor;vertical-align:middle;animation: textBountyPing 1.8s ease-in-out infinite;}
   .combat-bounty-badge.common{color:var(--common)}
   .combat-bounty-badge.uncommon{color:var(--uncommon)}
   .combat-bounty-badge.rare{color:var(--rare)}
@@ -1898,7 +1956,7 @@
   .combat-empty-roster{color:var(--text-dim);font-style:italic;padding:1.5rem;text-align:center;border:1px dashed var(--border)}
   /* Monster looting — right-click to defeat, right-click again to roll loot */
   .combat-card.combat-card-defeated{opacity:.7;border-style:dashed}
-  .combat-defeated-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--danger);color:var(--danger);vertical-align:middle}
+  .combat-defeated-badge{display:inline-block;margin-left:.5rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border:1px solid var(--danger);color:var(--danger);vertical-align:middle;animation: textDefeatedFade 3.4s ease-in-out infinite;}
   .combat-loot-hint{color:var(--text-dim);font-style:italic;font-size:.85rem;padding:.4rem 0}
   .combat-loot-block{background:rgba(0,0,0,.2);border:1px solid var(--border);padding:.6rem .7rem;display:flex;flex-direction:column;gap:.35rem}
   .combat-loot-title{font-weight:600;font-size:.9rem;color:var(--gold)}
@@ -14023,6 +14081,27 @@ function updateBattleHp(uid, value) {
   const numEl = document.getElementById('combatHpNum' + uid);
   if (numEl) numEl.textContent = hp;
 }
+// The slider's own oninput (above) deliberately skips renderCombatRoster/scheduleSave while
+// mid-drag so it stays smooth — but with nothing bound to fire once the drag ENDS, a dragged
+// value was never actually saved or pushed to Firestore at all unless some unrelated later
+// action happened to trigger a re-render first. Bound to onchange (fires once, on release),
+// this commits the drag's final value the same way every other HP-changing action already does.
+function commitBattleHp(uid) {
+  renderCombatRoster();
+}
+// Arrow-button alternative to the slider — a discrete click rather than a drag, so (unlike
+// updateBattleHp above) this commits and syncs immediately every time: single arrows step by
+// 1, double arrows step by 10. Mirrors the slider's own clamp-to-[0,maxHp] and
+// crosses-to-0-marks-defeated behavior exactly, just always via a full render since there's no
+// drag-smoothness concern for a single click.
+function nudgeBattleHp(uid, delta) {
+  const entry = battleRoster.find(e => e.uid === uid);
+  if (!entry) return;
+  const hp = Math.max(0, Math.min(entry.maxHp, entry.hp + delta));
+  entry.hp = hp;
+  if (hp <= 0 && !entry.defeated) entry.defeated = true;
+  renderCombatRoster();
+}
 function removeFromBattle(uid) {
   battleRoster = battleRoster.filter(e => e.uid !== uid);
   renderCombatRoster();
@@ -14389,9 +14468,13 @@ function combatCardHtml(entry, mode, shellOnly) {
   }
 
   const hpHtml = isDm
-    ? `<input type="range" class="combat-hp-slider" min="0" max="${entry.maxHp}" value="${entry.hp}"
-        oninput="updateBattleHp(${entry.uid}, this.value)" onclick="event.stopPropagation()">
-       <span id="combatHpNum${entry.uid}">${escapeHtml(String(entry.hp))}</span>/${entry.maxHp}${hpDiceNote}`
+    ? `<button class="hp-nudge-btn hp-nudge-down" onclick="event.stopPropagation();nudgeBattleHp(${entry.uid},-10)" title="-10 HP">«</button>
+       <button class="hp-nudge-btn hp-nudge-down" onclick="event.stopPropagation();nudgeBattleHp(${entry.uid},-1)" title="-1 HP">‹</button>
+       <input type="range" class="combat-hp-slider" min="0" max="${entry.maxHp}" value="${entry.hp}"
+        oninput="updateBattleHp(${entry.uid}, this.value)" onchange="commitBattleHp(${entry.uid})" onclick="event.stopPropagation()">
+       <span id="combatHpNum${entry.uid}">${escapeHtml(String(entry.hp))}</span>/${entry.maxHp}${hpDiceNote}
+       <button class="hp-nudge-btn" onclick="event.stopPropagation();nudgeBattleHp(${entry.uid},1)" title="+1 HP">›</button>
+       <button class="hp-nudge-btn" onclick="event.stopPropagation();nudgeBattleHp(${entry.uid},10)" title="+10 HP">»</button>`
     : `<span class="combat-hp-bar-outer"><span class="combat-hp-bar-inner" style="width:${entry.maxHp ? Math.max(0, Math.min(100, entry.hp / entry.maxHp * 100)) : 0}%"></span></span>
        <span>${escapeHtml(String(entry.hp))}/${entry.maxHp}</span>`;
 
