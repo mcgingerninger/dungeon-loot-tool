@@ -967,6 +967,15 @@
   .store-card-soldout { opacity: 0.55; }
   .store-buy-msg { height: 1.4rem; margin-top: 0.6rem; color: var(--uncommon); font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; }
   .store-buy-msg.show { opacity: 1; }
+  /* Anchored variant — see flashStoreBuyMessage(anchorRect). Only ever applied to #storeBuyMsg
+     itself (the other .store-buy-msg toasts throughout the app never get this class), so this
+     doesn't touch their normal static-position layout. */
+  .store-buy-msg.floating {
+    position: fixed; margin-top: 0; height: auto; max-width: min(260px, 90vw);
+    transform: translate(-50%, -100%); background: var(--surface2); border: 1px solid var(--border);
+    padding: 0.4rem 0.65rem; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    z-index: 500; pointer-events: none; text-align: center;
+  }
   @media (max-width: 700px) { .store-grid { grid-template-columns: 1fr; } }
 
   /* BOUNTY HUNTER */
@@ -2400,6 +2409,7 @@
       </label>
       <div class="gen-panel" style="margin-top:0;">
         <h3>📜 Saved Items</h3>
+        <input type="text" id="savedItemsSearch" class="token-search" placeholder="Search saved items…" oninput="renderSavedItems()" style="margin-bottom:0.5rem;">
         <div id="savedItemsList"><span style="color:var(--text-dim);font-size:0.88rem;font-style:italic;">No saved items yet.</span></div>
       </div>
     </div>
@@ -4364,24 +4374,13 @@ function setSpinLootMode(mode) {
   if (chestPanel) chestPanel.style.display = mode === 'chest' ? 'block' : 'none';
 }
 
-// ===================== MONSTER PARTS IN GENERAL LOOT TABLES =====================
-// Shared "does this batch of loot also include a monster part" roll — used by the random-
-// mode wheel spin below and by the Treasure Chest tab (resolveChest()/awardChestOfRarity()),
-// so parts show up in every general loot source, not just Combat tab defeats and the "From
-// Creatures" roll above. Chance keys off combatLootSettings[tier].partChance — the exact
-// same adjustable preset used everywhere else parts drop — falling back to a flat 15% if
-// that object somehow isn't ready yet. The source creature is picked to match the loot's own
-// tier via pickMonsterForRarity() (falls back to any loaded creature; skips entirely if the
-// registry hasn't loaded), so there's no hardcoded per-item creature list to maintain here
-// either — a common-tier drop only rarely yields dragon hide, but a legendary one might.
-function maybeAddMonsterPart(items, tier) {
-  if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) return;
-  const settings = (typeof combatLootSettings !== 'undefined' && combatLootSettings[tier]) || null;
-  const chance = settings ? settings.partChance : 15;
-  if (Math.random() * 100 >= chance) return;
-  const sourceMonster = (typeof pickMonsterForRarity === 'function' && pickMonsterForRarity(tier, false)) || ri(monsterDatabase);
-  if (sourceMonster) items.push(generateMonsterPart(sourceMonster, tier));
-}
+// Monster parts are exclusive to actually defeating that monster in Combat (see
+// rollMonsterCombatLoot's own generateMonsterPart call) — the Random Loot wheel, Treasure
+// Chest, and Bounty reward chests used to also roll in an occasional bonus part via a
+// maybeAddMonsterPart() helper, but that made parts turn up disconnected from any monster
+// having actually died, which read as drop-table noise. Removed; see isMonsterPartItem() for
+// the other half of this (filtering the premade catalog parts back out of every pool those
+// general loot sources still draw from directly).
 
 function resolveRoll(numEnemies, minItems, maxItems) {
   for(let e=0;e<numEnemies;e++){
@@ -4393,9 +4392,6 @@ function resolveRoll(numEnemies, minItems, maxItems) {
       const descText = item.desc || '';
       items.push({rarity,name:item.name,desc:descText,type:item.type,slotSize:item.slotSize,dmg:item.dmg,ac:item.ac,hp:item.hp,effect:item.effect,gp:item.gp,charges:item.charges,requirement:item.requirement});
     }
-    // Occasional bonus monster part, keyed to the best rarity this enemy actually rolled.
-    const topRarity = items.reduce((best, it) => BAL.rarityOrder.indexOf(it.rarity) > BAL.rarityOrder.indexOf(best) ? it.rarity : best, 'common');
-    maybeAddMonsterPart(items, topRarity);
     spinResults.push({enemy:spinResults.length+1,items});
   }
   // Pop some rarity indicators
@@ -5227,7 +5223,7 @@ function resolveChest() {
     if (items.length >= count) break;
     const rarity = pickChestRarity();
     const pool = (lootData[rarity] || []).filter(it =>
-      group.types.includes(it.type) && !usedNames.has(it.name)
+      group.types.includes(it.type) && !usedNames.has(it.name) && !isMonsterPartItem(it)
     );
     if (pool.length) {
       const raw = pool[Math.floor(Math.random() * pool.length)];
@@ -5242,7 +5238,7 @@ function resolveChest() {
   while (items.length < count && tries < 50) {
     tries++;
     const rarity = pickChestRarity();
-    const pool = (lootData[rarity] || []).filter(it => !usedNames.has(it.name));
+    const pool = (lootData[rarity] || []).filter(it => !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (!pool.length) continue;
     const raw = pool[Math.floor(Math.random() * pool.length)];
     const item = resolveScrollSpell(raw);
@@ -5253,7 +5249,7 @@ function resolveChest() {
   // Guarantee: every chest contains at least 1 item of its own rarity tier.
   // If the cascade rolls happened to miss it entirely, force-swap one slot.
   if (items.length && !items.some(it => it.rarity === chestRarity)) {
-    const guaranteedPool = (lootData[chestRarity] || []).filter(it => !usedNames.has(it.name));
+    const guaranteedPool = (lootData[chestRarity] || []).filter(it => !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (guaranteedPool.length) {
       const raw = guaranteedPool[Math.floor(Math.random() * guaranteedPool.length)];
       const item = resolveScrollSpell(raw);
@@ -5263,10 +5259,6 @@ function resolveChest() {
       items[swapIdx] = { rarity: chestRarity, ...item };
     }
   }
-
-  // Occasional bonus monster part, keyed to the chest's own overall rarity — see
-  // maybeAddMonsterPart()'s comment for how the source creature and chance are picked.
-  maybeAddMonsterPart(items, chestRarity);
 
   chestResults.push({ id: chestResults.length + 1, rarity: chestRarity, gold, items });
   renderChestResults();
@@ -7311,7 +7303,14 @@ function renderSavedItems() {
     el.innerHTML = '<span style="color:var(--text-dim);font-size:0.88rem;font-style:italic;">No saved items yet.</span>';
     return;
   }
-  el.innerHTML = savedGeneratedItems.map(item => `
+  const searchEl = document.getElementById('savedItemsSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const visible = search ? savedGeneratedItems.filter(item => item.name.toLowerCase().includes(search)) : savedGeneratedItems;
+  if (!visible.length) {
+    el.innerHTML = '<span style="color:var(--text-dim);font-size:0.88rem;font-style:italic;">No saved items match your search.</span>';
+    return;
+  }
+  el.innerHTML = visible.map(item => `
     <div class="saved-item-row" onclick="loadSavedItem(${item.id})">
       <div class="saved-item-dot" style="background:var(--${item.rarity})"></div>
       <span class="saved-item-name">${item.name}</span>
@@ -8673,7 +8672,7 @@ function storeStapleCardHtml(staple, merchantKey, idx) {
       ${statBits.length ? `<div class="store-card-effect"><strong>${statBits.join(' · ')}</strong></div>` : ''}
       <div class="store-card-gp">💰 ${escapeHtml(staple.gp)}</div>
       ${stockLabel}
-      <button class="ic-action-btn" ${outOfStock ? 'disabled' : ''} onclick="buyStapleItem('${merchantKey}', ${idx})">${outOfStock ? '✗ Sold Out' : '🛒 Buy'}</button>
+      <button class="ic-action-btn" ${outOfStock ? 'disabled' : ''} onclick="buyStapleItem(event,'${merchantKey}', ${idx})">${outOfStock ? '✗ Sold Out' : '🛒 Buy'}</button>
     </div>
   `;
 }
@@ -8699,7 +8698,7 @@ function storeDailyCardHtml(item, idx, sold) {
       <div class="store-card-effect">${effectText}</div>
       <div class="store-card-gp">💰 ${escapeHtml(item.gp)}</div>
       ${sold ? `<div class="store-card-stock out">OUT OF STOCK</div>` : ''}
-      <button class="ic-action-btn" ${sold ? 'disabled' : ''} onclick="buyStoreDailyItem(${idx})">${sold ? '✗ Sold Out' : '🛒 Buy'}</button>
+      <button class="ic-action-btn" ${sold ? 'disabled' : ''} onclick="buyStoreDailyItem(event,${idx})">${sold ? '✗ Sold Out' : '🛒 Buy'}</button>
     </div>
   `;
 }
@@ -8828,7 +8827,14 @@ function renderStoreTab() {
   if (manglerPanelEl) manglerPanelEl.style.display = 'none';
   ensureMerchantStock(currentMerchant);
   const m = MERCHANTS[currentMerchant];
-  const staplesHtml = m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
+  // Most merchants only ever carry a handful of staples (5), so a search box would just be
+  // clutter — but the Animal Tamer's stock is every common-tier companion in lootData
+  // (currently 20+, and only growing as more get added), so past this size a live filter
+  // replaces the whole scroll-and-squint experience. Same threshold/pattern as every other
+  // "big list" search in the app (Token Library, Compendium tabs): read straight from the
+  // input's own DOM value at render time so typing never has to fight a re-render for focus.
+  const staplesSearchable = m.staples.length > 10;
+  const staplesHtml = staplesSearchable ? '' : m.staples.map((s,i) => storeStapleCardHtml(s, currentMerchant, i)).join('');
   const dailyItems = merchantDailyItems[currentMerchant] || [];
   const dailySold = merchantDailySold[currentMerchant] || [];
   const dailyHtml = dailyItems.map((it,i) => storeDailyCardHtml(it, i, !!dailySold[i])).join('');
@@ -8864,7 +8870,10 @@ function renderStoreTab() {
     <div class="store-buy-msg" id="storeBuyMsg"></div>
     <details class="collapsible"${storeStockSectionOpen ? ' open' : ''} ontoggle="storeStockSectionOpen=this.open" style="margin-top:1.2rem;">
       <summary>🛍 Standing Stock</summary>
-      <div class="collapsible-body"><div class="store-grid">${staplesHtml}</div></div>
+      <div class="collapsible-body">
+        ${staplesSearchable ? `<input type="text" id="storeStapleSearch" class="token-search" placeholder="Search standing stock…" oninput="renderStoreStaplesGrid()" style="margin-bottom:0.6rem;">` : ''}
+        <div class="store-grid" id="storeStaplesGrid">${staplesHtml}</div>
+      </div>
     </details>
     <details class="collapsible"${storeDailySectionOpen ? ' open' : ''} ontoggle="storeDailySectionOpen=this.open" style="margin-top:0.6rem;">
       <summary>✨ Today's Wares</summary>
@@ -8874,8 +8883,30 @@ function renderStoreTab() {
       </div>
     </details>
   `;
+  if (staplesSearchable) renderStoreStaplesGrid();
   renderTraderSellTokenGrid();
   renderMerchantTill();
+}
+// Re-renders just the Standing Stock grid from the live search box value, leaving the box
+// itself untouched — same reasoning as renderItemsList/renderInventoryTokenGrid: replacing
+// the input's own DOM node on every keystroke would steal focus and cursor position. Only
+// called for merchants whose staples list is long enough to have a search box in the first
+// place (see staplesSearchable in renderStoreTab); indices passed through to
+// storeStapleCardHtml are the item's real position in m.staples, not its position in the
+// filtered results, since buyStapleItem/merchantStapleStock are both keyed by real index.
+function renderStoreStaplesGrid() {
+  const grid = document.getElementById('storeStaplesGrid');
+  if (!grid || !currentMerchant) return;
+  const m = MERCHANTS[currentMerchant];
+  if (!m) return;
+  const searchEl = document.getElementById('storeStapleSearch');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const html = m.staples
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => !search || s.name.toLowerCase().includes(search))
+    .map(({ s, i }) => storeStapleCardHtml(s, currentMerchant, i))
+    .join('');
+  grid.innerHTML = html || '<div class="empty-results" style="grid-column:1/-1;">No wares match your search.</div>';
 }
 // Human-readable summary of what a merchant deals in, for the sell-zone hint text.
 function merchantTradeDescription(merchantKey) {
@@ -8908,14 +8939,19 @@ function placeItemIntoInventory(item) {
   if (placed) renderInventoryGrid();
   return { item: saved, placed };
 }
-function buyStapleItem(merchantKey, idx) {
+function buyStapleItem(evt, merchantKey, idx) {
+  // Captured before anything below can trigger a renderStoreTab() re-render, which replaces
+  // the whole panel's innerHTML and detaches this exact button — a detached element still
+  // exists as a JS reference but reports a zeroed-out getBoundingClientRect(), so the anchor
+  // has to be grabbed from the live DOM right now, not read lazily inside flashStoreBuyMessage.
+  const anchorRect = evt?.currentTarget?.getBoundingClientRect();
   const staple = MERCHANTS[merchantKey]?.staples?.[idx];
   if (!staple) return;
   ensureMerchantStock(merchantKey);
   const stock = merchantStapleStock[merchantKey];
-  if (stock && stock[idx] <= 0) { flashStoreBuyMessage(`${staple.name} is out of stock — restock to bring in more.`, true); return; }
+  if (stock && stock[idx] <= 0) { flashStoreBuyMessage(`${staple.name} is out of stock — restock to bring in more.`, true, anchorRect); return; }
   const price = gpToNumber(staple.gp);
-  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${staple.name} (${staple.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true); return; }
+  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${staple.name} (${staple.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true, anchorRect); return; }
   const type = staple.type || 'misc';
   // Same canonical fields as every other item in the project: subcategory (derived from
   // the name, same as everywhere else) drives slotSize instead of a hardcoded 1.
@@ -8934,25 +8970,41 @@ function buyStapleItem(merchantKey, idx) {
   renderStoreTab();
   flashStoreBuyMessage(placed
     ? `${staple.name} purchased for ${staple.gp} and added to your inventory.`
-    : `${staple.name} purchased for ${staple.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
+    : `${staple.name} purchased for ${staple.gp} — your inventory is full, so it's waiting in the Token Library instead.`, false, anchorRect);
 }
-function buyStoreDailyItem(idx) {
+function buyStoreDailyItem(evt, idx) {
+  const anchorRect = evt?.currentTarget?.getBoundingClientRect();
   const src = merchantDailyItems[currentMerchant]?.[idx];
   if (!src) return;
   const sold = merchantDailySold[currentMerchant];
-  if (sold && sold[idx]) { flashStoreBuyMessage(`${src.name} has already been sold — restock for fresh wares.`, true); return; }
+  if (sold && sold[idx]) { flashStoreBuyMessage(`${src.name} has already been sold — restock for fresh wares.`, true, anchorRect); return; }
   const price = gpToNumber(src.gp);
-  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${src.name} (${src.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true); return; }
+  if (!spendPlayerGold(price)) { flashStoreBuyMessage(`You can't afford ${src.name} (${src.gp}) — you have ${coinPouchGpText(getPlayerGold())}.`, true, anchorRect); return; }
   if (sold) sold[idx] = true;
   const { placed } = placeItemIntoInventory(src);
   renderStoreTab();
   flashStoreBuyMessage(placed
     ? `${src.name} purchased for ${src.gp} and added to your inventory.`
-    : `${src.name} purchased for ${src.gp} — your inventory is full, so it's waiting in the Token Library instead.`);
+    : `${src.name} purchased for ${src.gp} — your inventory is full, so it's waiting in the Token Library instead.`, false, anchorRect);
 }
-function flashStoreBuyMessage(msg, isError) {
+// anchorRect (a DOMRect snapshot taken at click time, before any re-render could detach the
+// button — see buyStapleItem's comment) positions the toast right next to whichever Buy
+// button was actually clicked, rather than the old fixed spot below the sell zone that was
+// routinely scrolled out of view whenever the purchase came from Standing Stock/Today's Wares
+// further down the page. Falls back to the old static position if no rect was captured (e.g.
+// called from somewhere without a click event).
+function flashStoreBuyMessage(msg, isError, anchorRect) {
   const el = document.getElementById('storeBuyMsg');
   if (!el) return;
+  if (anchorRect) {
+    el.classList.add('floating');
+    el.style.left = (anchorRect.left + anchorRect.width / 2) + 'px';
+    el.style.top = (anchorRect.top - 8) + 'px';
+  } else {
+    el.classList.remove('floating');
+    el.style.left = '';
+    el.style.top = '';
+  }
   el.textContent = (isError ? '✗ ' : '✓ ') + msg;
   el.style.color = isError ? 'var(--danger)' : '';
   el.classList.add('show');
@@ -9500,10 +9552,16 @@ function generateModifier(rarity) {
   const skill=ri(GEN.skills);
   return {type:'Skill',text:`Grants exceptional aptitude in <strong>${skill}</strong>, providing a <strong>+${Math.max(1,idx+1)}</strong> bonus to related checks.`};
 }
+// Every creature's premade monster parts live in lootData right alongside ordinary gear (see
+// generatePremadeMonsterParts) purely so they're browsable from the Item Compendium — they're
+// not meant to be handed out by general loot sources. Parts are only ever meant to come from
+// actually defeating that specific monster (rollMonsterCombatLoot's own generateMonsterPart
+// call), so every random-pick pool drawn straight from lootData filters them back out first.
+function isMonsterPartItem(it) { return it.type === 'craftable' && it.subcategory === 'monsterpart'; }
 // Wheel results now receive the same GP category and variable quality fields as generated items.
 function pickItem(rarity) {
-  const pool=lootData[rarity];
-  if(!pool||!pool.length) return {name:'Nothing',desc:'',type:'misc',slotSize:1,gp:'0 gp'};
+  const pool=(lootData[rarity]||[]).filter(it => !isMonsterPartItem(it));
+  if(!pool.length) return {name:'Nothing',desc:'',type:'misc',slotSize:1,gp:'0 gp'};
   return qualityForWheel(pool[Math.floor(Math.random()*pool.length)],rarity);
 }
 // ===================== COMBINATORIAL DESCRIPTION SYSTEM =====================
@@ -15025,19 +15083,19 @@ function awardChestOfRarity(rarity, count) {
   for (const group of shuffledGroups) {
     if (items.length >= count) break;
     const r = pickRarity();
-    const pool = (lootData[r] || []).filter(it => group.types.includes(it.type) && !usedNames.has(it.name));
+    const pool = (lootData[r] || []).filter(it => group.types.includes(it.type) && !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (pool.length) { const raw = ri(pool); const item = resolveScrollSpell(raw); usedNames.add(raw.name); items.push({ rarity: r, ...item }); }
   }
   let tries = 0;
   while (items.length < count && tries < 50) {
     tries++;
     const r = pickRarity();
-    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name));
+    const pool = (lootData[r] || []).filter(it => !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (!pool.length) continue;
     const raw = ri(pool); const item = resolveScrollSpell(raw); usedNames.add(raw.name); items.push({ rarity: r, ...item });
   }
   if (items.length && !items.some(it => it.rarity === rarity)) {
-    const guaranteedPool = (lootData[rarity] || []).filter(it => !usedNames.has(it.name));
+    const guaranteedPool = (lootData[rarity] || []).filter(it => !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (guaranteedPool.length) {
       const raw = ri(guaranteedPool); const item = resolveScrollSpell(raw);
       const swapIdx = rn(0, items.length - 1);
@@ -15045,8 +15103,6 @@ function awardChestOfRarity(rarity, count) {
       items[swapIdx] = { rarity, ...item };
     }
   }
-  // Occasional bonus monster part, same as resolveChest() and the wheel spin.
-  if (typeof maybeAddMonsterPart === 'function') maybeAddMonsterPart(items, rarity);
   const chest = { id: chestResults.length + 1, rarity, gold, items };
   chestResults.push(chest);
   if (typeof renderChestResults === 'function') renderChestResults();
