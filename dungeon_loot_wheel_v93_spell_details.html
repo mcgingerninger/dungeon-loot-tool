@@ -5764,6 +5764,12 @@ function itemEffectBlockHtml(item) {
   return '';
 }
 
+// Shared by the Items/Spells/Monsters Compendium tables — the largest of these (Items, with
+// no filter applied) is 13,826 rich cards, each carrying its own procedurally-drawn icon;
+// building and inserting that many DOM nodes in one innerHTML assignment is a multi-second
+// freeze on desktop and considerably worse on a phone. Filtering/sorting still always runs
+// over the full underlying array; only the actual number of DOM nodes created gets capped.
+const COMPENDIUM_RENDER_CAP = 300;
 function renderItemsList() {
   const list = document.getElementById('itemsList');
 
@@ -5798,7 +5804,16 @@ function renderItemsList() {
     return;
   }
 
-  list.innerHTML = entries.map(({item, rarity, i}) => `
+  // With no search/filter applied this is every item in the catalog — rendering all 13,000+
+  // rich cards (each with its own procedural icon) into the DOM in one shot is a genuine
+  // multi-second freeze, worse on phones. Capped the same way the Spell/Monster compendium
+  // tables are (see COMPENDIUM_RENDER_CAP) — search/filtering still runs over the FULL
+  // entries array above, only what actually gets drawn is capped.
+  const itemsCapped = entries.length > COMPENDIUM_RENDER_CAP;
+  const itemsShown = itemsCapped ? entries.slice(0, COMPENDIUM_RENDER_CAP) : entries;
+  const itemsCapNote = itemsCapped ? `<div class="empty-results" style="padding:1rem;">Showing first ${COMPENDIUM_RENDER_CAP.toLocaleString()} of ${entries.length.toLocaleString()} matches — narrow your search or filters to see the rest.</div>` : '';
+
+  list.innerHTML = itemsShown.map(({item, rarity, i}) => `
     <div class="item-row ${rarity}">
       <span class="item-num">${i+1}</span>
       ${itemPixelIcon(item, 28, rarity)}
@@ -5817,7 +5832,7 @@ function renderItemsList() {
         <button class="del-btn" onclick="removeItem('${rarity}', ${i})" title="Remove">✕</button>
       </div>
     </div>
-  `).join('');
+  `).join('') + itemsCapNote;
 }
 
 function updateAddFormFields() {
@@ -12751,9 +12766,11 @@ function renderSpellTable(){
   const rows=spellDatabase.filter(spellMatches).sort((a,b)=>{
     if(sort==='level')return a.level-b.level||a.name.localeCompare(b.name); if(sort==='name')return a.name.localeCompare(b.name); if(sort==='casting')return a.casting.localeCompare(b.casting)||a.name.localeCompare(b.name); if(sort==='school')return a.schoolName.localeCompare(b.schoolName)||a.name.localeCompare(b.name); if(sort==='duration')return a.durationLabel.localeCompare(b.durationLabel)||a.name.localeCompare(b.name); if(sort==='range')return a.rangeLabel.localeCompare(b.rangeLabel)||a.name.localeCompare(b.name); return a.sourceLabel.localeCompare(b.sourceLabel)||a.name.localeCompare(b.name);
   });
-  document.getElementById('spellCount').textContent=`${rows.length.toLocaleString()} spell${rows.length===1?'':'s'} shown · ${spellDatabase.length.toLocaleString()} loaded`;
+  const spellsCapped = rows.length > COMPENDIUM_RENDER_CAP;
+  const shownRows = spellsCapped ? rows.slice(0, COMPENDIUM_RENDER_CAP) : rows;
+  document.getElementById('spellCount').textContent=`${rows.length.toLocaleString()} spell${rows.length===1?'':'s'} shown${spellsCapped ? ` (first ${COMPENDIUM_RENDER_CAP.toLocaleString()} rendered — narrow your search for the rest)` : ''} · ${spellDatabase.length.toLocaleString()} loaded`;
   if(!rows.length){wrap.innerHTML='<div class="spell-loading">No spells match the current filters.</div>';return;}
-  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save</th><th>Attack</th><th title="Damage type(s) inflicted · conditions inflicted · area-of-effect shape or targeting (e.g. Single Target, Cone, Sphere)">Damage / Effect ⓘ</th><th>Hit Dice</th><th>Description</th><th>Source</th></tr></thead><tbody>${rows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
+  const html=`<table id="spellTable"><thead><tr><th>Name</th><th>Level</th><th>School</th><th>Casting</th><th>Range</th><th>Duration</th><th>Components</th><th>Save</th><th>Attack</th><th title="Damage type(s) inflicted · conditions inflicted · area-of-effect shape or targeting (e.g. Single Target, Cone, Sphere)">Damage / Effect ⓘ</th><th>Hit Dice</th><th>Description</th><th>Source</th></tr></thead><tbody>${shownRows.map((s,i)=>spellRowHtml(s,i)).join('')}</tbody></table>`;
   wrap.innerHTML=html;
 }
 function spellRowHtml(s,i){
@@ -13349,10 +13366,12 @@ function renderMonsterTable() {
     if (sort === 'size') return a.size.localeCompare(b.size) || a.name.localeCompare(b.name);
     return a.sourceLabel.localeCompare(b.sourceLabel) || a.name.localeCompare(b.name);
   });
+  const monstersCapped = rows.length > COMPENDIUM_RENDER_CAP;
+  const shownRows = monstersCapped ? rows.slice(0, COMPENDIUM_RENDER_CAP) : rows;
   const countEl = document.getElementById('monsterCount');
-  if (countEl) countEl.textContent = `${rows.length.toLocaleString()} creature${rows.length===1?'':'s'} shown · ${monsterDatabase.length.toLocaleString()} loaded`;
+  if (countEl) countEl.textContent = `${rows.length.toLocaleString()} creature${rows.length===1?'':'s'} shown${monstersCapped ? ` (first ${COMPENDIUM_RENDER_CAP.toLocaleString()} rendered — narrow your search for the rest)` : ''} · ${monsterDatabase.length.toLocaleString()} loaded`;
   if (!rows.length) { wrap.innerHTML = '<div class="spell-loading">No creatures match the current filters.</div>'; return; }
-  const html = `<table id="monsterTable"><thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Alignment</th><th>AC</th><th>HP</th><th>Speed</th><th>CR</th><th>Source</th></tr></thead><tbody>${rows.map((m,i)=>monsterRowHtml(m,i)).join('')}</tbody></table>`;
+  const html = `<table id="monsterTable"><thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Alignment</th><th>AC</th><th>HP</th><th>Speed</th><th>CR</th><th>Source</th></tr></thead><tbody>${shownRows.map((m,i)=>monsterRowHtml(m,i)).join('')}</tbody></table>`;
   wrap.innerHTML = html;
 }
 function monsterRowHtml(m) {
