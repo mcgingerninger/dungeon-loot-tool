@@ -991,8 +991,15 @@
   .bounty-card-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .bounty-rarity-badge { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.15rem 0.4rem; border: 1px solid; }
   .bounty-name { font-weight: 600; font-size: 1.02rem; }
+  .bounty-capture-badge { font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.4rem; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim); margin-left: auto; }
+  .bounty-capture-badge.bounty-capture-alive { color: var(--uncommon); border-color: var(--uncommon); }
+  .bounty-capture-badge.bounty-capture-dead { color: var(--danger); border-color: var(--danger); }
   .bounty-target-line { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
   .bounty-poster { font-style: italic; color: var(--text); font-size: 0.9rem; line-height: 1.55; margin: 0; }
+  .bounty-crimes { font-size: 0.82rem; color: var(--text); }
+  .bounty-crimes-label { font-weight: 600; color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.15rem; }
+  .bounty-crimes ul { margin: 0 0 0.2rem 1.1rem; padding: 0; }
+  .bounty-crimes li { margin-bottom: 0.1rem; }
   .bounty-guards { font-size: 0.82rem; color: var(--text-dim); }
   .bounty-escort-list { margin: 0.1rem 0 0.2rem 1.1rem; padding: 0; font-size: 0.78rem; color: var(--text-dim); }
   .bounty-escort-list li { margin-bottom: 0.1rem; }
@@ -14878,27 +14885,135 @@ function pickBountyTargetMonster(rarity) {
 }
 
 const BOUNTY_ALIASES = ['Redfang', 'the Butcher', 'Ashclaw', 'the Wraith', 'Ironjaw', 'the Silent', 'Bloodmoon', 'the Reaper', 'Nightshade', 'the Cur', 'Deadeye', 'the Wretch', 'Longshadow', 'the Gravedigger'];
-const BOUNTY_CRIMES = ['cattle theft', 'a string of unsolved disappearances', 'the burning of the north granary', 'smuggling contraband through the border checkpoint', 'an attack on a merchant caravan', 'the poisoning of the village well', 'grave robbing', 'extorting local farmers', 'the murder of a tax collector', 'a string of kidnappings', 'arson', 'desecrating a shrine', 'impersonating a noble', 'counterfeiting coin', 'inciting a riot', 'raiding trade caravans'];
 const BOUNTY_LOCATIONS = ['the Blackmire Woods', 'the ruins south of town', 'the old mill', 'a cave along the ridge road', 'the abandoned watchtower', 'the ferry crossing', 'the salt flats', "the tanner's district", 'the crossroads inn', 'the sunken quarry', 'the hills beyond the wall', "a smuggler's den", 'the burned-out farmstead', 'the old toll bridge'];
-// A dozen distinct phrasings so no two boards ever read quite the same way.
+// Crimes now scale with the bounty's own rarity tier instead of one flat shared pool — a
+// Kobold accused of "razing a holy city" (and a dragon wanted merely for "unpaid gambling
+// debts") both used to read as mismatched, and with only 16 crimes shared across every board
+// they repeated fast. Each tier gets its own ~20-entry pool, deliberately spanning a spread of
+// severity within the tier too (not every legendary bounty needs to be world-ending) so even a
+// board of three high-tier bounties in a row doesn't read as uniformly maximal.
+const BOUNTY_CRIMES_BY_RARITY = {
+  common: [
+    'poaching game from the lord’s private woods', 'petty theft from market stalls',
+    'unpaid gambling debts and the brawl that followed', 'vandalizing the town well pump',
+    'trespassing on temple grounds after dark', 'public drunkenness that got badly out of hand',
+    'cheating merchants with false scales', 'stealing chickens from a dozen different coops',
+    'breaking a guardsman’s nose in a tavern scuffle', 'impersonating a tax collector for spare coin',
+    'squatting in an abandoned granary', 'selling spoiled goods as fresh',
+    'a string of pickpocketing complaints', 'releasing a rival’s livestock out of spite',
+    'forging a merchant guild’s seal on cheap wares', 'disturbing the peace with late-night brawls',
+    'minor smuggling of untaxed ale', 'harassing travelers at the crossroads for coin',
+    'defacing the notice board outside the town hall', 'dodging the toll bridge fee for months running',
+    'spreading false rumors to ruin a rival’s trade', 'loitering where they were told twice not to',
+  ],
+  uncommon: [
+    'armed robbery of a trade caravan', 'extorting protection money from local farmers',
+    'burning down a rival’s storehouse', 'a string of home break-ins across the district',
+    'smuggling contraband through the border checkpoint', 'assaulting a town guard on duty',
+    'running an illegal fighting ring', 'kidnapping for ransom', 'counterfeiting coin',
+    'poisoning a neighbor’s well over a land dispute', 'desecrating graves for valuables',
+    'inciting a riot outside the granary', 'selling fraudulent healing potions',
+    'attacking a tax collector’s escort', 'running a protection racket on the docks',
+    'raiding isolated farmsteads', 'blackmailing a prominent merchant',
+    'sabotaging a rival guild’s shipment', 'leading a small gang of highwaymen',
+    'abducting livestock and travelers alike', 'running contraband through the sewers',
+    'torching a competitor’s mill',
+  ],
+  rare: [
+    'a string of unsolved disappearances along the trade road', 'leading raiders against merchant caravans',
+    'the murder of a sitting magistrate', 'orchestrating kidnappings for a slaver ring',
+    'burning an entire granary district to the ground', 'the poisoning of the village well',
+    'leading a cult ritual that left three dead', 'selling townsfolk into indentured servitude',
+    'razing an outlying farmstead and salting the fields', 'impersonating a noble to defraud a village',
+    'desecrating a shrine and stealing its relics', 'orchestrating a jailbreak that freed a dozen criminals',
+    'running a smuggling ring that funds a warband', 'assassinating a guild leader in broad daylight',
+    'leading raids that left a hamlet homeless', 'corrupting a local garrison with bribes and threats',
+    'summoning something better left alone into a populated area', 'torturing captives for information and sport',
+    'betraying a mercenary company to enemy raiders', 'running a black market in stolen relics',
+    'leading a mutiny that left a trade ship’s crew dead', 'extorting an entire village under threat of fire',
+  ],
+  superrare: [
+    'a string of murders across three separate villages', 'leading a warband that has razed two settlements',
+    'orchestrating a massacre at a religious festival', 'commanding a small army of raiders and mercenaries',
+    'summoning a horror that devastated a trade outpost', 'poisoning a town’s water supply',
+    'leading a slaver operation spanning several towns', 'betraying and slaughtering an entire garrison',
+    'orchestrating the fall of a noble house through murder and forgery', 'unleashing a plague-bearing curse on a township',
+    'leading a cult that has claimed dozens of lives', 'sabotaging a dam that flooded three villages',
+    'razing a monastery and slaughtering its clergy', 'commanding beasts to terrorize an entire county',
+    'orchestrating a coup that left the town’s leadership dead', 'running an empire of extortion across the region',
+    'desecrating a sacred site in a way that has drawn its faithful’s wrath', 'leading an uprising that burned half a city district',
+    'selling an entire village into slavery', 'corrupting a temple from within, using its own faithful as weapons',
+    'a string of assassinations targeting regional nobility', 'unleashing something ancient and starving upon the countryside',
+  ],
+  legendary: [
+    'razing an entire city district to ash', 'commanding an army that has toppled three holdfasts',
+    'unleashing a plague that has claimed thousands', 'shattering an ancient seal and loosing what it bound',
+    'orchestrating the fall of a kingdom’s border fortress', 'slaughtering an entire noble bloodline in a single night',
+    'commanding a horde that threatens the whole region', 'corrupting a royal court from the shadows',
+    'summoning a calamity that swallowed a township whole', 'leading a rebellion that has left the countryside in ruin',
+    'waking something that should have stayed buried beneath a saint’s grave', 'orchestrating a war between two kingdoms for personal gain',
+    'unmaking a garrison’s chain of command through murder and mimicry', 'burying a mountain pass and its trade routes in a single night',
+    'commanding legions of the undead against the living', 'betraying an entire kingdom to a foreign power',
+    'orchestrating a famine as a weapon of war', 'unleashing a bound horror upon the capital itself',
+    'razing a holy city and scattering its faithful', 'commanding the loyalty of a corrupted royal guard',
+    'shattering the wards protecting an entire province', 'orchestrating the disappearance of a town, down to the last soul',
+  ],
+  celestial: [
+    'threatening to unmake the boundary between this world and the next', 'shattering a seal that has held back an ancient evil since before recorded history',
+    'orchestrating the fall of an empire through a broken god’s whispers', 'laying waste to a continent’s worth of holdfasts',
+    'corrupting the weave of magic itself across an entire region', 'summoning a cataclysm that has erased three kingdoms from the map',
+    'defiling the resting place of a god and waking what should never wake', 'bringing the world to the edge of a new age of ruin',
+    'shattering celestial wards that have protected the realm for a thousand years', 'orchestrating an apocalypse cult that counts kings among its faithful',
+    'unmaking the natural order across an entire plane of existence', 'betraying the pact that has kept the outer planes from spilling into this one',
+    'commanding an army drawn from beyond the veil of death itself', 'shattering the barrier between the mortal world and realms better left sealed',
+    'orchestrating the extinction of an entire people', 'unleashing a hunger that will not stop until the world itself is consumed',
+    'corrupting the very virtue this realm was founded upon', 'waging a war against the heavens themselves',
+    'shattering the pillars that hold the mortal world apart from the void', 'orchestrating the return of something the gods themselves once bound',
+    'threatening to unravel fate itself, one broken thread at a time', 'commanding a court of horrors that answers to no mortal law',
+  ],
+};
+// How many distinct crimes get listed on the poster — a notorious celestial-tier target has
+// piled up more of a rap sheet than a common-tier troublemaker. Rolled fresh per bounty below.
+function pickBountyCrimes(rarity) {
+  const pool = (BOUNTY_CRIMES_BY_RARITY[rarity] || BOUNTY_CRIMES_BY_RARITY.common).slice();
+  const tierIdx = BAL.rarityOrder.indexOf(rarity);
+  const count = Math.min(pool.length, tierIdx >= 3 ? rn(2, 3) : tierIdx >= 2 ? 2 : rn(1, 2));
+  const out = [];
+  while (out.length < count && pool.length) out.push(pool.splice(rn(0, pool.length - 1), 1)[0]);
+  return out;
+}
+// Whether the poster wants the target alive, dead, or either — mostly "either" (the default
+// assumption for a bounty), with "alive only" (someone needs answers) and "dead only" (too
+// dangerous to risk a live capture) as flavorful minority cases.
+const BOUNTY_CAPTURE_STATUS = {
+  either: { label: 'Dead or Alive', note: 'To be brought in dead or alive — the choice is yours.' },
+  alive:  { label: 'Alive Only',    note: 'Wanted alive — the client needs answers only a living tongue can give.' },
+  dead:   { label: 'Dead Only',     note: 'Considered too dangerous to risk a live capture — proof of death is sufficient.' },
+};
+function rollBountyCaptureStatus() {
+  return weightedPickFromObject({ either: 55, alive: 20, dead: 25 });
+}
+// A dozen distinct intro phrasings so no two boards ever read quite the same way. Crimes used
+// to be baked directly into these as a single {crime} slot, but a bounty can now be wanted for
+// several distinct crimes at once (see pickBountyCrimes) — the sentence itself just sets scene
+// and location, with the "Wanted for:" list rendered separately on the card.
 const BOUNTY_TEMPLATES = [
-  "Wanted for {crime}. Last seen near {location}. {name} is to be brought in, dead or alive.",
-  "The town council has posted a bounty on {name}, believed responsible for {crime}. Sightings place them near {location}.",
-  "REWARD OFFERED. {name} stands accused of {crime}. Trackers report activity around {location}.",
-  "By order of the local magistrate: {name} is wanted in connection with {crime}. Approach near {location} with caution.",
-  "A merchant's guild has pooled coin for the capture of {name}, tied to {crime} near {location}.",
-  "A string of {crime} has been linked to {name}, last tracked to {location}.",
-  "{name} has evaded justice long enough. Wanted for {crime}. Known to frequent {location}.",
-  "Posted by a grieving family: coin for anyone who brings {name} to justice for {crime}.",
-  "Local guards have failed to apprehend {name}, responsible for {crime} out near {location}.",
-  "An anonymous patron seeks an end to {name}'s {crime}. Last confirmed near {location}.",
-  "Temple elders have placed a bounty on {name} following {crime} that defiled ground near {location}.",
-  "The road to {location} has grown dangerous — {name} is blamed for {crime} and must be stopped.",
+  "Last seen near {location}.",
+  "The town council has posted a bounty on {name}. Sightings place them near {location}.",
+  "REWARD OFFERED for information leading to the capture of {name}. Trackers report activity around {location}.",
+  "By order of the local magistrate: approach {name} near {location} with caution.",
+  "A merchant's guild has pooled coin for the capture of {name}, last tracked near {location}.",
+  "{name} has evaded justice long enough. Known to frequent {location}.",
+  "Posted by a grieving family: coin for anyone who brings {name} to justice.",
+  "Local guards have failed to apprehend {name}, last seen out near {location}.",
+  "An anonymous patron seeks an end to {name}. Last confirmed near {location}.",
+  "Temple elders have placed a bounty on {name}, tied to unrest near {location}.",
+  "The road to {location} has grown dangerous because of {name}, who must be stopped.",
+  "A standing reward remains unclaimed for {name}'s capture. Rumored to be near {location}.",
 ];
 function generateBountyPoster(name) {
   return ri(BOUNTY_TEMPLATES)
     .replace('{name}', name)
-    .replace('{crime}', ri(BOUNTY_CRIMES))
     .replace('{location}', ri(BOUNTY_LOCATIONS));
 }
 
@@ -15029,6 +15144,7 @@ function generateBounty(rarity) {
     id: 'bounty' + (++bountyCounter),
     rarity, monster, entry, name, flavorMods, escortEntries,
     poster: generateBountyPoster(name),
+    crimes: pickBountyCrimes(rarity), captureStatus: rollBountyCaptureStatus(),
     guards, warnings: rollBountyWarnings(entry), reward: rollBountyReward(rarity),
     claimed: false, registered: false,
   };
@@ -15191,6 +15307,13 @@ function saveBountyCreatures(bountyId) {
 function bountyCardHtml(bounty) {
   const color = rarityColors[bounty.rarity] || rarityColors.common;
   const m = bounty.monster, e = bounty.entry;
+  // Fallback for bounties posted (and saved) before crimes/captureStatus existed on the
+  // bounty object — an old save loaded after this update shouldn't render blank/broken.
+  const crimes = bounty.crimes || [];
+  const capture = BOUNTY_CAPTURE_STATUS[bounty.captureStatus] || BOUNTY_CAPTURE_STATUS.either;
+  const crimesHtml = crimes.length
+    ? `<div class="bounty-crimes"><div class="bounty-crimes-label">Wanted for:</div><ul>${crimes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul></div>`
+    : '';
   const modsHtml = bounty.flavorMods.length ? `<div class="bounty-mods">Known traits: ${bounty.flavorMods.map(escapeHtml).join(', ')}</div>` : '';
   const warningsHtml = bounty.warnings.length ? `<div class="bounty-warnings">${bounty.warnings.map(w => `<div>${escapeHtml(w)}</div>`).join('')}</div>` : '';
   const chestHtml = bounty.reward.chestReward ? ` + a <span style="color:${rarityColors[bounty.reward.chestReward]}">${rarityNames[bounty.reward.chestReward]}</span> prize chest` : '';
@@ -15206,9 +15329,11 @@ function bountyCardHtml(bounty) {
       <div class="bounty-card-head">
         <span class="bounty-rarity-badge" style="border-color:${color};color:${color};background:${color}22;">${rarityNames[bounty.rarity]}</span>
         <span class="bounty-name">${escapeHtml(bounty.name)}</span>
+        <span class="bounty-capture-badge bounty-capture-${bounty.captureStatus || 'either'}" title="${escapeHtml(capture.note)}">${escapeHtml(capture.label)}</span>
       </div>
       <div class="bounty-target-line">${escapeHtml(m.type || 'creature')} · CR ${escapeHtml(String(m.cr ?? '?'))} · ${escapeHtml(m.size || '')} · ❤ ${escapeHtml(String(e.hp))} HP · 🛡 AC ${e.ac != null ? escapeHtml(String(e.ac)) : '—'}</div>
-      <p class="bounty-poster">${escapeHtml(bounty.poster)}</p>
+      <p class="bounty-poster">${escapeHtml(bounty.poster)} ${escapeHtml(capture.note)}</p>
+      ${crimesHtml}
       <div class="bounty-guards">🗡 Escort: ${escapeHtml(bounty.guards.desc)}</div>
       ${escortListHtml}
       ${modsHtml}
