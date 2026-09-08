@@ -2833,7 +2833,7 @@
       </div>
       <div class="sheet-top-row">
         <div class="sheet-field sheet-field-narrow"><label>Current HP</label><input type="number" id="dmEditCurHp"></div>
-        <div class="sheet-field sheet-field-narrow"><label>Max HP</label><input type="number" id="dmEditMaxHp"></div>
+        <div class="sheet-field sheet-field-narrow"><label>Max HP <span id="dmEditMaxHpBonus" class="sheet-hp-bonus-note"></span></label><input type="number" id="dmEditMaxHp"></div>
         <div class="sheet-field sheet-field-narrow"><label>Armor Class</label><strong id="dmEditAcValue" class="sheet-ac-value sheet-static-val" title="AC is computed from ability scores and equipped gear — adjust those to change it.">10</strong></div>
       </div>
       <div class="sheet-abilities-grid" id="dmEditAbilitiesGrid"></div>
@@ -11454,6 +11454,12 @@ let characterCurrentHp = 10;
 let characterMaxHp = 10;
 let characterHitDice = '';
 let characterAc = 10;
+// The real, gear-inclusive HP ceiling — characterMaxHp stays the player's own typed base (this
+// app has no class/level hit-dice math to derive it from scratch, unlike AC), this is that base
+// plus whatever "Maximum Hit Points" bonus their currently equipped gear provides. Synced
+// separately (see syncCharacterMaxHp) so the DM's roster/combat views, which read the lightweight
+// synced fields rather than recomputing a full sheet, see the correct number too.
+let characterMaxHpEffective = 10;
 let characterClass = '';
 
 const ABILITY_NAMES = { str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' };
@@ -11599,6 +11605,39 @@ function collectEquippedWeaponInfo(slots, resolveItem) {
 // sheet doesn't model per-weapon proficiency) and reads "Finesse" out of the item's own effect
 // text to use DEX instead of STR when it's actually the better modifier — otherwise defaults to
 // STR, matching the vast majority of weapons.
+// A magic weapon's own flat "+N to attack and damage rolls" bonus — the phrasing every plain
+// "+1/+2/+3" catalog weapon uses — was never factored into a player's own attack roll at all,
+// only proficiency + ability modifier. Same gap for "extra NdM <type> damage" riders (Flame
+// Tongue's +2d6 fire, a Veteran's Blade's +2d6 psychic, etc.): the weapon's structured `dmg`
+// field got rolled, but bonus damage described only in its free-text `effect` never did. Both
+// parsed here, deliberately scoped to the clean, unconditional phrasing the catalog actually
+// uses for the overwhelming majority of items — conditional variants ("while mounted", "when
+// fired", "spell attack rolls") are intentionally left alone rather than guessed at, since
+// applying those outside their stated condition would be wrong more often than right.
+function parseWeaponEffectBonuses(effect) {
+  const t = String(effect || '');
+  let atkBonus = 0, dmgBonus = 0;
+  const guardSrc = '\\b(?!\\s*(when|while|with|made|only))';
+  const comboMatch = t.match(new RegExp('\\+(\\d+)\\s+to (?:all )?attack and damage rolls' + guardSrc, 'i'));
+  if (comboMatch) {
+    atkBonus += parseInt(comboMatch[1], 10);
+    dmgBonus += parseInt(comboMatch[1], 10);
+  } else {
+    const atkMatch = t.match(new RegExp('\\+(\\d+)\\s+to attack rolls' + guardSrc, 'i'));
+    if (atkMatch) atkBonus += parseInt(atkMatch[1], 10);
+    const dmgMatch = t.match(new RegExp('\\+(\\d+)\\s+to damage rolls' + guardSrc, 'i'));
+    if (dmgMatch) dmgBonus += parseInt(dmgMatch[1], 10);
+  }
+  // Extra elemental/bonus damage dice riders — "an extra 2d6 fire damage", "add 2d6 psychic
+  // damage", etc. Same clause-capture shape as battleParseAttack's multi-damage-type fix.
+  const bonusDiceClauses = [];
+  const bonusDiceRe = /(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+([a-z]+)?\s*damage/gi;
+  let dm;
+  while ((dm = bonusDiceRe.exec(t)) !== null) {
+    bonusDiceClauses.push({ dice: dm[1].replace(/\s+/g, ''), type: (dm[2] || '').toLowerCase() });
+  }
+  return { atkBonus, dmgBonus, bonusDiceClauses };
+}
 function computeWeaponAttackRoll(item, sheet) {
   const dmgRaw = String(item.dmg || '').trim();
   const dmgMatch = dmgRaw.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
@@ -11608,23 +11647,29 @@ function computeWeaponAttackRoll(item, sheet) {
   const useDex = finesse && dexMod > strMod;
   const abilityMod = useDex ? dexMod : strMod;
   const abilityLabel = useDex ? 'DEX' : 'STR';
+  const { atkBonus, dmgBonus, bonusDiceClauses } = parseWeaponEffectBonuses(item.effect);
   const d20 = rn(1, 20);
   const isCrit = d20 === 20;
   const isFumble = d20 === 1;
-  const toHitTotal = d20 + abilityMod + sheet.profBonus;
+  const toHitTotal = d20 + abilityMod + sheet.profBonus + atkBonus;
   const dmgResult = dmgMatch ? battleRollDamage(dmgMatch[0].replace(/\s+/g, ''), isCrit) : null;
-  const dmgTotal = dmgResult ? dmgResult.total + abilityMod : null;
-  return { dmgRaw, abilityMod, abilityLabel, profBonus: sheet.profBonus, d20, isCrit, isFumble, toHitTotal, dmgResult, dmgTotal };
+  const bonusRolls = bonusDiceClauses.map(c => ({ ...c, roll: battleRollDamage(c.dice, isCrit) })).filter(c => c.roll);
+  const bonusDiceTotal = bonusRolls.reduce((sum, c) => sum + c.roll.total, 0);
+  const dmgTotal = dmgResult ? dmgResult.total + abilityMod + dmgBonus + bonusDiceTotal : null;
+  return { dmgRaw, abilityMod, abilityLabel, profBonus: sheet.profBonus, atkBonus, dmgBonus, bonusRolls, d20, isCrit, isFumble, toHitTotal, dmgResult, dmgTotal };
 }
 function weaponAttackRollHtml(roll) {
   return `
     <div class="weapon-attack-line"><span>d20 roll</span><span class="${roll.isCrit ? 'weapon-attack-crit' : roll.isFumble ? 'weapon-attack-fumble' : ''}">${roll.d20}${roll.isCrit ? ' (CRIT!)' : roll.isFumble ? ' (FUMBLE!)' : ''}</span></div>
     <div class="weapon-attack-line"><span>${roll.abilityLabel} modifier</span><span>${fmtMod(roll.abilityMod)}</span></div>
     <div class="weapon-attack-line"><span>Proficiency bonus</span><span>${fmtMod(roll.profBonus)}</span></div>
+    ${roll.atkBonus ? `<div class="weapon-attack-line"><span>Weapon attack bonus</span><span>${fmtMod(roll.atkBonus)}</span></div>` : ''}
     <div class="weapon-attack-total">To Hit: ${roll.toHitTotal}</div>
     ${roll.dmgResult ? `
       <div class="weapon-attack-line"><span>Damage dice (${escapeHtml(roll.dmgRaw)}${roll.isCrit ? ', doubled' : ''})</span><span>${roll.dmgResult.rolls.join(' + ')}${roll.dmgResult.mod ? ' ' + fmtMod(roll.dmgResult.mod) : ''}</span></div>
       <div class="weapon-attack-line"><span>${roll.abilityLabel} modifier</span><span>${fmtMod(roll.abilityMod)}</span></div>
+      ${roll.dmgBonus ? `<div class="weapon-attack-line"><span>Weapon damage bonus</span><span>${fmtMod(roll.dmgBonus)}</span></div>` : ''}
+      ${roll.bonusRolls.map(c => `<div class="weapon-attack-line"><span>Bonus ${c.type ? escapeHtml(c.type) + ' ' : ''}damage (${escapeHtml(c.dice)})</span><span>${c.roll.rolls.join(' + ')}${c.roll.mod ? ' ' + fmtMod(c.roll.mod) : ''}</span></div>`).join('')}
       <div class="weapon-attack-total">Damage: ${roll.dmgTotal}</div>
     ` : `<p class="sheet-chip-empty">This weapon's damage dice aren't set on the item (edit it to add one, e.g. "1d8") — showing the attack roll only.</p>`}
   `;
@@ -11658,7 +11703,7 @@ function closeWeaponAttackPopup() {
 // state) so the Players tab can show a VIEWED player's real sheet using their own synced data —
 // see computeCharacterSheet below for the local-account convenience wrapper every other caller
 // in this file already used.
-function computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, resolveItem) {
+function computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, resolveItem, baseMaxHp) {
   const breakdown = collectEquippedStatBreakdown(slots, resolveItem);
   const abilities = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
@@ -11710,12 +11755,19 @@ function computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, s
   const ac = { total: acTotal, sources: acSources, status: statusFor(acNet), tooltip: describeStatSources(acSources) };
   const maxHpSources = breakdown['Maximum Hit Points'] || [];
   const maxHpBonus = sumBreakdown(maxHpSources);
-  const maxHp = { bonus: maxHpBonus, sources: maxHpSources, status: statusFor(maxHpBonus), tooltip: describeStatSources(maxHpSources) };
+  // `.total` used to not exist here at all — the gear bonus was computed but only ever shown as
+  // a cosmetic "(+N from gear)" note next to the manually-typed base, never actually added to
+  // the number the game uses for HP clamping/death-save thresholds/DM roster display. AC gets
+  // this right (fully live-computed, no separate base); Max HP has a genuine independent base
+  // (class/level/CON — this app doesn't track hit dice math), so `.total` is that base plus the
+  // live gear bonus, not a full replacement of the base the way `.total` works for AC.
+  const base = baseMaxHp != null ? baseMaxHp : 0;
+  const maxHp = { base, bonus: maxHpBonus, total: base + maxHpBonus, sources: maxHpSources, status: statusFor(maxHpBonus), tooltip: describeStatSources(maxHpSources) };
   return { abilities, profBonus, saves, skills, ac, maxHp };
 }
 function computeCharacterSheet() {
   buildTokenIndex();
-  return computeCharacterSheetFor(characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies, playerSlots, key => TOKEN_INDEX[key]);
+  return computeCharacterSheetFor(characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies, playerSlots, key => TOKEN_INDEX[key], characterMaxHp);
 }
 // Not a dynamic window[field] = value assignment — these are `let` bindings in a classic
 // script, which (unlike `var` or function declarations) never attach to `window`, so that
@@ -11725,8 +11777,19 @@ function updateCharacterField(field, value) {
   if (field === 'characterClass') characterClass = value;
   else if (field === 'characterLevel') characterLevel = value;
   else if (field === 'characterHitDice') characterHitDice = value;
-  else if (field === 'characterCurrentHp') characterCurrentHp = Math.max(0, Math.min(value, characterMaxHp || value));
-  else if (field === 'characterMaxHp') { characterMaxHp = value; characterCurrentHp = Math.min(characterCurrentHp, characterMaxHp); }
+  // Clamped against the gear-inclusive effective ceiling, not the raw typed base — otherwise a
+  // player with bonus HP from equipped gear could never actually set their current HP above
+  // their un-buffed base, silently discarding the exact bonus this field exists to grant.
+  else if (field === 'characterCurrentHp') characterCurrentHp = Math.max(0, Math.min(value, characterMaxHpEffective || value));
+  else if (field === 'characterMaxHp') {
+    // The gear bonus carries over onto the new base — characterMaxHpEffective still reflects
+    // the OLD base's total at this point (the render that recomputes it fires right after this),
+    // so (old effective - old base) is exactly the gear bonus to preserve on top of the new one.
+    const gearBonus = characterMaxHpEffective - characterMaxHp;
+    characterMaxHp = value;
+    characterMaxHpEffective = value + gearBonus;
+    characterCurrentHp = Math.min(characterCurrentHp, characterMaxHpEffective);
+  }
   renderCharacterSheet();
   if (typeof scheduleSave === 'function') scheduleSave();
 }
@@ -11754,6 +11817,11 @@ function toggleSaveProficiency(abilityName) {
 // render, including the equip/unequip hook in renderPlayerSlots.
 function syncCharacterAc(sheet) {
   characterAc = sheet.ac.total;
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+// See characterMaxHpEffective's own comment — this is Max HP's equivalent of syncCharacterAc.
+function syncCharacterMaxHp(sheet) {
+  characterMaxHpEffective = sheet.maxHp.total;
   if (typeof scheduleSave === 'function') scheduleSave();
 }
 function setInventoryViewMode(mode) {
@@ -11807,6 +11875,7 @@ function renderCharacterSheet() {
 
   const sheet = computeCharacterSheet();
   syncCharacterAc(sheet);
+  syncCharacterMaxHp(sheet);
   const profBonusEl = document.getElementById('sheetProfBonus');
   if (profBonusEl) profBonusEl.textContent = fmtMod(sheet.profBonus);
 
@@ -11821,7 +11890,11 @@ function renderCharacterSheet() {
   }
   const maxHpLabelEl = document.getElementById('sheetMaxHpBonus');
   if (maxHpLabelEl) {
-    maxHpLabelEl.textContent = sheet.maxHp.bonus ? `(${fmtMod(sheet.maxHp.bonus)} from gear)` : '';
+    // Shows both the delta AND the real effective ceiling — a bare "(+3 from gear)" note next
+    // to a base number that itself wasn't actually the number the game used for anything was
+    // exactly the confusing half-measure that let this bug hide (the note existed, the fix
+    // never did). Now the effective total is spelled out plainly.
+    maxHpLabelEl.textContent = sheet.maxHp.bonus ? `(${fmtMod(sheet.maxHp.bonus)} from gear — total ${sheet.maxHp.total})` : '';
     maxHpLabelEl.className = 'sheet-hp-bonus-note' + (sheet.maxHp.status ? ' stat-' + sheet.maxHp.status : '');
     if (sheet.maxHp.tooltip) maxHpLabelEl.title = sheet.maxHp.tooltip; else maxHpLabelEl.removeAttribute('title');
   }
@@ -13971,11 +14044,22 @@ function battleParseAttack(text) {
   const t = text || '';
   const hitMatch = t.match(/([+-]\d+)\s*to hit/i);
   const toHit = hitMatch ? parseInt(hitMatch[1], 10) : null;
-  const dmgMatch = t.match(/\((\d+d\d+(?:\s*[+-]\s*\d+)?)\)/);
-  const damageDice = dmgMatch ? dmgMatch[1].replace(/\s+/g, '') : null;
+  // A single action can deal more than one damage type in the same "Hit:" clause — e.g.
+  // "19 (2d10+8) piercing damage plus 11 (2d10) psychic damage." String.match without the /g/
+  // flag only ever returns the FIRST match, so this used to silently drop every damage
+  // component after the first on any multi-damage attack — a real bug caught from a live
+  // combat log where a Brain Dragon's Bite only ever applied its piercing damage and never
+  // its psychic damage. Now captures every "(NdM+/-X)" clause in the text, each paired with
+  // whatever damage-type word immediately follows it (piercing/psychic/fire/etc.), if any.
+  const damageClauses = [];
+  const dmgRe = /\((\d+d\d+(?:\s*[+-]\s*\d+)?)\)\s*([a-z]+)?/gi;
+  let dm;
+  while ((dm = dmgRe.exec(t)) !== null) {
+    damageClauses.push({ dice: dm[1].replace(/\s+/g, ''), type: (dm[2] || '').toLowerCase() });
+  }
   const dcMatch = t.match(/DC\s*(\d+)/i);
   const saveDC = dcMatch ? parseInt(dcMatch[1], 10) : null;
-  return { toHit, damageDice, saveDC };
+  return { toHit, damageClauses, saveDC };
 }
 
 // Standard 5e crit rule: double the dice, add the flat modifier once.
@@ -14089,7 +14173,7 @@ function resolveBattleAttack(entry) {
   const target = resolveEntryTarget(entry);
   const targetAC = target && target.ac != null ? target.ac : (parseInt(document.getElementById('battleTargetAC')?.value, 10) || 15);
   const targetDesc = target ? `<strong>${escapeHtml(target.username)}</strong>'s AC ${targetAC}` : `AC ${targetAC}`;
-  const { toHit, damageDice, saveDC } = battleParseAttack(action.text || '');
+  const { toHit, damageClauses, saveDC } = battleParseAttack(action.text || '');
   const atkMod = entry.atkMod || 0;
   const dmgMult = entry.dmgMult || 1;
   const chaosWeapons = (entry.chaosGearList || []).filter(g => g.kind === 'weapon');
@@ -14103,10 +14187,15 @@ function resolveBattleAttack(entry) {
     const total = d20 + effToHit;
     const hit = !isFumble && (isCrit || total >= targetAC);
     let dmgText = '';
-    if (hit && damageDice) {
-      const dmg = battleRollDamage(damageDice, isCrit);
-      if (dmg) {
-        let scaledTotal = Math.max(1, Math.round(dmg.total * dmgMult));
+    if (hit && damageClauses.length) {
+      // Roll EVERY damage clause the action's text carries (a multi-damage-type attack like
+      // "2d10+8 piercing plus 2d10 psychic" has two), not just the first — see the comment on
+      // battleParseAttack for why this matters. All clauses sum into one base total before the
+      // variant multiplier is applied once, same as before for a single-clause attack.
+      const rolledClauses = damageClauses.map(c => ({ ...c, roll: battleRollDamage(c.dice, isCrit) })).filter(c => c.roll);
+      if (rolledClauses.length) {
+        const baseTotal = rolledClauses.reduce((sum, c) => sum + c.roll.total, 0);
+        let scaledTotal = Math.max(1, Math.round(baseTotal * dmgMult));
         const scaleNote = dmgMult !== 1 ? `, ×${dmgMult.toFixed(2).replace(/\.?0+$/, '')} variant scaling` : '';
         // Every chaos weapon the monster is carrying adds its own damage dice on top.
         let weaponNote = '';
@@ -14117,7 +14206,11 @@ function resolveBattleAttack(entry) {
             weaponNote += ` + ${wdmg.rolls.join('+')}${wdmg.mod ? (wdmg.mod > 0 ? '+' + wdmg.mod : wdmg.mod) : ''} from ${escapeHtml(w.name)}`;
           }
         });
-        dmgText = ` for <strong>${scaledTotal}</strong> damage (${dmg.rolls.join('+')}${dmg.mod ? (dmg.mod > 0 ? '+' + dmg.mod : dmg.mod) : ''}${scaleNote}${weaponNote})`;
+        const clauseBreakdown = rolledClauses.map(c => {
+          const rollsText = `${c.roll.rolls.join('+')}${c.roll.mod ? (c.roll.mod > 0 ? '+' + c.roll.mod : c.roll.mod) : ''}`;
+          return c.type ? `${rollsText} ${escapeHtml(c.type)}` : rollsText;
+        }).join(' + ');
+        dmgText = ` for <strong>${scaledTotal}</strong> damage (${clauseBreakdown}${scaleNote}${weaponNote})`;
         // Fire-and-forget: rollAllBattleAttacks() resolves a whole roster in one tight loop
         // before a single render, so awaiting this per-creature would serialize N network
         // round-trips. The exact resulting HP isn't authoritative until the live roster
@@ -14851,7 +14944,8 @@ function buildForeignCharacterSheetHtml(s) {
   const skillProfs = s.skillProficiencies || [];
   const saveProfs = s.saveProficiencies || [];
   const slots = s.playerSlots || {};
-  const sheet = computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, key => resolveForeignItem(key, s.savedGeneratedItems));
+  const baseMaxHp = s.characterMaxHp != null ? s.characterMaxHp : 10;
+  const sheet = computeCharacterSheetFor(abilityScores, level, skillProfs, saveProfs, slots, key => resolveForeignItem(key, s.savedGeneratedItems), baseMaxHp);
   const abilitiesHtml = Object.keys(ABILITY_NAMES).map(abbr => {
     const a = sheet.abilities[abbr];
     const cls = a.status ? ' stat-' + a.status : '';
@@ -14879,8 +14973,10 @@ function buildForeignCharacterSheetHtml(s) {
     ? weapons.map(w => `<div class="sheet-weapon-line"><span class="${w.rarity}">${escapeHtml(w.name)}</span> — ${escapeHtml(w.dmg)} damage</div>`).join('')
     : '<span class="sheet-chip-empty">No weapon equipped.</span>';
   // Same clamp as applyStateBlob/startRosterListener — applyHpDelta's atomic increment has no
-  // clamp of its own, so the raw stored value can briefly sit out of range.
-  const maxHp = s.characterMaxHp != null ? s.characterMaxHp : null;
+  // clamp of its own, so the raw stored value can briefly sit out of range. Uses the gear-
+  // inclusive effective max (sheet.maxHp.total), not the raw stored base, so a player with bonus
+  // HP from equipped gear shows their real ceiling here instead of their un-buffed one.
+  const maxHp = sheet.maxHp.total;
   const curHp = s.characterCurrentHp != null && maxHp != null ? Math.max(0, Math.min(s.characterCurrentHp, maxHp)) : s.characterCurrentHp;
   const deathSavesHtml = curHp != null && curHp <= 0 ? buildDeathSavesHtml(s) : '';
   return `
@@ -15049,10 +15145,14 @@ function openDmEditPlayerModal() {
   // AC is read-only here (computed from ability scores + gear, same as the player's own sheet)
   // — computed fresh from what's currently on record rather than trusting a possibly-stale
   // stored characterAc, since gear changes made through other flows keep it in sync but this
-  // modal itself has no way to change equipment.
-  const acSheet = computeCharacterSheetFor(abilityScores, s.characterLevel || 1, s.skillProficiencies || [], s.saveProficiencies || [], s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems));
+  // modal itself has no way to change equipment. Max HP's gear bonus gets the same "computed
+  // fresh, shown alongside the editable base" treatment as AC — see characterMaxHpEffective.
+  const dmEditBaseMaxHp = s.characterMaxHp != null ? s.characterMaxHp : 10;
+  const acSheet = computeCharacterSheetFor(abilityScores, s.characterLevel || 1, s.skillProficiencies || [], s.saveProficiencies || [], s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems), dmEditBaseMaxHp);
   const dmAcEl = document.getElementById('dmEditAcValue');
   if (dmAcEl) dmAcEl.textContent = acSheet.ac.total;
+  const dmMaxHpBonusEl = document.getElementById('dmEditMaxHpBonus');
+  if (dmMaxHpBonusEl) dmMaxHpBonusEl.textContent = acSheet.maxHp.bonus ? `(${fmtMod(acSheet.maxHp.bonus)} from gear — total ${acSheet.maxHp.total})` : '';
   document.getElementById('dmEditAbilitiesGrid').innerHTML = Object.keys(ABILITY_NAMES).map(abbr => `
     <div class="sheet-ability-box">
       <label>${ABILITY_NAMES[abbr]}</label>
@@ -15083,7 +15183,6 @@ function saveDmEditPlayerModal() {
   const maxHp = parseInt(document.getElementById('dmEditMaxHp').value, 10) || 1;
   let curHp = parseInt(document.getElementById('dmEditCurHp').value, 10);
   if (!Number.isFinite(curHp)) curHp = maxHp;
-  curHp = Math.max(0, Math.min(curHp, maxHp));
   const abilityScores = {};
   Object.keys(ABILITY_NAMES).forEach(abbr => {
     abilityScores[abbr] = parseInt(document.getElementById('dmEditAbility_' + abbr).value, 10) || 10;
@@ -15097,9 +15196,12 @@ function saveDmEditPlayerModal() {
   // AC isn't a field the DM sets directly anymore — recompute it right now from the ability
   // scores/proficiencies just edited (plus whatever gear this player already has on, which this
   // modal doesn't touch) so Firestore's characterAc doesn't sit stale until the player's own
-  // client happens to re-render and push a fresh one.
+  // client happens to re-render and push a fresh one. Same story for Max HP's gear bonus — curHp
+  // is clamped against the gear-inclusive total, not the raw typed base, so a buffed player's
+  // headroom the DM just saw in the modal doesn't get silently clipped back off on save.
   const s = viewedPlayerState || {};
-  const acSheet = computeCharacterSheetFor(abilityScores, level, skillProficiencies, saveProficiencies, s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems));
+  const acSheet = computeCharacterSheetFor(abilityScores, level, skillProficiencies, saveProficiencies, s.playerSlots || {}, key => resolveForeignItem(key, s.savedGeneratedItems), maxHp);
+  curHp = Math.max(0, Math.min(curHp, acSheet.maxHp.total));
   const fields = {
     characterClass: document.getElementById('dmEditClass').value,
     characterLevel: level,
@@ -16348,7 +16450,7 @@ function saveAppState() {
       manglerFinishedWork, manglerPartKey, manglerItemKey, manglerFocus,
       combatLootSettings, modWeights, fleshModWeights,
       characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies,
-      characterCurrentHp, characterMaxHp, characterHitDice, characterAc, characterClass,
+      characterCurrentHp, characterMaxHp, characterMaxHpEffective, characterHitDice, characterAc, characterClass,
       appliedLootClaimIds,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -16408,14 +16510,20 @@ function applyStateBlob(data) {
   if (data.saveProficiencies) saveProficiencies = data.saveProficiencies;
   if (typeof data.characterCurrentHp === 'number') characterCurrentHp = data.characterCurrentHp;
   if (typeof data.characterMaxHp === 'number') characterMaxHp = data.characterMaxHp;
+  // Restored provisionally here (a stale/absent value from before this field existed falls back
+  // to the raw base with no gear bonus); renderCharacterSheet's syncCharacterMaxHp call recomputes
+  // it correctly from actual current gear the moment the sheet next renders, same as characterAc.
+  if (typeof data.characterMaxHpEffective === 'number') characterMaxHpEffective = data.characterMaxHpEffective;
+  else characterMaxHpEffective = characterMaxHp;
   // Clamped here rather than at every render site — this is the one place ANY incoming HP
   // value (a local save/reload, or a remote combat-attack delta landing via applyHpDelta,
   // which increments Firestore's stored number atomically with no clamp of its own since
   // Firestore has no server-side "clamp after increment") gets folded into the live state, so
   // it's the one place that's guaranteed to run regardless of source. A value already out of
   // range self-corrects the moment this fires, and stays corrected once the next save pushes
-  // it back out.
-  characterCurrentHp = Math.max(0, Math.min(characterCurrentHp, characterMaxHp || characterCurrentHp));
+  // it back out. Uses the gear-inclusive effective max, not the raw base, for the same reason
+  // updateCharacterField's own clamp does.
+  characterCurrentHp = Math.max(0, Math.min(characterCurrentHp, characterMaxHpEffective || characterCurrentHp));
   if (data.characterHitDice !== undefined) characterHitDice = data.characterHitDice;
   if (typeof data.characterAc === 'number') characterAc = data.characterAc;
   if (data.characterClass !== undefined) characterClass = data.characterClass;
@@ -16470,6 +16578,7 @@ window.resetMainAppStateToBlank = function () {
   saveProficiencies = [];
   characterCurrentHp = 10;
   characterMaxHp = 10;
+  characterMaxHpEffective = 10;
   characterHitDice = '';
   characterAc = 10;
   characterClass = '';
