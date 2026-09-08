@@ -3321,7 +3321,20 @@ function classifySubcategory(name, type, rarity) {
     return 'chest';
   }
   if (type === 'weapon') {
-    if (/\bbow\b|crossbow|\bpike\b|halberd|glaive|trident|\bspear\b|warhammer|great.?axe|great.?sword|great.?club|\bmaul\b|zweihander|polearm|\blance\b/.test(n)) return 'twohanded';
+    // Hand Crossbow is explicitly one-handed in 5e (that's the entire point of it) — checked
+    // before the general two-handed test below, which would otherwise catch "crossbow" in it
+    // too and block a legitimate pair of hand crossbows from ever being dual-wielded.
+    if (/hand crossbow/.test(n)) return 'onehanded';
+    // bow/lance/maul dropped their LEADING \b (kept the trailing one) — this catalog names
+    // bows/mauls/the one lance item as one smashed-together word ("Longbow", "Shortbow",
+    // "Oathbow", "Thornmaul", "Dragonlance"), and a leading \b never matches inside a compound
+    // word with no space before it. That silently left every single Longbow/Shortbow/Oathbow
+    // (23+ catalog items) and both compound-named exceptions classified as one-handed, which
+    // meant two of them could be equipped at once — exactly the loophole the two-handed-weapon
+    // equip restriction exists to close. Checked against every weapon name in the catalog
+    // (399 items) for false positives (e.g. "Battleaxe"/"Longsword" staying one-handed) before
+    // relaxing this; none found.
+    if (/bow\b|crossbow|\bpike\b|halberd|glaive|trident|\bspear\b|warhammer|great.?axe|great.?sword|great.?club|maul\b|zweihander|polearm|lance\b/.test(n)) return 'twohanded';
     return 'onehanded';
   }
   if (type === 'consumable') {
