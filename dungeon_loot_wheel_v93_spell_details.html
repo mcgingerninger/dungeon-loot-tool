@@ -2028,7 +2028,11 @@
   <div class="spin-source-toggle">
     <button class="spin-mode-btn active" id="spinModeRandomBtn" onclick="setSpinLootMode('random')">🎲 Random Loot</button>
     <button class="spin-mode-btn" id="spinModeChestBtn" onclick="setSpinLootMode('chest')">📦 Treasure Chest</button>
+    <button class="spin-mode-btn" id="spinModeDeceasedBtn" onclick="setSpinLootMode('deceased')">💀 Deceased Human</button>
   </div>
+  <!-- Shared by every "Save to Combat" button across all three modes below — see
+       flashLootStashMessage/pushLootStashToCombat. -->
+  <div class="store-buy-msg" id="lootStashMsg"></div>
 
   <div id="spinRandomPanel">
   <div class="wheel-layout">
@@ -2305,6 +2309,43 @@
       </div>
       <div class="empty-results" id="chestEmptyMsg">No chest opened yet — pick a rarity and click the chest!</div>
       <div id="chestResultsList"></div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Deceased Human — a full corpse loadout (weapon + armor + a few charms/potions + gold)
+       instead of a pile of unrelated items, for the "party finds a dead adventurer" moment. -->
+  <div id="spinDeceasedPanel" style="display:none;">
+  <div class="chest-layout">
+    <div class="chest-wrap">
+      <div class="chest-label" style="color:var(--text-dim)">A dead adventurer's belongings — pick a rarity and generate</div>
+
+      <div class="chest-rarity-grid">
+        <button class="chest-rarity-btn common active" onclick="setDeceasedRarity('common',this)">Common</button>
+        <button class="chest-rarity-btn uncommon"      onclick="setDeceasedRarity('uncommon',this)">Uncommon</button>
+        <button class="chest-rarity-btn rare"          onclick="setDeceasedRarity('rare',this)">Rare</button>
+        <button class="chest-rarity-btn superrare"     onclick="setDeceasedRarity('superrare',this)">Super Rare</button>
+        <button class="chest-rarity-btn legendary"     onclick="setDeceasedRarity('legendary',this)">Legendary</button>
+        <button class="chest-rarity-btn celestial"     onclick="setDeceasedRarity('celestial',this)">Celestial</button>
+      </div>
+
+      <button class="generate-btn" onclick="generateDeceasedLoadout()">💀 Generate Loadout</button>
+
+      <label class="inspect-toggle-row" title="Items will have hidden fields that players must inspect to reveal">
+        <input type="checkbox" id="inspectModeDeceased" onchange="renderDeceasedResults()">
+        <span class="inspect-toggle-label">🔍 Inspection Mode — hide item details</span>
+      </label>
+      <button class="action-btn" onclick="clearDeceasedResults()" style="margin-top:0.2rem">Clear Results</button>
+    </div>
+
+    <!-- Results panel -->
+    <div class="chest-results-panel" id="deceasedResultsPanel">
+      <div class="chest-results-header">
+        💀 Loadout Contents
+        <button class="copy-results-btn" onclick="copyDeceasedResults()">Copy as Text</button>
+      </div>
+      <div class="empty-results" id="deceasedEmptyMsg">No loadout generated yet — pick a rarity and click Generate!</div>
+      <div id="deceasedResultsList"></div>
     </div>
   </div>
   </div>
@@ -3160,8 +3201,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v92).
-const APP_VERSION = 'v92';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v93).
+const APP_VERSION = 'v93';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 </script>
@@ -4217,7 +4258,7 @@ function showTab(tab, btn) {
   // Random Loot and Treasure Chest are two modes of the same tab now (see setSpinLootMode) —
   // both get refreshed on entry regardless of which is currently visible, so switching modes
   // mid-tab never shows stale content.
-  if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); }
+  if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); renderDeceasedResults(); }
   // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
   // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
   // browsable Token Library plus Saved Loadouts.
@@ -4472,12 +4513,17 @@ function setSpinLootMode(mode) {
   spinLootMode = mode;
   const randomBtn = document.getElementById('spinModeRandomBtn');
   const chestBtn = document.getElementById('spinModeChestBtn');
+  const deceasedBtn = document.getElementById('spinModeDeceasedBtn');
   const randomPanel = document.getElementById('spinRandomPanel');
   const chestPanel = document.getElementById('spinChestPanel');
+  const deceasedPanel = document.getElementById('spinDeceasedPanel');
   if (randomBtn) randomBtn.classList.toggle('active', mode === 'random');
   if (chestBtn) chestBtn.classList.toggle('active', mode === 'chest');
+  if (deceasedBtn) deceasedBtn.classList.toggle('active', mode === 'deceased');
   if (randomPanel) randomPanel.style.display = mode === 'random' ? 'block' : 'none';
   if (chestPanel) chestPanel.style.display = mode === 'chest' ? 'block' : 'none';
+  if (deceasedPanel) deceasedPanel.style.display = mode === 'deceased' ? 'block' : 'none';
+  if (mode === 'deceased' && typeof renderDeceasedResults === 'function') renderDeceasedResults();
 }
 
 // Monster parts are exclusive to actually defeating that monster in Combat (see
@@ -4766,7 +4812,9 @@ function renderResults() {
     </span>`;
     return `
     <div class="enemy-result">
-      <div class="enemy-label">${label}</div>
+      <div class="enemy-label">${label}
+        <button class="loot-save-btn" style="margin-left:0.6rem" onclick="saveWholeRollToCombat(${result.enemy - 1})">⚔ Save to Combat</button>
+      </div>
       ${result.items.map((it,ii)=>`
         <div class="loot-item ${it.rarity}">
           <div class="rarity-dot"></div>
@@ -4782,6 +4830,16 @@ function renderResults() {
   }).join('');
   const panel=document.getElementById('resultsPanel');
   panel.scrollTop=panel.scrollHeight;
+}
+// Same "whole result to Combat" idea as saveWholeChestToCombat, for a Roll Loot group — these
+// never had a gold field or a single overall rarity (each item rolls its own), so the label uses
+// the highest rarity actually present as a representative tier for the loot panel's color/theme.
+function saveWholeRollToCombat(idx) {
+  const result = spinResults[idx];
+  if (!result || !result.items.length) return;
+  const topRarity = result.items.reduce((best, it) =>
+    RARITY_TIER_ORDER.indexOf(it.rarity) > RARITY_TIER_ORDER.indexOf(best) ? it.rarity : best, 'common');
+  pushLootStashToCombat(`Enemy #${result.enemy} Loot`, topRarity, '0 gp', result.items);
 }
 
 function clearResults() {
@@ -5199,7 +5257,10 @@ const CHEST_RARITY_COLORS = {
 
 function setChestRarity(rarity, btn) {
   chestRarity = rarity;
-  document.querySelectorAll('.chest-rarity-btn').forEach(b => b.classList.remove('active'));
+  // Scoped to this panel only — Deceased Human's rarity picker below reuses the same
+  // .chest-rarity-btn class for identical styling, and an unscoped query here would clear
+  // its active state (and vice versa) every time either picker was clicked.
+  document.querySelectorAll('#spinChestPanel .chest-rarity-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderChestSVG();
   const label = document.getElementById('chestLabel');
@@ -5287,8 +5348,10 @@ function openChest() {
   }, 650);
 }
 
-function pickChestRarity() {
-  const weights = CHEST_CASCADE_WEIGHTS[chestRarity];
+// Parameterized for the same reason pickGoldForRarity is — Deceased Human has its own
+// independent rarity selection and needs the identical cascade logic without touching chestRarity.
+function pickCascadedRarity(baseRarity) {
+  const weights = CHEST_CASCADE_WEIGHTS[baseRarity];
   const entries = Object.entries(weights);
   const total = entries.reduce((a, [, w]) => a + w, 0);
   let r = Math.random() * total;
@@ -5298,12 +5361,16 @@ function pickChestRarity() {
   }
   return entries[0][0];
 }
+function pickChestRarity() { return pickCascadedRarity(chestRarity); }
 
-function pickChestGold() {
-  const g = CHEST_GOLD[chestRarity];
+// Parameterized so both Treasure Chest and the Deceased Human generator (which has its own
+// independent rarity selection, not tied to chestRarity) can share one gold table/formula
+// instead of each maintaining their own copy of this math.
+function pickGoldForRarity(rarity) {
+  const g = CHEST_GOLD[rarity];
   const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
-  if (chestRarity === 'common') {
-    // Common chests give silver and copper
+  if (rarity === 'common') {
+    // Common tier gives silver and copper instead of gold
     const sp = Math.floor(amount * 0.3);
     const cp = Math.floor(amount * 2);
     return `${sp} sp, ${cp} cp`;
@@ -5312,6 +5379,7 @@ function pickChestGold() {
   if (amount >= 1000) return (amount / 1000).toFixed(1).replace('.0','') + ',000 gp';
   return amount + ' gp';
 }
+function pickChestGold() { return pickGoldForRarity(chestRarity); }
 
 function resolveChest() {
   const minItems = parseInt(document.getElementById('chestMinItems').value) || 5;
@@ -5391,6 +5459,7 @@ function renderChestResults() {
     <div class="enemy-result">
       <div class="enemy-label" style="color:${CHEST_RARITY_COLORS[chest.rarity]}">
         Chest #${chest.id} — ${rarityNames[chest.rarity]} — ${chest.items.length} item${chest.items.length!==1?'s':''}
+        <button class="loot-save-btn" style="margin-left:0.6rem" onclick="saveWholeChestToCombat(${chest.id - 1})">⚔ Save to Combat</button>
       </div>
       <div class="chest-gold-row">
         <span class="chest-gold-icon">⬡</span>
@@ -5412,6 +5481,15 @@ function renderChestResults() {
       `).join('')}
     </div>
   `).join('');
+}
+// Stashes an ENTIRE rolled chest (all its items + gold at once) onto the Combat roster as one
+// lootable object — see pushLootStashToCombat. Distinct from the per-item Save button, which
+// only ever pulled a single item into the Token Library; this is for "drop the whole chest into
+// the dungeon room the players just found" instead.
+function saveWholeChestToCombat(idx) {
+  const chest = chestResults[idx];
+  if (!chest) return;
+  pushLootStashToCombat(`Treasure Chest (${rarityNames[chest.rarity]})`, chest.rarity, chest.gold, chest.items);
 }
 
 function clearChestResults() {
@@ -5442,6 +5520,150 @@ function copyChestResults() {
     const btn = document.querySelector('.copy-results-btn');
     const orig = btn.textContent; btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+// ===================== DECEASED HUMAN (full corpse loadout) =====================
+// A third Loot-tab mode alongside Random Loot / Treasure Chest — instead of a pile of unrelated
+// random items, this rolls what reads like an actual person's belongings: a weapon, a piece of
+// armor, and a handful of charms/potions, plus gold. Built specifically so a DM can drop it
+// straight onto an adventuring party who stumbles on a body, without hand-picking a "loadout"
+// item by item every time.
+let deceasedRarity = 'common';
+let deceasedResults = [];
+// Extra charm/potion count beyond the guaranteed weapon+armor, scaled by rarity — same shape as
+// COMBAT_LOOT_PRESET_DEFAULTS' minItems/maxItems but that table also carries a partChance field
+// that has no meaning here (a dead adventurer isn't a monster with harvestable parts), so this
+// is its own small table rather than awkwardly reusing one with an unused field.
+const DECEASED_LOADOUT_EXTRAS = {
+  common:    { min: 1, max: 2 },
+  uncommon:  { min: 1, max: 2 },
+  rare:      { min: 2, max: 3 },
+  superrare: { min: 2, max: 4 },
+  legendary: { min: 3, max: 4 },
+  celestial: { min: 3, max: 5 },
+};
+function setDeceasedRarity(rarity, btn) {
+  deceasedRarity = rarity;
+  document.querySelectorAll('#spinDeceasedPanel .chest-rarity-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+// Draws one item of the requested type(s), cascading down through lower rarities the same way
+// Treasure Chest's own item picks do (pickCascadedRarity) rather than forcing every single piece
+// to be exactly the selected tier — a "legendary" body can still be mostly ordinary gear with
+// one or two standout pieces, same texture as a chest of that tier.
+function pickDeceasedItem(types, usedNames) {
+  let tries = 0;
+  while (tries < 40) {
+    tries++;
+    const r = pickCascadedRarity(deceasedRarity);
+    const pool = (lootData[r] || []).filter(it => types.includes(it.type) && !usedNames.has(it.name) && !isMonsterPartItem(it));
+    if (!pool.length) continue;
+    const raw = pool[Math.floor(Math.random() * pool.length)];
+    const item = resolveScrollSpell(raw);
+    usedNames.add(raw.name);
+    return { rarity: r, ...item };
+  }
+  return null;
+}
+function generateDeceasedLoadout() {
+  const usedNames = new Set();
+  const items = [];
+  // Guaranteed one weapon, one piece of armor — "a full loadout" is the whole point of this
+  // generator; without forcing these two, a normal weighted roll could easily come back as
+  // three potions and nothing else.
+  const weapon = pickDeceasedItem(['weapon'], usedNames);
+  if (weapon) items.push(weapon);
+  const armor = pickDeceasedItem(['armor'], usedNames);
+  if (armor) items.push(armor);
+  const extras = DECEASED_LOADOUT_EXTRAS[deceasedRarity] || DECEASED_LOADOUT_EXTRAS.common;
+  const extraCount = rn(extras.min, extras.max);
+  for (let i = 0; i < extraCount; i++) {
+    const extra = pickDeceasedItem(['consumable', 'misc'], usedNames);
+    if (extra) items.push(extra);
+  }
+  const gold = pickGoldForRarity(deceasedRarity);
+  deceasedResults.push({ id: deceasedResults.length + 1, rarity: deceasedRarity, gold, items });
+  renderDeceasedResults();
+  setTimeout(() => {
+    const panel = document.getElementById('deceasedResultsPanel');
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, 50);
+}
+function renderDeceasedResults() {
+  const list = document.getElementById('deceasedResultsList');
+  const empty = document.getElementById('deceasedEmptyMsg');
+  if (!deceasedResults.length) {
+    if (empty) empty.style.display = 'flex';
+    if (list) list.innerHTML = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  const inspectMode = document.getElementById('inspectModeDeceased')?.checked || false;
+  list.innerHTML = deceasedResults.map(body => `
+    <div class="enemy-result">
+      <div class="enemy-label" style="color:${CHEST_RARITY_COLORS[body.rarity]}">
+        💀 Deceased Human #${body.id} — ${rarityNames[body.rarity]} — ${body.items.length} item${body.items.length !== 1 ? 's' : ''}
+        <button class="loot-save-btn" style="margin-left:0.6rem" onclick="saveWholeDeceasedToCombat(${body.id - 1})">⚔ Save to Combat</button>
+      </div>
+      <div class="chest-gold-row">
+        <span class="chest-gold-icon">⬡</span>
+        <strong>Gold:</strong> ${body.gold}
+      </div>
+      ${body.items.map((it, ii) => `
+        <div class="loot-item ${it.rarity}">
+          <div class="rarity-dot"></div>
+          <span class="rarity-label">[${rarityNames[it.rarity]}]</span>
+          <div class="loot-item-text">
+            ${renderItemWithInspection(it, inspectMode, `deceased-${body.id}-${ii}`)}
+            <span class="loot-item-actions">
+              <button class="loot-save-btn" onclick="saveDeceasedItemToken(${body.id - 1},${ii},this)">💾 Save</button>
+              <button class="loot-save-btn" onclick="lootDeceasedItemToken(${body.id - 1},${ii},this)">🎒 Loot</button>
+              <button class="loot-save-btn" onclick="markResultDiscarded(this)">🗑 Discard</button>
+            </span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+function saveDeceasedItemToken(idx, itemIdx, btn) {
+  saveLootResultItem(deceasedResults[idx]?.items[itemIdx], btn);
+}
+function lootDeceasedItemToken(idx, itemIdx, btn) {
+  lootItemToRecentlyLooted(deceasedResults[idx]?.items[itemIdx], btn);
+}
+function saveWholeDeceasedToCombat(idx) {
+  const body = deceasedResults[idx];
+  if (!body) return;
+  pushLootStashToCombat(`Deceased Human (${rarityNames[body.rarity]})`, body.rarity, body.gold, body.items);
+}
+function clearDeceasedResults() {
+  deceasedResults = [];
+  renderDeceasedResults();
+}
+function copyDeceasedResults() {
+  if (!deceasedResults.length) { alert('No deceased human results to copy.'); return; }
+  let text = 'DECEASED HUMAN RESULTS\n' + '='.repeat(40) + '\n\n';
+  deceasedResults.forEach(body => {
+    text += `Deceased Human #${body.id} [${rarityNames[body.rarity]}]\n`;
+    text += `  Gold: ${body.gold}\n`;
+    body.items.forEach(it => {
+      text += `  [${rarityNames[it.rarity]}] ${it.name}\n`;
+      if (it.desc) text += `    ${it.desc}\n`;
+      text += `    Type: ${it.type || 'unknown'} | Value: ${it.gp || '—'}`;
+      if (it.dmg) text += ` | DMG: ${it.dmg}`;
+      if (it.ac) text += ` | AC: ${it.ac}`;
+      if (it.hp) text += ` | Heals: ${it.hp}`;
+      if (it.charges) text += ` | Charges: ${it.charges}`;
+      text += '\n';
+      if (it.effect) text += `    Effect: ${it.effect}\n`;
+    });
+    text += '\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#spinDeceasedPanel .copy-results-btn');
+    if (btn) { const orig = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = orig, 1500); }
   });
 }
 
@@ -15153,6 +15375,61 @@ function dmRollPlayerDeathSave() {
     const el = document.getElementById('dmDeathSaveMsg');
     if (el) el.textContent = msg;
   });
+}
+// ===================== SAVE-ANY-ROLL-TO-COMBAT (chest / roll loot / deceased human) =====================
+// Generalizes buildPlayerCorpseEntry (below) so a Treasure Chest result, a Roll Loot result, or
+// a Deceased Human loadout can ALL become a lootable Combat-roster object the same way a dead
+// player's corpse already does — same reveal/reserve/claim pipeline, just a different label and
+// flavor text instead of "so-and-so's Corpse". Nothing about the reserve/claim system itself
+// needed to change; it was already generic per-entry, keyed off `entry.uid`/`item.id`.
+function buildLootStashCorpseEntry(label, rarity, gold, items) {
+  const corpseMonster = {
+    name: label, source: 'Loot', page: null, sourceLabel: 'Stashed Loot',
+    size: 'Medium', type: 'Object', alignment: '—', ac: '—', acFrom: '', hp: '0', speed: '0 ft.', cr: '—',
+    str: null, dex: null, con: null, int: null, wis: null, cha: null,
+    skills: '—', saves: '—', senses: '—', languages: '—',
+    traits: [], actions: [], bonusActions: [], reactions: [], legendary: [],
+    desc: `A cache of loot, sitting ready to be found.`,
+  };
+  return {
+    uid: ++battleUidCounter, monster: corpseMonster, displayName: label,
+    variant: null, traits: [], chaosGearList: [],
+    hp: 0, maxHp: 0, hpRoll: null, ac: null, atkMod: 0, dmgMult: 1, statLines: [], lastResult: null,
+    defeated: true, isCorpse: true,
+    loot: { tier: rarity, gold, items }, lootRevealed: false,
+    targetMode: 'random', targetPlayerUid: null,
+  };
+}
+// Chest/roll/deceased-human items are plain lootData-shaped objects with no id/reserved/claim
+// fields (unlike rollMonsterCombatLoot's output, which already carries them) — this is what
+// admits them into the reserve/claim system, same shape combatLootItemRowHtml expects
+// everywhere else. Reuses monsterPartCounter as a general incrementing id source, matching
+// rollMonsterCombatLoot's own 'cloot'+counter convention rather than adding a parallel one.
+function normalizeLootStashItems(items) {
+  return (items || []).map(it => ({
+    ...it,
+    id: it.id || ('stash' + (++monsterPartCounter)),
+    reserved: false, claimedBy: null, claimedByUsername: null, claimedVia: null,
+  }));
+}
+// The actual "Save to Combat" action every chest/roll/deceased-human result's button calls.
+function pushLootStashToCombat(label, rarity, gold, items) {
+  const entry = buildLootStashCorpseEntry(label, rarity, gold || '0 gp', normalizeLootStashItems(items));
+  battleRoster.push(entry);
+  battleLog.push({ cls: 'hit', title: 'Loot Added', detail: `<strong>${escapeHtml(label)}</strong> was added to the Combat roster as a lootable object.` });
+  if (battleLog.length > 50) battleLog = battleLog.slice(-50);
+  renderCombatRoster();
+  renderCombatLog();
+  flashLootStashMessage(`${label} added to the Combat tab — find it in the roster to reveal it to players.`);
+}
+function flashLootStashMessage(msg, isError) {
+  const el = document.getElementById('lootStashMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._lootStashMsgTimer);
+  window._lootStashMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 3200);
 }
 // Builds a synthetic "monster" battle-roster entry for a dead player's remains — bypasses
 // buildBattleEntry entirely (no variant/chaos-gear rolling, no attacks, nothing that makes

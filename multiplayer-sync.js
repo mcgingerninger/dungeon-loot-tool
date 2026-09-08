@@ -757,8 +757,13 @@ function pushBattlefieldState(battleRoster, battleLog) {
     // write, never removed the item from what they could see and try to click. There is nothing
     // for a player to find via devtools that the DM hasn't chosen to share.
     const payload = (battleRoster || []).map((entry) => {
-      const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed } = entry;
-      const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated };
+      const { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, loot, lootRevealed, isCorpse } = entry;
+      // isCorpse was missing from this list — combatCardHtml on a PLAYER's own client reads
+      // entry.isCorpse to show "☠ Remains" instead of a null-AC/0-HP stat line and to hide the
+      // attack-targeting picker, but since it never reached players' battlefieldRoster, every
+      // corpse (a dead player's own body, or a DM-stashed chest/loadout) rendered to players
+      // like a garden-variety defeated monster instead.
+      const out = { uid, monster, displayName, variant, traits, chaosGearList, hp, maxHp, hpRoll, ac, statLines, lastResult, defeated, isCorpse };
       if (loot && lootRevealed) out.loot = { tier: loot.tier, gold: loot.gold, items: loot.items.filter((it) => !it.reserved && !it.claimedBy) };
       return out;
     });
