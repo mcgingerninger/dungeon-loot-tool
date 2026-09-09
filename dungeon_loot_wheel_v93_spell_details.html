@@ -1063,6 +1063,15 @@
   .bounty-reward { font-size: 0.9rem; color: var(--gold-bright); margin-top: 0.2rem; }
   .bounty-searchnote { font-size: 0.78rem; color: var(--text-dim); font-style: italic; }
   .bounty-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  /* Claimed-bounty lootable — nested inside .bounty-card (a grid item; #bountyBoard is itself
+     a CSS grid, so a sibling div here would drift into its own unrelated grid cell instead of
+     staying visually attached below its own bounty). Deliberately echoes the Combat tab's
+     isCorpse card ("☠ Remains — nothing left to fight, only to loot.") without reusing it
+     directly, since this lives in the Bounty board's own card, not the battle roster. */
+  .bounty-remains { background:var(--surface); border:1px dashed var(--border); padding:0.5rem 0.7rem; margin-top:0.6rem; }
+  .bounty-remains-head { color:var(--text-dim); font-weight:600; font-size:0.88rem; }
+  .bounty-remains-note { color:var(--text-dim); font-style:italic; font-size:0.78rem; margin-bottom:0.4rem; }
+  .bounty-remains-row { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; color:var(--gold-bright); font-size:0.92rem; }
 
   /* MODIFIER WEIGHTS TAB */
   .modweights-intro { color:var(--text-dim); font-style:italic; font-size:0.95rem; margin-bottom:1.2rem; line-height:1.6; }
@@ -2077,6 +2086,7 @@
   <span>💰 Inventory Value: <strong id="rollInvGp">0 gp</strong></span>
   <span>🎒 Inventory Slots: <strong id="rollInvSlots">0 / 90</strong></span>
   <span>⚖ Inventory Weight: <strong id="rollInvWeight">0 lbs</strong></span>
+  <span>🪙 Gold: <strong id="globalGoldDisplay">0 gp</strong></span>
 </div>
 
 <!-- LOOT ROLL TAB -->
@@ -8039,6 +8049,12 @@ function addPlayerGold(amount) {
 // Returns false (spending nothing) if there isn't enough gold — callers must check the
 // return value before handing over an item, never assume it succeeded.
 function spendPlayerGold(amount) {
+  // DMs (and Guest/debug mode) get unlimited gold — checked the same way the rest of the app
+  // already gates DM-only tabs (body.role-player, toggled by multiplayer-sync.js's
+  // connectAsRole), rather than adding a separate cross-module role bridge just for this. A
+  // DM's own wallet isn't part of anything a player sees or any real game constraint, so every
+  // purchase just succeeds outright and the balance is never touched.
+  if (typeof document !== 'undefined' && !document.body.classList.contains('role-player')) return true;
   const current = getPlayerGold();
   if (current < amount - 0.001) return false;
   syncCurrencyTokens(current - amount);
@@ -8048,7 +8064,7 @@ function spendPlayerGold(amount) {
 }
 function refreshGoldDisplays() {
   const text = coinPouchGpText(getPlayerGold());
-  ['playerGoldDisplay', 'storePlayerGoldDisplay'].forEach(id => {
+  ['playerGoldDisplay', 'storePlayerGoldDisplay', 'globalGoldDisplay'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
   });
@@ -16294,16 +16310,31 @@ function flashBountyMessage(msg) {
   window._bountyMsgTimer = setTimeout(() => { el.classList.remove('show'); }, 4000);
 }
 
+// Claiming used to just print a "you got N gp" message without ever actually crediting it —
+// bounty.reward.gp was shown on the card and claimed to be paid out, but no addPlayerGold call
+// existed anywhere in this path. Now the reward becomes a real lootable, styled like a corpse's
+// remains (see the Combat tab's isCorpse card), sitting right under the claimed bounty until
+// someone loots it via lootBountyGold — same "DM/players loot it themselves" spirit as every
+// other loot source in the app, rather than silently auto-crediting it.
 function claimBounty(bountyId) {
   const bounty = activeBounties.find(b => b.id === bountyId);
   if (!bounty || bounty.claimed) return;
   bounty.claimed = true;
-  let msg = `Bounty claimed: ${bounty.reward.gp} gp`;
+  bounty.goldLooted = false;
+  let msg = `${bounty.name} claimed — ${bounty.reward.gp} gp waiting to be looted below.`;
   if (bounty.reward.chestReward) {
     awardChestOfRarity(bounty.reward.chestReward);
-    msg += ` plus a ${rarityNames[bounty.reward.chestReward]} prize chest — see the Treasure Chest tab`;
+    msg += ` A ${rarityNames[bounty.reward.chestReward]} prize chest was also rolled into the Treasure Chest tab.`;
   }
-  flashBountyMessage(msg + '.');
+  flashBountyMessage(msg);
+  renderBountyPanel();
+}
+function lootBountyGold(bountyId) {
+  const bounty = activeBounties.find(b => b.id === bountyId);
+  if (!bounty || !bounty.claimed || bounty.goldLooted) return;
+  addPlayerGold(bounty.reward.gp);
+  bounty.goldLooted = true;
+  flashBountyMessage(`Looted ${bounty.reward.gp} gp from ${bounty.name}'s remains.`);
   renderBountyPanel();
 }
 
@@ -16406,6 +16437,15 @@ function bountyCardHtml(bounty) {
         <button class="ic-action-btn" onclick="claimBounty('${bounty.id}')" ${bounty.claimed ? 'disabled' : ''}>${bounty.claimed ? '✓ Claimed' : '🎯 Claim Bounty'}</button>
         <button class="ic-action-btn" onclick="saveBountyCreatures('${bounty.id}')" ${bounty.registered ? 'disabled' : ''}>${bounty.registered ? '✓ Saved' : '💾 Save to Creature List'}</button>
       </div>
+      ${bounty.claimed && !bounty.goldLooted ? `
+      <div class="bounty-remains">
+        <div class="bounty-remains-head">☠ ${escapeHtml(bounty.name)}'s Remains</div>
+        <div class="bounty-remains-note">Nothing left to fight, only to loot.</div>
+        <div class="bounty-remains-row">
+          <span>💰 ${bounty.reward.gp} gp</span>
+          <button class="ic-action-btn" onclick="lootBountyGold('${bounty.id}')">🎒 Loot</button>
+        </div>
+      </div>` : ''}
     </div>
   `;
 }
