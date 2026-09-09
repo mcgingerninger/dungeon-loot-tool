@@ -107,6 +107,26 @@
 //
 // "write" already covers create/update/delete combined — this is what lets a DM delete a
 // player's document (see removePlayer below) without needing a separate delete rule.
+//
+// ---- Creating a new DM account (no self-service signup anymore — see signUpDM's own comment) ----
+// This app's public URL used to let anyone click "Create Account" under Dungeon Master and spin
+// up their own fully independent campaign against this same Firebase project — closed off since
+// there was zero gating on it. Player signup was left alone; it already requires a real
+// campaign code tied to an existing DM's room, so a stranger can't wander into someone else's
+// game that way. To set up an additional DM account (yourself on a new device, a co-DM, a second
+// campaign) by hand instead:
+//   1. Firebase Console → Authentication → Users → Add user. Email field: pick a username and
+//      use the same fake-domain pattern this file generates automatically (see
+//      usernameToEmail) — e.g. username "dave" -> "dave@dnd-loot-tool.local". Set a real
+//      password (6+ characters). Copy the generated UID once the user's created.
+//   2. Firebase Console → Firestore Database → Start collection (or add to an existing one) →
+//      rooms/{pick a short room code, e.g. "K7M2P"} → add field dmUid (string) = the UID from
+//      step 1, and createdAt (timestamp) = now.
+//   3. Same way, create users/{that UID} with fields: role (string) = "dm", username (string) =
+//      whatever you used, campaignCode (string) = the same room code from step 2, createdAt
+//      (timestamp) = now.
+//   4. Log in on the app as that username/password under the Dungeon Master role — connectAsRole
+//      picks up from there exactly like a normal login.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
@@ -244,6 +264,14 @@ function signupFailure(err, cleanedUp, username) {
   if (cleanedUp) return err;
   return new Error(`Signup failed and couldn't be fully cleaned up (${(err && err.message) || err}). The username "${username}" may now be stuck on a broken account — try logging in with it and using Delete My Account, or pick a different username.`);
 }
+// No longer called from anywhere — DM self-signup was closed off entirely (see the comment on
+// renderGateForm) since it had no gating at all and let anyone who found this app's public URL
+// spin up their own independent campaign against the same Firebase project. Left defined
+// (rather than deleted) as the exact reference for what a new DM account needs: a
+// rooms/{roomCode} doc with dmUid set, and a users/{uid} profile doc with role/username/
+// campaignCode — both created by hand in the Firebase console now, see the setup notes near the
+// top of this file. Re-wiring self-service DM signup later (with a real gate in front of it) is
+// just restoring the two lines this function used to be called from in handleGateSubmit.
 async function signUpDM(username, password) {
   const email = usernameToEmail(username);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -1280,20 +1308,33 @@ function exitGuestMode() {
 }
 
 // ---- Gate: step 2, login/signup form for the chosen role ----
+// DM signup used to be wide open — anyone who found this app's public URL could click Create
+// Account under Dungeon Master and immediately spin up their own fully independent campaign,
+// all billed against the same Firebase project. Player signup was never the exposure (it
+// already requires a real campaign code tied to an existing DM's room — a stranger can't just
+// wander into someone else's game), so only the DM half needed closing off. signUpDM() itself
+// is never assigned to `window` (see its own definition) — it's plain module-private scope, so
+// removing the only UI path that calls it here doesn't just hide a button, it makes DM signup
+// genuinely unreachable from this page, not merely inconvenient to find.
 function renderGateForm() {
   const box = document.getElementById("mpGateBox");
   const roleLabel = gateRole === "dm" ? "Dungeon Master" : "Player";
+  const dmSignupDisabled = gateRole === "dm";
+  if (dmSignupDisabled) gateMode = "login"; // can't land here in signup mode for this role
   const campaignFieldHtml = (gateRole === "player" && gateMode === "signup") ? `
     <label>DM's campaign code</label>
     <input type="text" id="mpCampaignCode" placeholder="e.g. K7M2P" style="text-transform:uppercase;">
   ` : "";
-  box.innerHTML = `
-    <span class="mp-close" style="float:right;cursor:pointer;color:var(--text-dim,#a89f8a);" id="mpBackBtn">← back</span>
-    <h2>${gateRole === "dm" ? "👑" : "🧙"} ${roleLabel}</h2>
+  const modeRowHtml = dmSignupDisabled ? "" : `
     <div class="mp-mode-row">
       <button class="mp-mode-btn ${gateMode === "login" ? "active" : ""}" id="mpModeLoginBtn">Log In</button>
       <button class="mp-mode-btn ${gateMode === "signup" ? "active" : ""}" id="mpModeSignupBtn">Create Account</button>
     </div>
+  `;
+  box.innerHTML = `
+    <span class="mp-close" style="float:right;cursor:pointer;color:var(--text-dim,#a89f8a);" id="mpBackBtn">← back</span>
+    <h2>${gateRole === "dm" ? "👑" : "🧙"} ${roleLabel}</h2>
+    ${modeRowHtml}
     <label>Username</label>
     <input type="text" id="mpUsername" placeholder="pick a username" autocomplete="username">
     <label>Password</label>
@@ -1303,8 +1344,10 @@ function renderGateForm() {
     <div class="mp-status" id="mpGateStatus"></div>
   `;
   document.getElementById("mpBackBtn").onclick = renderGateRoleSelect;
-  document.getElementById("mpModeLoginBtn").onclick = () => { gateMode = "login"; renderGateForm(); };
-  document.getElementById("mpModeSignupBtn").onclick = () => { gateMode = "signup"; renderGateForm(); };
+  if (!dmSignupDisabled) {
+    document.getElementById("mpModeLoginBtn").onclick = () => { gateMode = "login"; renderGateForm(); };
+    document.getElementById("mpModeSignupBtn").onclick = () => { gateMode = "signup"; renderGateForm(); };
+  }
   document.getElementById("mpSubmitBtn").onclick = handleGateSubmit;
 }
 
@@ -1316,8 +1359,11 @@ async function handleGateSubmit() {
   setGateStatus("Working…");
   try {
     if (gateMode === "signup") {
-      if (gateRole === "dm") await signUpDM(username, password);
-      else await signUpPlayer(username, password, document.getElementById("mpCampaignCode").value);
+      // Belt-and-suspenders: the UI in renderGateForm no longer offers a way to reach this with
+      // gateRole === "dm" at all, but refusing explicitly here (rather than trusting that alone)
+      // costs nothing and means this stays correct even if that render logic ever changes.
+      if (gateRole === "dm") { setGateStatus("New DM accounts aren't self-service — ask whoever runs this campaign to set one up for you.", true); return; }
+      await signUpPlayer(username, password, document.getElementById("mpCampaignCode").value);
     } else {
       await logIn(username, password);
     }
