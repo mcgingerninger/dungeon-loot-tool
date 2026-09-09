@@ -1287,6 +1287,62 @@
   .edit-modal-body textarea { min-height:90px; resize:vertical; }
   .edit-modal-actions { display:flex; justify-content:flex-end; gap:.6rem; padding:1rem 1.2rem; border-top:1px solid var(--border); }
   .edit-save-btn { background:var(--gold); border:1px solid var(--gold); color:var(--bg); font-family:'Crimson Text',serif; font-weight:600; padding:.45rem 1.2rem; cursor:pointer; }
+
+  /* ===== Dice Roller ===== */
+  .dice-roller-fab {
+    position: fixed; bottom: 1rem; left: 1rem; z-index: 8900;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--surface); color: var(--gold); border: 2px solid var(--gold);
+    font-size: 1.5rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; transition: transform .15s;
+  }
+  .dice-roller-fab:hover { transform: scale(1.08); border-color: var(--gold-bright); }
+  .dice-picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .dice-picker-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 0.6rem; cursor: pointer; transition: border-color .15s, color .15s;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; min-width: 52px;
+  }
+  .dice-picker-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .dice-tray-header { display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; }
+  .dice-tray-label { color: var(--gold); font-size: 0.9rem; letter-spacing: 0.03em; }
+  .dice-tray-count { color: var(--text-dim); font-size: 0.78rem; }
+  .dice-tray-clear-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.75rem; padding: 0.25rem 0.55rem; cursor: pointer; }
+  .dice-tray-clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+  .dice-tray {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 64px;
+    background: var(--bg); border: 1px dashed var(--border); padding: 0.6rem;
+  }
+  .dice-tray-empty { color: var(--text-dim); font-size: 0.85rem; font-style: italic; align-self: center; margin: auto; }
+  .dice-tray-die {
+    position: relative; width: 46px; height: 46px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .1s;
+  }
+  .dice-tray-die:hover { transform: scale(1.1); }
+  .dice-tray-die .dice-face-num {
+    position: absolute; font-family: 'Share Tech Mono', monospace; font-weight: 700;
+    font-size: 0.85rem; color: var(--bg); text-shadow: 0 0 2px rgba(255,255,255,0.4);
+    pointer-events: none;
+  }
+  .dice-tray-die.rolling svg { animation: diceRollShake 0.3s linear infinite; }
+  .dice-tray-die.settled svg { animation: diceSettlePop 0.4s ease-out; }
+  @keyframes diceRollShake {
+    0%   { transform: rotate(0deg) scale(1); }
+    25%  { transform: rotate(-12deg) scale(1.05); }
+    50%  { transform: rotate(0deg) scale(0.95); }
+    75%  { transform: rotate(12deg) scale(1.05); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+  @keyframes diceSettlePop {
+    0%   { transform: scale(1.35); filter: brightness(1.6); }
+    60%  { transform: scale(0.92); }
+    100% { transform: scale(1); filter: brightness(1); }
+  }
+  .dice-results { display: flex; flex-direction: column; gap: 0.4rem; }
+  .dice-results-total { font-family: 'Share Tech Mono', monospace; font-size: 1.4rem; color: var(--gold); text-align: center; padding: 0.5rem; background: var(--surface2); border: 1px solid var(--gold); }
+  .dice-results-breakdown { color: var(--text-dim); font-size: 0.82rem; text-align: center; }
   .edit-cancel-btn { background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:.45rem 1.2rem; cursor:pointer; }
 
 
@@ -3389,9 +3445,30 @@
 
 <div id="itemTooltip" class="item-tooltip"></div>
 
+<!-- Dice Roller — a floating button rather than a top-level tab, deliberately, since rolling a
+     handful of dice is something you want mid-conversation on ANY tab (Combat, Store, mid-
+     character-sheet-edit, anywhere), not a destination you navigate to. Bottom-left so it never
+     collides with the account/guest-mode button multiplayer-sync.js already owns bottom-right. -->
+<button id="diceRollerFab" class="dice-roller-fab" onclick="openDiceRoller()" title="Dice Roller">🎲</button>
+<div id="diceRollerModal" class="edit-modal-overlay" onclick="if(event.target===this) closeDiceRoller()">
+  <div class="edit-modal" style="width:min(560px,100%);">
+    <div class="edit-modal-header"><h3>🎲 Dice Roller</h3><button class="edit-modal-close" onclick="closeDiceRoller()">×</button></div>
+    <div class="edit-modal-body">
+      <div class="dice-picker-row" id="dicePickerRow"></div>
+      <div class="dice-tray-header">
+        <span class="dice-tray-label">Dice Tray <span id="diceTrayCount" class="dice-tray-count"></span></span>
+        <button class="dice-tray-clear-btn" onclick="clearDiceTray()">🗑 Clear</button>
+      </div>
+      <div class="dice-tray" id="diceTray"></div>
+      <button class="generate-btn" id="diceRollBtn" onclick="rollDiceTray()" disabled>🎲 Roll All</button>
+      <div class="dice-results" id="diceResults"></div>
+    </div>
+  </div>
+</div>
+
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v95).
-const APP_VERSION = 'v95';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v96).
+const APP_VERSION = 'v96';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 </script>
@@ -12400,6 +12477,142 @@ function closeWeaponAttackPopup() {
   const modal = document.getElementById('weaponAttackModal');
   if (modal) modal.classList.remove('open');
 }
+
+// ===================== DICE ROLLER =====================
+// A floating, always-accessible dice tray — pick any number of any die type, roll them all at
+// once with a staggered "clatter" animation, see each result plus a running total. Deliberately
+// standalone (no character sheet, no combat, no saved state) — this is a general-purpose
+// physical-dice replacement for whatever the table needs it for in the moment, reachable from
+// any tab via the floating button rather than being its own tab you'd have to navigate to.
+const DICE_TYPES = [
+  { sides: 4,   color: '#5b9cf6' },
+  { sides: 6,   color: '#4caf7d' },
+  { sides: 8,   color: '#c47cf5' },
+  { sides: 10,  color: '#ff9f43' },
+  { sides: 12,  color: '#e05252' },
+  { sides: 20,  color: '#c9a84c' },
+  { sides: 100, color: '#7de7ff' },
+];
+// Simple, visually distinct shape per die type rather than a literal polyhedron render (a true
+// d10/d12/d20 net doesn't flatten to one clean 2D shape anyway) — enough that the tray reads at
+// a glance, styled to sit comfortably alongside the app's other flat vector iconography.
+const DICE_SHAPES = {
+  4:   (c) => `<polygon points="23,4 42,40 4,40" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  6:   (c) => `<rect x="6" y="6" width="34" height="34" rx="4" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  8:   (c) => `<polygon points="23,3 43,23 23,43 3,23" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  10:  (c) => `<polygon points="23,3 41,17 34,41 12,41 5,17" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  12:  (c) => `<polygon points="23,3 40,13 40,33 23,43 6,33 6,13" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  20:  (c) => `<polygon points="23,2 41,12 41,34 23,44 5,34 5,12" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+  100: (c) => `<circle cx="23" cy="23" r="20" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>`,
+};
+function diceIconSvg(sides, size) {
+  const cfg = DICE_TYPES.find(d => d.sides === sides) || DICE_TYPES[0];
+  const shapeFn = DICE_SHAPES[sides] || DICE_SHAPES[6];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 46 46">${shapeFn(cfg.color)}</svg>`;
+}
+
+let diceTray = [];       // array of side-counts in tray order, e.g. [6, 6, 20]
+let diceResults = null;  // null until rollDiceTray() runs; then an array parallel to diceTray, each slot null until that specific die settles
+let diceRollTimers = []; // active flicker/settle timer ids from an in-progress roll, so a new roll or Clear can cancel a still-running one cleanly
+
+function renderDicePickerRow() {
+  const wrap = document.getElementById('dicePickerRow');
+  if (!wrap) return;
+  wrap.innerHTML = DICE_TYPES.map(d => `
+    <button class="dice-picker-btn" onclick="addDieToTray(${d.sides})" title="Add a d${d.sides}">
+      ${diceIconSvg(d.sides, 34)}
+      <span>d${d.sides}</span>
+    </button>
+  `).join('');
+}
+function flashDiceMessage(msg, isError) {
+  const resultsEl = document.getElementById('diceResults');
+  if (!resultsEl) return;
+  resultsEl.innerHTML = `<div class="dice-results-breakdown" style="color:${isError ? 'var(--danger)' : 'var(--uncommon)'}">${escapeHtml(msg)}</div>`;
+}
+function addDieToTray(sides) {
+  if (diceTray.length >= 50) { flashDiceMessage('50 dice at once is plenty — clear the tray to start fresh.', true); return; }
+  diceTray.push(sides);
+  diceResults = null;
+  renderDiceTray();
+}
+function removeDieFromTray(idx) {
+  diceTray.splice(idx, 1);
+  diceResults = null;
+  renderDiceTray();
+}
+function clearDiceTray() {
+  diceRollTimers.forEach(id => clearTimeout(id));
+  diceRollTimers = [];
+  diceTray = [];
+  diceResults = null;
+  renderDiceTray();
+  const resultsEl = document.getElementById('diceResults');
+  if (resultsEl) resultsEl.innerHTML = '';
+}
+function renderDiceTray() {
+  const wrap = document.getElementById('diceTray');
+  const countEl = document.getElementById('diceTrayCount');
+  const rollBtn = document.getElementById('diceRollBtn');
+  if (countEl) countEl.textContent = diceTray.length ? `(${diceTray.length})` : '';
+  if (rollBtn) rollBtn.disabled = diceTray.length === 0;
+  if (!wrap) return;
+  if (!diceTray.length) { wrap.innerHTML = '<span class="dice-tray-empty">Click a die above to add it here</span>'; return; }
+  wrap.innerHTML = diceTray.map((sides, i) => {
+    const result = diceResults ? diceResults[i] : null;
+    return `<div class="dice-tray-die" id="diceTrayDie${i}" onclick="removeDieFromTray(${i})" title="d${sides}${result != null ? ' — rolled ' + result : ' — click to remove'}">
+      ${diceIconSvg(sides, 46)}
+      <span class="dice-face-num" id="diceFaceNum${i}">${result != null ? result : ''}</span>
+    </div>`;
+  }).join('');
+}
+function rollDiceTray() {
+  if (!diceTray.length) return;
+  diceRollTimers.forEach(id => clearTimeout(id));
+  diceRollTimers = [];
+  diceResults = new Array(diceTray.length).fill(null);
+  const resultsEl = document.getElementById('diceResults');
+  if (resultsEl) resultsEl.innerHTML = '';
+  diceTray.forEach((sides, i) => {
+    const dieEl = document.getElementById('diceTrayDie' + i);
+    const numEl = document.getElementById('diceFaceNum' + i);
+    if (dieEl) { dieEl.classList.remove('settled'); dieEl.classList.add('rolling'); }
+    // Rapidly cycles a random face value purely for the "tumbling" visual before settling — the
+    // REAL result (rolled fresh below, once the delay elapses) is the only one that counts.
+    const flickerId = setInterval(() => { if (numEl) numEl.textContent = rn(1, sides); }, 60);
+    diceRollTimers.push(flickerId);
+    const settleDelay = 500 + Math.random() * 500; // staggered per-die so they don't all stop in lockstep, like real dice settling
+    const settleId = setTimeout(() => {
+      clearInterval(flickerId);
+      const finalRoll = rn(1, sides);
+      diceResults[i] = finalRoll;
+      if (numEl) numEl.textContent = finalRoll;
+      if (dieEl) { dieEl.classList.remove('rolling'); dieEl.classList.add('settled'); dieEl.title = `d${sides} — rolled ${finalRoll} — click to remove`; }
+      if (diceResults.every(r => r !== null)) renderDiceResults();
+    }, settleDelay);
+    diceRollTimers.push(settleId);
+  });
+}
+function renderDiceResults() {
+  const resultsEl = document.getElementById('diceResults');
+  if (!resultsEl || !diceResults) return;
+  const total = diceResults.reduce((a, b) => a + b, 0);
+  const byType = {};
+  diceTray.forEach((sides, i) => { (byType[sides] = byType[sides] || []).push(diceResults[i]); });
+  const breakdown = Object.keys(byType).sort((a, b) => a - b).map(sides => `${byType[sides].length}d${sides}: ${byType[sides].join('+')}`).join('  ·  ');
+  resultsEl.innerHTML = `
+    <div class="dice-results-total">Total: ${total}</div>
+    <div class="dice-results-breakdown">${escapeHtml(breakdown)}</div>
+  `;
+}
+function openDiceRoller() {
+  renderDicePickerRow();
+  renderDiceTray();
+  document.getElementById('diceRollerModal')?.classList.add('open');
+}
+function closeDiceRoller() {
+  document.getElementById('diceRollerModal')?.classList.remove('open');
+}
 // The single computation function everything else reads from — ability totals/modifiers,
 // proficiency bonus, every skill and saving throw total, and AC — folding in equipped-item
 // bonuses at read time so there's nothing to keep in sync when gear changes. Every stat also
@@ -12969,23 +13182,44 @@ function showCombatLootTooltip(evt, uid, itemId) {
 // couple hundred headroom comfortably covers that plus one live result per roster creature.
 let _battleActionTextMap = {};
 let _battleActionCounter = 0;
-function registerBattleActionText(name, text) {
+// recharge is optional (most actions don't have one) — carried alongside name/text so the
+// tooltip can call it out explicitly rather than relying on it just being baked into the
+// (now-cleaned, see monsterActionList) name string.
+function registerBattleActionText(name, text, recharge) {
   const id = 'ba' + (++_battleActionCounter);
-  _battleActionTextMap[id] = { name, text };
+  _battleActionTextMap[id] = { name, text, recharge: recharge || null };
   const keys = Object.keys(_battleActionTextMap);
   if (keys.length > 200) delete _battleActionTextMap[keys[0]];
   return id;
 }
-function battleActionNameHtml(name, text) {
-  const id = registerBattleActionText(name, text || '');
+function battleActionNameHtml(name, text, recharge) {
+  const id = registerBattleActionText(name, text || '', recharge);
   return `<strong class="combat-action-name" onmouseenter="showBattleActionTooltip(event,'${id}')" onmousemove="moveTokenTooltip(event)" onmouseleave="hideTokenTooltip()">${escapeHtml(name)}</strong>`;
 }
+// Reused for BOTH the combat log's action-name hover (see battleActionNameHtml) and the
+// Monster Compendium's action list (see monsterActionsHtml) — same underlying "look up by
+// short id, avoid embedding raw text with quotes/special characters in an HTML attribute"
+// approach registerBattleActionText already solved, just enriched here with a structured
+// to-hit/damage/save-DC/recharge breakdown parsed via battleParseAttack (the exact same
+// parser Combat's own attack resolution uses, so this tooltip and an actual roll never
+// disagree about what an action's text means) rather than only showing the raw stat-block text.
 function showBattleActionTooltip(evt, id) {
   const info = _battleActionTextMap[id];
   if (!info) return;
   const tt = document.getElementById('itemTooltip');
   if (!tt) return;
-  tt.innerHTML = `<div class="tt-header" style="display:flex;align-items:center;gap:0.5rem;"><span>${escapeHtml(info.name)}</span></div><div class="tt-desc">${escapeHtml(info.text || 'No further description available.')}</div>`;
+  const { toHit, damageClauses, saveDC } = battleParseAttack(info.text || '');
+  const rows = [];
+  if (toHit !== null) rows.push(['⚔ To Hit', (toHit >= 0 ? '+' : '') + toHit]);
+  if (damageClauses.length) rows.push(['🎲 Damage', damageClauses.map(c => c.type ? `${c.dice} ${c.type}` : c.dice).join(' + ')]);
+  if (saveDC !== null) rows.push(['🛡 Save DC', String(saveDC)]);
+  if (info.recharge) rows.push(['🔄 Recharge', info.recharge]);
+  const statsHtml = rows.length
+    ? `<div class="tt-stats" style="display:flex;flex-direction:column;align-items:stretch;gap:0.15rem;">${rows.map(([label, val]) =>
+        `<div style="display:flex;justify-content:space-between;gap:0.6rem;"><span>${label}</span><span>${escapeHtml(val)}</span></div>`
+      ).join('')}</div>`
+    : '';
+  tt.innerHTML = `<div class="tt-header" style="display:flex;align-items:center;gap:0.5rem;"><span>${escapeHtml(info.name)}</span></div>${statsHtml}<div class="tt-desc">${escapeHtml(info.text || 'No further description available.')}</div>`;
   tt.style.display = 'block';
   moveTokenTooltip(evt);
 }
@@ -13085,6 +13319,14 @@ function spellCleanTags(text){
     .replace(/\{@h\}/g, 'Hit: ')
     .replace(/\{@hit (-?\d+)\}/g, (m,n)=> (n.startsWith('-')?n:'+'+n))
     .replace(/\{@atk ([a-z,]+)\}/g, (m,codes)=> codes.split(',').map(c=>ATK_TYPE_LABELS[c]||c).join(' or ') + ':')
+    // {@recharge 5} means "recharges on a roll of 5 or 6"; the bare {@recharge} (no number) means
+    // "recharges on a 6 only" — this used to fall straight through to the generic {@tag label}
+    // fallback below (reducing "{@recharge 5}" to a bare, context-free "5") or the final blanket
+    // {@tag} strip (dropping the bare form's "6 only" meaning entirely) since neither existing
+    // rule knew this tag meant anything specific. Both are handled explicitly here, before either
+    // of those catch-alls gets a chance to mangle or erase it.
+    .replace(/\{@recharge (\d)\}/g, (m,n)=> `(Recharge ${n}–6)`)
+    .replace(/\{@recharge\}/g, '(Recharge 6)')
     .replace(/\{@(?:dice|damage|scaledice|scaledamage) ([^}|]*)(?:\|[^}]*)*\}/g, (m,dice)=>dice)
     .replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)*\}/g, (m,label)=>label)
     .replace(/\{@\w+\}/g, '')
@@ -13235,12 +13477,26 @@ function monsterAbilityMod(score) {
   return (mod >= 0 ? '+' : '') + mod;
 }
 // Traits/actions/bonus actions/reactions/legendary actions all share the same
-// {name, entries} shape in the source data.
+// {name, entries} shape in the source data. A legendary-monster action's recharge info
+// (e.g. a dragon's breath weapon) lives directly in ITS OWN name field in the raw 5etools
+// data — literally "Fire Breath {@recharge 5}" — not in entries/text like every other tag.
+// name used to be used completely raw everywhere (the Compendium's monster detail view, the
+// Combat tab's action tooltips), so that literal "{@recharge 5}" text was leaking straight
+// into the UI unparsed. Cleaned here now (same spellCleanTags pipeline entries already went
+// through), and the recharge value is ALSO pulled out into its own field before cleaning
+// strips it down to display text, so a hover tooltip can call it out explicitly rather than
+// only showing it baked into the name string.
 function monsterActionList(list) {
-  return (list || []).map(a => ({
-    name: a.name || 'Unnamed',
-    text: spellCleanTags(spellFlattenEntries(a.entries)),
-  }));
+  return (list || []).map(a => {
+    const rawName = a.name || 'Unnamed';
+    const rechargeMatch = rawName.match(/\{@recharge(?:\s+(\d))?\}/);
+    const recharge = rechargeMatch ? (rechargeMatch[1] ? `${rechargeMatch[1]}–6` : '6') : null;
+    return {
+      name: spellCleanTags(rawName),
+      text: spellCleanTags(spellFlattenEntries(a.entries)),
+      recharge,
+    };
+  });
 }
 // The official fluff file has no entry at all for ~64 Monster Manual beasts — almost entirely
 // ordinary real-world animals (or a "Giant" reskin of one), which the source material never
@@ -13791,9 +14047,13 @@ function monsterAbilityBlockHtml(m) {
   return [['STR','str'],['DEX','dex'],['CON','con'],['INT','int'],['WIS','wis'],['CHA','cha']]
     .map(([label,key]) => `<div class="spell-detail-field"><span class="spell-detail-label">${label}</span><span class="spell-detail-value">${m[key] ?? '—'} (${monsterAbilityMod(m[key])})</span></div>`).join('');
 }
+// The action's own name is used as the hover trigger here now (via battleActionNameHtml —
+// same mechanism/tooltip Combat's own action-name hover already uses, see its own comment),
+// so a DM browsing the Compendium sees the exact same structured to-hit/damage/save-DC/
+// recharge breakdown Combat shows mid-fight, not just the plain stat-block paragraph.
 function monsterActionsHtml(list, label) {
   if (!list || !list.length) return '';
-  return `<div class="ic-mod-group"><div class="ic-mod-label">${escapeHtml(label)}</div>${list.map(a => `<div class="ic-mod-entry"><strong>${escapeHtml(a.name)}.</strong> ${escapeHtml(a.text).replace(/\n/g,'<br>')}</div>`).join('')}</div>`;
+  return `<div class="ic-mod-group"><div class="ic-mod-label">${escapeHtml(label)}</div>${list.map(a => `<div class="ic-mod-entry">${battleActionNameHtml(a.name, a.text, a.recharge)}. ${escapeHtml(a.text).replace(/\n/g,'<br>')}</div>`).join('')}</div>`;
 }
 // Every premade monster part (see generatePremadeMonsterParts) is tagged with the exact
 // monster it came from (item.sourceMonster) and lives in lootData at that monster's own
@@ -14977,13 +15237,13 @@ function resolveBattleAttack(entry) {
     const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
     result = {
       cls, title,
-      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs ${targetDesc}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text, action.recharge)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs ${targetDesc}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
     };
   } else {
     const eff = battleEffectivenessLabel(d20);
     result = {
       cls: eff.cls, title: eff.label,
-      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text)}${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
+      detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text, action.recharge)}${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
     };
   }
 
