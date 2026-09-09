@@ -2826,6 +2826,14 @@
         straight into a graft ready to attach. The better the part's own rarity, the stronger
         (and, at the highest tiers, the more numerous) its beneficial effects will be.
       </p>
+      <!-- "Your Inventory" (the thing you're actually dragging a part FROM) sits directly
+           above the drop slot it feeds now, instead of the slot floating above the till/
+           preview/button block with the inventory grid pushed all the way down past it. -->
+      <h4 class="store-section-label">🎒 Your Inventory</h4>
+      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part straight from here into the slot below. Anything that isn't a monster part is dimmed.</p>
+      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'fleshInvGrid')">
+        <div id="fleshInvGrid" class="inv-grid"></div>
+      </div>
       <div class="mangler-slots-row">
         <div class="mangler-drop-slot" id="fleshMaterialSlot" ondragover="slotDragOver(event)" ondrop="fleshMaterialDrop(event)">
           <div class="mangler-drop-label">🩸 Crafting Material</div>
@@ -2837,12 +2845,6 @@
       <div class="store-buy-msg" id="fleshWorkshopMsg"></div>
 
       <div class="flesh-result" id="fleshResult"></div>
-
-      <h4 class="store-section-label">🎒 Your Inventory</h4>
-      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part straight from here into the slot above. Anything that isn't a monster part is dimmed.</p>
-      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'fleshInvGrid')">
-        <div id="fleshInvGrid" class="inv-grid"></div>
-      </div>
 
       <details class="collapsible">
         <summary>⚖ Flesh Effect Weights</summary>
@@ -2938,6 +2940,14 @@
         the original item are consumed — the reforged result lands in Finished Work below, where you can save it
         to your Token Library or discard it before mangling again.
       </p>
+      <!-- "Your Inventory" sits directly above the two slots it feeds now, instead of the
+           slots floating above the preview/combine/finished-work block with the inventory
+           grid pushed all the way down past it. -->
+      <h4 class="store-section-label">🎒 Your Inventory</h4>
+      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part or weapon/armor piece straight from here into the slots below. Clicking a slot dims whatever doesn't fit it.</p>
+      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'manglerInvGrid')">
+        <div id="manglerInvGrid" class="inv-grid"></div>
+      </div>
       <div class="mangler-slots-row">
         <div class="mangler-drop-slot" id="manglerPartSlot" onclick="setManglerFocus('part')" ondragover="slotDragOver(event)" ondrop="manglerPartDrop(event)">
           <div class="mangler-drop-label">🩸 Monster Part</div>
@@ -2954,12 +2964,6 @@
       <div class="store-buy-msg" id="storeManglerMsg"></div>
 
       <div class="mangler-finished-work" id="manglerFinishedWork" style="display:none;"></div>
-
-      <h4 class="store-section-label">🎒 Your Inventory</h4>
-      <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Drag a monster part or weapon/armor piece straight from here into the slots above. Clicking a slot dims whatever doesn't fit it.</p>
-      <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'manglerInvGrid')">
-        <div id="manglerInvGrid" class="inv-grid"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -6275,6 +6279,10 @@ function saveEditedItem() {
     lootData[editingItemRarity].splice(editingItemIndex, 1);
     lootData[newRarity].push(item);
   }
+  // A rename-in-place, or a same-total-length cross-rarity move, wouldn't be caught by
+  // buildTokenIndex's cache invalidation (a plain length-sum check across all six tiers) —
+  // force it to rebuild next time regardless.
+  if (typeof invalidateLootTokenIndexCache === 'function') invalidateLootTokenIndexCache();
 
   closeEditItemModal();
   renderItemsList();
@@ -9643,13 +9651,18 @@ function renderStoreTab() {
       <div class="store-gold-display">💰 Your Gold: <span id="storePlayerGoldDisplay">${coinPouchGpText(getPlayerGold())}</span></div>
     </div>
     <!-- Selling/using items comes first now, right under the header — no scrolling past the
-         buy listings to reach it. The sell zone, till, and "Your Items" picker are all in one
-         tight block for exactly the reason the Mangler's own slots+grid already are: so
-         dragging (or right-clicking) an item into use never has to travel far down the page.
-         Standing Stock / Today's Wares move into collapsed-by-default sections below instead
-         of being the thing you always scroll past first. -->
+         buy listings to reach it. The drop zone sits directly against "Your Inventory" (the
+         thing you're actually dragging FROM) instead of above the till with the inventory
+         grid pushed further down — dragging an item no longer means eyeballing a drop target
+         that's nowhere near where your items actually are. Standing Stock / Today's Wares move
+         into collapsed-by-default sections below instead of being the thing you always scroll
+         past first. -->
     <h4 class="store-section-label">💰 Sell Your Goods</h4>
     <p style="color:var(--text-dim);font-size:0.85rem;font-style:italic;margin-bottom:0.6rem;">Right-click or drag an item from your inventory below to stage it in the till — ${escapeHtml(m.name)} ${merchantTradeDescription(currentMerchant)} Nothing is sold until you click "Sell All."</p>
+    <h4 class="store-section-label">🎒 Your Inventory</h4>
+    <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'traderSellInvGrid')">
+      <div id="traderSellInvGrid" class="inv-grid"></div>
+    </div>
     <div class="trader-sell-zone" id="traderSellZone" ondragover="slotDragOver(event)" ondrop="traderSellDrop(event)">Drop an item here to add it to the till</div>
     <div class="merchant-till-panel">
       <div class="merchant-till-head">
@@ -9657,10 +9670,6 @@ function renderStoreTab() {
         <button class="ic-action-btn" onclick="sellMerchantTill()">💰 Sell All</button>
       </div>
       <div class="token-grid" id="merchantTillGrid"></div>
-    </div>
-    <h4 class="store-section-label" style="margin-top:0.8rem;">🎒 Your Inventory</h4>
-    <div class="inv-grid-wrap" ondragover="slotDragOver(event)" ondrop="inventoryGridSmartDrop(event,'traderSellInvGrid')">
-      <div id="traderSellInvGrid" class="inv-grid"></div>
     </div>
     <div class="store-buy-msg" id="storeBuyMsg"></div>
     <details class="collapsible"${storeStockSectionOpen ? ' open' : ''} ontoggle="storeStockSectionOpen=this.open" style="margin-top:1.2rem;">
@@ -11097,21 +11106,54 @@ let tokenSlotOverrides = {};
 // Rebuilt each time the Tokens tab (or Player tab) renders, so item edits/deletes/saves stay in sync.
 let TOKEN_INDEX = {};
 
+// buildTokenIndex is called defensively at 37 separate sites throughout the app (nearly
+// every drag start, drop, hover-tooltip, equip, and render path) — it used to do a full
+// rebuild EVERY time, scanning all six lootData tiers (13,826 hand-authored items, plus
+// however many generatePremadeMonsterParts() has added — one per creature x applicable part
+// type across all 1,714 creatures, pushing the real total past 20,000) on every single call,
+// even the 36 where nothing loot-related had actually changed since the last one. That's a
+// 20,000+ entry rebuild potentially firing many times a second during active drag/hover — the
+// single biggest remaining perf cost in the app.
+//
+// The lootData-derived portion of the index is cached and only rebuilt when the combined
+// length across all six tiers actually changes (item added/removed anywhere — covers
+// generatePremadeMonsterParts, removeTokenEverywhere's monster-part-consumed branch,
+// removeItem, and a cross-rarity move in saveEditedItem, which changes two tiers' lengths at
+// once). A rename-in-place (saveEditedItem changing an existing item's name with no length
+// change) can't be caught by a length check, so that one spot calls
+// invalidateLootTokenIndexCache() explicitly. savedGeneratedItems (typically tens of items,
+// not tens of thousands) is still refreshed on every single call — cheap regardless, and
+// correctness there was never the expensive part.
+let _lootTokenIndexBase = null;
+let _lootTokenIndexLen = -1;
+let _lastGenTokenKeys = [];
+function invalidateLootTokenIndexCache() { _lootTokenIndexLen = -1; }
 function buildTokenIndex() {
-  const idx = {};
   const rarities = ['common','uncommon','rare','superrare','legendary','celestial'];
-  rarities.forEach(r => {
-    (lootData[r] || []).forEach(item => {
-      const key = 'loot:' + r + ':' + item.name;
-      idx[key] = { key, item, rarity: r, source: 'loot' };
+  const totalLen = rarities.reduce((sum, r) => sum + (lootData[r] ? lootData[r].length : 0), 0);
+  if (!_lootTokenIndexBase || totalLen !== _lootTokenIndexLen) {
+    const base = {};
+    rarities.forEach(r => {
+      (lootData[r] || []).forEach(item => {
+        const key = 'loot:' + r + ':' + item.name;
+        base[key] = { key, item, rarity: r, source: 'loot' };
+      });
     });
-  });
+    _lootTokenIndexBase = base;
+    _lootTokenIndexLen = totalLen;
+    _lastGenTokenKeys = []; // the base is fresh — nothing to diff away from a previous version
+  }
+  // Diff-update rather than rebuild-from-scratch: drop last call's gen-item entries first so
+  // one that's since been removed from savedGeneratedItems doesn't linger in the shared index.
+  _lastGenTokenKeys.forEach(k => delete _lootTokenIndexBase[k]);
+  _lastGenTokenKeys = [];
   (typeof savedGeneratedItems !== 'undefined' ? savedGeneratedItems : []).forEach(item => {
     const key = 'gen:' + item.id;
-    idx[key] = { key, item, rarity: item.rarity, source: 'gen' };
+    _lootTokenIndexBase[key] = { key, item, rarity: item.rarity, source: 'gen' };
+    _lastGenTokenKeys.push(key);
   });
-  TOKEN_INDEX = idx;
-  return idx;
+  TOKEN_INDEX = _lootTokenIndexBase;
+  return TOKEN_INDEX;
 }
 
 // Guess an equipment slot category from an item's name/type. The person can override
