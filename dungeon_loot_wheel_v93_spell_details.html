@@ -1688,6 +1688,22 @@
   .loadout-load-btn:hover { border-color:var(--gold); background:rgba(201,168,76,0.08); }
   .loadout-del-btn { color:var(--text-dim); }
   .loadout-del-btn:hover { border-color:var(--danger); color:var(--danger); }
+  .loadout-textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    font-family:'Crimson Text',serif; font-size:0.92rem; padding:0.45rem 0.6rem; min-height:70px;
+    resize:vertical; margin-bottom:0.4rem;
+  }
+  .loadout-textarea:focus { outline:none; border-color:var(--gold); }
+  .riddle-card { background:var(--surface2); border:1px solid var(--border); padding:0.6rem 0.8rem; }
+  .riddle-q { color:var(--text); font-size:0.92rem; line-height:1.5; margin-bottom:0.4rem; }
+  .riddle-answer-wrap { min-height:1.4rem; }
+  .riddle-answer { color:var(--uncommon); font-style:italic; font-size:0.85rem; }
+  .riddle-reveal-btn, .puzzle-reveal-btn {
+    background:transparent; border:1px solid var(--border); color:var(--gold);
+    font-family:'Crimson Text',serif; font-size:0.8rem; padding:0.2rem 0.55rem; cursor:pointer; transition:all 0.15s;
+  }
+  .riddle-reveal-btn:hover, .puzzle-reveal-btn:hover { border-color:var(--gold); background:rgba(201,168,76,0.08); }
+  .puzzle-log-prompt { color:var(--text); font-size:0.88rem; line-height:1.55; margin:0.3rem 0 0.5rem; white-space:pre-wrap; }
 
   /* Shared hover tooltip for tokens (tokens tab + equipped slots) */
   .item-tooltip {
@@ -2081,6 +2097,7 @@
   <button class="tab-btn" onclick="showTab('players',this)">👥 Players</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
   <button class="tab-btn" onclick="showTab('journey',this)">🧭 Journey</button>
+  <button class="tab-btn" onclick="showTab('puzzles',this)">🧩 Puzzles</button>
   <!-- Player-only — the opposite direction from multiplayer-sync.js's body.role-player hide
        list (which hides DM-only things): this stays hidden by default and is revealed only
        for players by enforceRoleRestrictions there. -->
@@ -3122,6 +3139,38 @@
 
   <h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;margin-top:1.2rem;">📜 Journey Log</h3>
   <div class="journey-log-list" id="journeyLogList"></div>
+</div>
+
+<!-- PUZZLES TAB — visible to Players and DM/Guest alike (unlike Journey/Combat/Store's own
+     DM-only tabs above): solving a riddle or a written puzzle is a player-facing activity, not
+     DM narration. Riddle Library is fixed, curated content; Puzzle Log is a scaffold for
+     campaign-specific content the DM writes ahead of time — its add/edit/delete controls are
+     DM/Guest-only (see isRealPlayerAccount), but every entry itself stays visible to players,
+     who are the ones actually meant to read and attempt them. -->
+<div id="tab-puzzles" class="tab-content">
+  <p style="color:var(--text-dim);font-size:0.88rem;font-style:italic;margin-bottom:1rem;">A riddle library to pull from on the fly, plus a log for campaign-specific puzzles written ahead of time.</p>
+
+  <div class="loadouts-panel" style="margin-bottom:1.2rem;">
+    <h3>📖 Riddle Library</h3>
+    <input type="text" id="riddleSearch" class="loadout-search" placeholder="Search riddles…" oninput="renderRiddleLibrary()">
+    <div id="riddleLibraryList" class="loadout-list"></div>
+  </div>
+
+  <div class="loadouts-panel">
+    <h3>📓 Puzzle Log <span style="font-weight:400;font-size:0.72rem;color:var(--text-dim);">— write your own ahead of time</span></h3>
+    <div id="puzzleLogAddArea">
+      <input type="text" id="puzzleLogTitleInput" class="loadout-name-input" placeholder="Title…" style="width:100%;margin-bottom:0.4rem;">
+      <textarea id="puzzleLogPromptInput" class="loadout-textarea" placeholder="Puzzle or riddle text to read out to players…"></textarea>
+      <input type="text" id="puzzleLogAnswerInput" class="loadout-name-input" placeholder="Answer (hidden until revealed)…" style="width:100%;margin-bottom:0.4rem;">
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;">
+        <button class="action-btn" style="width:auto;" id="puzzleLogSaveBtn" onclick="savePuzzleLogEntry()">Save Puzzle</button>
+        <button class="action-btn" style="width:auto;display:none;" id="puzzleLogCancelBtn" onclick="cancelEditPuzzleLogEntry()">Cancel Edit</button>
+      </div>
+      <div id="puzzleLogSaveMsg" class="loadout-save-msg"></div>
+    </div>
+    <input type="text" id="puzzleLogSearch" class="loadout-search" placeholder="Search puzzle log…" oninput="renderPuzzleLog()">
+    <div id="puzzleLogList" class="loadout-list"></div>
+  </div>
 </div>
 
 <!-- BATTLEFIELD TAB — player-only, read-only live view of the DM's combat roster. Populated
@@ -4414,6 +4463,7 @@ function showTab(tab, btn) {
   if (tab === 'players' && typeof renderPlayersTab === 'function') renderPlayersTab();
   if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
   if (tab === 'journey') renderJourneyTab();
+  if (tab === 'puzzles') { renderRiddleLibrary(); renderPuzzleLog(); }
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -17163,6 +17213,137 @@ function playJourneyOverlay(category) {
   stage.classList.add('journey-flash');
 }
 
+// ===================== PUZZLES TAB =====================
+// Riddle Library is fixed, curated content (browsable/searchable, click to reveal the answer —
+// same "hidden until you ask for it" idea as a puzzle's answer, just always-available rather
+// than DM-authored). Puzzle Log is the scaffold the DM actually asked for — nothing here yet,
+// but a real, working add/edit/delete list from day one rather than an empty tab waiting on a
+// future build, same CRUD shape as Saved Loadouts (see renderSavedLoadouts above).
+const RIDDLE_LIBRARY = [
+  { q: 'I speak without a mouth and hear without ears. I have no body at all, but the wind gives me a voice. What am I?', a: 'An echo' },
+  { q: 'The more you take from me, the bigger I get. What am I?', a: 'A hole' },
+  { q: 'I have cities, but no houses; forests, but no trees; rivers, but no water. What am I?', a: 'A map' },
+  { q: 'I have no bones, yet inside me a whole shape waits to walk, swim, or fly out into the world. What am I?', a: 'An egg' },
+  { q: 'You can catch me, but you can never throw me. What am I?', a: 'A cold' },
+  { q: 'I follow you all day, vanish at night, and I am never quite the same shape twice. What am I?', a: 'A shadow' },
+  { q: 'I dance without feet and eat without a mouth. Touch me and you will learn why people fear me. What am I?', a: 'Fire' },
+  { q: 'No one can see me, hold me, or stop me, and yet everyone claims to be running out of me. What am I?', a: 'Time' },
+  { q: 'I can knock without hands and whistle without lips. I am never seen, only felt. What am I?', a: 'The wind' },
+  { q: 'I have two faces but only one voice, and a single flip of me can settle an argument. What am I?', a: 'A coin' },
+  { q: 'I have a mouth but never speak, a bed but never sleep, and I run for miles without ever taking a step. What am I?', a: 'A river' },
+  { q: 'I have pages but I am not a tree, and I can carry you anywhere without moving an inch. What am I?', a: 'A book' },
+  { q: 'I have hands but cannot clap, and a face but cannot smile. What am I?', a: 'A clock' },
+  { q: 'No two of me are ever quite alike, and yet everyone has carried a full set since the day they were born. What am I?', a: 'Fingerprints' },
+  { q: 'Peel back my layers and you may cry before you find anything at all. What am I?', a: 'An onion' },
+  { q: 'The more there is of me, the less you can see. What am I?', a: 'Darkness' },
+  { q: 'I am always in front of you, but you can never actually reach me. What am I?', a: 'The future' },
+  { q: 'I get wetter the more I dry. What am I?', a: 'A towel' },
+];
+function renderRiddleLibrary() {
+  const listEl = document.getElementById('riddleLibraryList');
+  if (!listEl) return;
+  const search = (document.getElementById('riddleSearch')?.value || '').toLowerCase().trim();
+  const filtered = RIDDLE_LIBRARY.filter(r => !search || r.q.toLowerCase().includes(search));
+  if (!filtered.length) { listEl.innerHTML = '<div class="empty-results">No riddles match your search.</div>'; return; }
+  listEl.innerHTML = filtered.map((r, i) => `
+    <div class="riddle-card">
+      <div class="riddle-q">${escapeHtml(r.q)}</div>
+      <div class="riddle-answer-wrap" id="riddleAnswerWrap${i}">
+        <button class="riddle-reveal-btn" onclick="revealRiddleAnswer(${i})">👁 Reveal Answer</button>
+      </div>
+    </div>
+  `).join('');
+}
+function revealRiddleAnswer(i) {
+  const wrap = document.getElementById('riddleAnswerWrap' + i);
+  const riddle = RIDDLE_LIBRARY[i];
+  if (!wrap || !riddle) return;
+  wrap.innerHTML = `<span class="riddle-answer">${escapeHtml(riddle.a)}</span>`;
+}
+
+let puzzleLog = [];
+let editingPuzzleLogId = null;
+function savePuzzleLogEntry() {
+  const titleEl = document.getElementById('puzzleLogTitleInput');
+  const promptEl = document.getElementById('puzzleLogPromptInput');
+  const answerEl = document.getElementById('puzzleLogAnswerInput');
+  const msgEl = document.getElementById('puzzleLogSaveMsg');
+  const title = (titleEl.value || '').trim();
+  const prompt = (promptEl.value || '').trim();
+  const answer = (answerEl.value || '').trim();
+  if (!title || !prompt) { msgEl.textContent = 'Enter at least a title and the puzzle text.'; return; }
+  msgEl.textContent = '';
+  if (editingPuzzleLogId !== null) {
+    const entry = puzzleLog.find(p => p.id === editingPuzzleLogId);
+    if (entry) { entry.title = title; entry.prompt = prompt; entry.answer = answer; }
+    cancelEditPuzzleLogEntry();
+  } else {
+    puzzleLog.unshift({ id: Date.now(), title, prompt, answer });
+    titleEl.value = ''; promptEl.value = ''; answerEl.value = '';
+  }
+  renderPuzzleLog();
+}
+function editPuzzleLogEntry(id) {
+  const entry = puzzleLog.find(p => p.id === id);
+  if (!entry) return;
+  editingPuzzleLogId = id;
+  document.getElementById('puzzleLogTitleInput').value = entry.title;
+  document.getElementById('puzzleLogPromptInput').value = entry.prompt;
+  document.getElementById('puzzleLogAnswerInput').value = entry.answer;
+  document.getElementById('puzzleLogSaveBtn').textContent = 'Update Puzzle';
+  document.getElementById('puzzleLogCancelBtn').style.display = '';
+}
+function cancelEditPuzzleLogEntry() {
+  editingPuzzleLogId = null;
+  document.getElementById('puzzleLogTitleInput').value = '';
+  document.getElementById('puzzleLogPromptInput').value = '';
+  document.getElementById('puzzleLogAnswerInput').value = '';
+  document.getElementById('puzzleLogSaveBtn').textContent = 'Save Puzzle';
+  document.getElementById('puzzleLogCancelBtn').style.display = 'none';
+}
+function deletePuzzleLogEntry(id) {
+  puzzleLog = puzzleLog.filter(p => p.id !== id);
+  if (editingPuzzleLogId === id) cancelEditPuzzleLogEntry();
+  renderPuzzleLog();
+}
+function renderPuzzleLog() {
+  if (typeof scheduleSave === 'function') scheduleSave();
+  const addArea = document.getElementById('puzzleLogAddArea');
+  // Writing puzzles is a DM/Guest job; reading and attempting them is a player one — same
+  // isRealPlayerAccount() check already used to hide Save on Fleshmancer/Mangler results.
+  if (addArea) addArea.style.display = isRealPlayerAccount() ? 'none' : '';
+  const listEl = document.getElementById('puzzleLogList');
+  if (!listEl) return;
+  const search = (document.getElementById('puzzleLogSearch')?.value || '').toLowerCase().trim();
+  const filtered = puzzleLog.filter(p => !search || p.title.toLowerCase().includes(search) || p.prompt.toLowerCase().includes(search));
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="empty-results">${puzzleLog.length ? 'No puzzles match your search.' : 'No puzzles written yet — add one above.'}</div>`;
+    return;
+  }
+  const isPlayer = isRealPlayerAccount();
+  listEl.innerHTML = filtered.map(p => `
+    <div class="riddle-card">
+      <div class="loadout-row" style="background:transparent;border:none;padding:0;margin-bottom:0.3rem;">
+        <div class="loadout-row-name">${escapeHtml(p.title)}</div>
+        ${isPlayer ? '' : `<div class="loadout-row-actions">
+          <button class="loadout-load-btn" onclick="editPuzzleLogEntry(${p.id})">Edit</button>
+          <button class="loadout-del-btn" onclick="deletePuzzleLogEntry(${p.id})">✕</button>
+        </div>`}
+      </div>
+      <div class="puzzle-log-prompt">${escapeHtml(p.prompt)}</div>
+      ${p.answer ? `<div class="riddle-answer-wrap" id="puzzleAnswerWrap${p.id}">
+        <button class="puzzle-reveal-btn" onclick="revealPuzzleLogAnswer(${p.id})">👁 Reveal Answer</button>
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+function revealPuzzleLogAnswer(id) {
+  const wrap = document.getElementById('puzzleAnswerWrap' + id);
+  const entry = puzzleLog.find(p => p.id === id);
+  if (!wrap || !entry) return;
+  wrap.innerHTML = `<span class="riddle-answer">${escapeHtml(entry.answer)}</span>`;
+}
+
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
 // animation on wrapper classes, see .battle-stage/.pixel-char) — just scene-scale (1-3 animated
@@ -17856,6 +18037,7 @@ function saveAppState() {
       // tracked override object — reconstructed the same way on load, below.
       journeySetting, journeyLog, journeyLogCounter,
       journeySettingWeights: Object.fromEntries(JOURNEY_SETTINGS.map(s => [s.key, s.weights])),
+      puzzleLog,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
@@ -17940,6 +18122,7 @@ function applyStateBlob(data) {
   if (data.journeySettingWeights) {
     JOURNEY_SETTINGS.forEach(s => { if (data.journeySettingWeights[s.key]) s.weights = data.journeySettingWeights[s.key]; });
   }
+  if (Array.isArray(data.puzzleLog)) puzzleLog = data.puzzleLog;
 }
 function loadAppState() {
   let data = null;
