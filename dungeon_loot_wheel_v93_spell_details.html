@@ -2046,6 +2046,8 @@
   .journey-log-title{font-weight:600;color:var(--gold-bright);margin-bottom:0.2rem;}
   .journey-log-text{color:var(--text);font-size:0.9rem;line-height:1.5;margin-bottom:0.4rem;}
   .journey-hook-done{color:var(--uncommon);font-size:0.82rem;font-style:italic;}
+  .journey-log-actions{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.3rem;}
+  .journey-log-entry.is-followup{border-left:2px solid #c47cf5;}
   @media (prefers-reduced-motion: reduce){
     .journey-anim-cloud,.journey-anim-windmill,.journey-anim-firefly,.journey-anim-fog,.journey-anim-bubble,
     .journey-anim-sun,.journey-anim-shimmer,.journey-anim-torch-flame,.journey-anim-shake,.journey-anim-bob,
@@ -16985,21 +16987,121 @@ function journeyHookLabel(hook) {
   if (hook.type === 'debuff') return '💀 Apply Effect';
   return 'Apply';
 }
+
+// ===================== JOURNEY FOLLOW-UP EVENTS =====================
+// A follow-up gives whatever just happened a second beat — a complication, a find, a puzzle,
+// a decision — without needing a bespoke write-up for all 169 scenarios. Same reasoning as
+// JOURNEY_CATEGORY_DEFS reusing 8 overlays across every scenario rather than animating each
+// one individually: every follow-up is one of 4 general archetypes whose text is built by
+// combining a small, setting-agnostic premise pool with the ORIGINAL scenario's own title via
+// string interpolation (the same combinatorial-text technique bounty posters already use).
+// Creature/Item reuse applyJourneyHook's existing monster/loot branches exactly; Puzzle/Choice
+// are pure narration for the DM to play out, same as most Uneventful/Strange scenarios already
+// carry no hook at all.
+const JOURNEY_FOLLOWUP_WEIGHTS = { creature: 22, item: 18, puzzle: 25, choice: 35 };
+// Derived from the parent scenario's own category: hostile/hazard scenarios escalate into
+// tougher follow-ups, peaceful/uneventful/weather ones stay mild, everything else (strange,
+// divine, discovery) lands in between.
+function journeyFollowUpTier(category) {
+  if (category === 'hostile' || category === 'hazard') return 'tough';
+  if (category === 'nothing' || category === 'peaceful' || category === 'weather') return 'mild';
+  return 'moderate';
+}
+const JOURNEY_FOLLOWUP_CR_BAND = { mild: [0, 2], moderate: [1, 4], tough: [3, 7] };
+const JOURNEY_FOLLOWUP_LOOT_RARITY = { mild: 'common', moderate: 'uncommon', tough: 'rare' };
+const JOURNEY_FOLLOWUP_PUZZLE_PREMISES = [
+  'a locked mechanism turns up close by, no visible keyhole and no obvious way to force it',
+  'a length of script is carved somewhere nearby, in no alphabet anyone recognizes, that somehow still makes sense if you stare at it long enough',
+  'three stones, or knots, or bones, are arranged just so — clearly a message, just as clearly not one anybody here can read',
+  'a ring of interlocking dials waits to be set to the right combination, with no clue provided for what "right" means',
+  'a riddle is left behind, spoken by no one, on a marker no one can explain the age of',
+  'a container refuses to open along any seam a hand can find, though it plainly should',
+  'a set of symbols repeats in the same order, three times, in a pattern that\'s clearly not decorative',
+  'a door, gate, or bridge demands something specific be given, shown, or spoken before it will yield',
+  'a shape scratched into the ground only makes sense from one exact vantage point, and that point isn\'t obvious',
+  'an object hums, ticks, or otherwise insists it wants to be used, with no instructions attached',
+  'a voice, or something like one, poses a question and won\'t stop repeating it until it gets an answer',
+  'a trail of clues, each pointing to the next, clearly leads somewhere — the hard part is reading the first one',
+];
+const JOURNEY_FOLLOWUP_CHOICE_PREMISES = [
+  'the way forward splits: press on toward whatever\'s ahead, double back the way you came, or hold position and see what comes to you instead',
+  'someone, or something, offers help for a price left deliberately vague — take the offer, refuse it outright, or press for details first',
+  'there\'s time to investigate further, or time to move on before whatever\'s here notices you — not both',
+  'a decision has to be made about what to do with what was just found: keep it, leave it exactly where it was, or hand it off to whoever seems to have a claim on it',
+  'a shortcut presents itself, clearly faster and just as clearly riskier than the safe way around',
+  'someone here needs a choice made on their behalf, and no answer is going to satisfy everyone involved',
+  'it\'s possible to step into something that isn\'t any of your business, walk past it, or watch a while longer before deciding either way',
+  'the path ahead forks between the route that\'s clearly used often and the one that clearly isn\'t',
+  'something asks to be trusted with very little offered in return — trust it, test it, or turn it down',
+  'there\'s a chance to warn someone about what\'s coming, say nothing and let it play out, or use the warning as leverage instead',
+  'a choice has to be made quickly, with only enough information to guess at what either option actually costs',
+  'the group can push forward together, split up to cover more ground, or fall back and regroup before deciding anything',
+];
+function journeyFollowUpArchetype() { return weightedPickFromObject(JOURNEY_FOLLOWUP_WEIGHTS); }
+function buildJourneyFollowUp(parentEntry) {
+  const archetype = journeyFollowUpArchetype();
+  const tier = journeyFollowUpTier(parentEntry.category);
+  const parentTitle = parentEntry.title;
+  if (archetype === 'creature') {
+    return {
+      archetype, title: 'A Complication Arrives',
+      text: `In the aftermath of "${parentTitle}," something else takes an interest — it isn't quite over yet.`,
+      hook: { type: 'monster', crBand: JOURNEY_FOLLOWUP_CR_BAND[tier] },
+    };
+  }
+  if (archetype === 'item') {
+    return {
+      archetype, title: 'Something Left Behind',
+      text: `Whatever happened during "${parentTitle}" left something behind worth a closer look.`,
+      hook: { type: 'loot', rarity: JOURNEY_FOLLOWUP_LOOT_RARITY[tier] },
+    };
+  }
+  if (archetype === 'puzzle') {
+    return {
+      archetype, title: 'A Puzzle Presents Itself',
+      text: `In the aftermath of "${parentTitle}," ${ri(JOURNEY_FOLLOWUP_PUZZLE_PREMISES)}.`,
+      hook: null,
+    };
+  }
+  return {
+    archetype, title: 'A Choice to Make',
+    text: `In the aftermath of "${parentTitle}," ${ri(JOURNEY_FOLLOWUP_CHOICE_PREMISES)}.`,
+    hook: null,
+  };
+}
+function rollJourneyFollowUp(parentId) {
+  const parent = journeyLog.find(e => e.id === parentId);
+  if (!parent) return;
+  const fu = buildJourneyFollowUp(parent);
+  journeyLog.unshift({
+    id: 'journey' + (++journeyLogCounter), settingKey: parent.settingKey, category: parent.category,
+    title: fu.title, text: fu.text, hook: fu.hook, hookApplied: false, at: Date.now(),
+    isFollowUp: true, parentTitle: parent.title,
+  });
+  if (journeyLog.length > 60) journeyLog.length = 60;
+  renderJourneyTab();
+  playJourneyOverlay(parent.category);
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
 function journeyLogEntryHtml(entry) {
   const cat = JOURNEY_CATEGORY_DEFS[entry.category] || {};
   const settingDef = journeySettingDef(entry.settingKey);
   const hookBtn = !entry.hook ? '' : entry.hookApplied
     ? `<span class="journey-hook-done">✓ Applied</span>`
     : `<button class="ic-action-btn" onclick="applyJourneyHook('${entry.id}')">${journeyHookLabel(entry.hook)}</button>`;
+  const followUpBtn = `<button class="ic-action-btn" onclick="rollJourneyFollowUp('${entry.id}')">🔮 Follow-Up</button>`;
+  const originHtml = entry.isFollowUp
+    ? `<span class="journey-log-setting">🔮 Follow-up to "${escapeHtml(entry.parentTitle)}"</span>`
+    : `<span class="journey-log-setting">${settingDef ? settingDef.icon : ''} ${settingDef ? escapeHtml(settingDef.label) : ''}</span>`;
   return `
-    <div class="journey-log-entry">
+    <div class="journey-log-entry${entry.isFollowUp ? ' is-followup' : ''}">
       <div class="journey-log-head">
         <span class="journey-cat-badge" style="border-color:${cat.color};color:${cat.color};background:${cat.color}22;">${escapeHtml(cat.label || entry.category)}</span>
-        <span class="journey-log-setting">${settingDef ? settingDef.icon : ''} ${settingDef ? escapeHtml(settingDef.label) : ''}</span>
+        ${originHtml}
       </div>
       <div class="journey-log-title">${escapeHtml(entry.title)}</div>
       <div class="journey-log-text">${escapeHtml(entry.text)}</div>
-      ${hookBtn}
+      <div class="journey-log-actions">${hookBtn}${followUpBtn}</div>
     </div>
   `;
 }
