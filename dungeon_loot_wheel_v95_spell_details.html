@@ -1704,6 +1704,16 @@
   }
   .riddle-reveal-btn:hover, .puzzle-reveal-btn:hover { border-color:var(--gold); background:rgba(201,168,76,0.08); }
   .puzzle-log-prompt { color:var(--text); font-size:0.88rem; line-height:1.55; margin:0.3rem 0 0.5rem; white-space:pre-wrap; }
+  .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
+  .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
+  .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
+  .puzzle-cat-btn.active { background:var(--surface2); border-color:var(--gold); color:var(--gold-bright); }
+  .riddle-tier { display:inline-block; font-family:'Share Tech Mono',monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; padding:0.05rem 0.35rem; border:1px solid currentColor; margin-left:0.4rem; vertical-align:middle; }
+  .riddle-tier.tier-easy { color:var(--common); }
+  .riddle-tier.tier-medium { color:var(--uncommon); }
+  .riddle-tier.tier-hard { color:var(--rare); }
+  .riddle-tier.tier-legendary { color:var(--legendary); }
+  .puzzle-dm-note { color:var(--text-dim); font-size:0.8rem; font-style:italic; margin-top:0.35rem; padding-top:0.35rem; border-top:1px dashed var(--border); }
 
   /* Shared hover tooltip for tokens (tokens tab + equipped slots) */
   .item-tooltip {
@@ -3148,12 +3158,13 @@
      DM/Guest-only (see isRealPlayerAccount), but every entry itself stays visible to players,
      who are the ones actually meant to read and attempt them. -->
 <div id="tab-puzzles" class="tab-content">
-  <p style="color:var(--text-dim);font-size:0.88rem;font-style:italic;margin-bottom:1rem;">A riddle library to pull from on the fly, plus a log for campaign-specific puzzles written ahead of time.</p>
+  <p style="color:var(--text-dim);font-size:0.88rem;font-style:italic;margin-bottom:1rem;">A library of ready-made puzzles by type to pull from on the fly, plus a log for campaign-specific puzzles written ahead of time.</p>
 
   <div class="loadouts-panel" style="margin-bottom:1.2rem;">
-    <h3>📖 Riddle Library</h3>
-    <input type="text" id="riddleSearch" class="loadout-search" placeholder="Search riddles…" oninput="renderRiddleLibrary()">
-    <div id="riddleLibraryList" class="loadout-list"></div>
+    <div class="puzzle-category-tabs" id="puzzleCategoryTabs"></div>
+    <h3 id="puzzleCategoryTitle">📖 Riddles</h3>
+    <input type="text" id="puzzleCategorySearch" class="loadout-search" placeholder="Search…" oninput="renderPuzzleCategory()">
+    <div id="puzzleCategoryList" class="loadout-list"></div>
   </div>
 
   <div class="loadouts-panel">
@@ -3379,12 +3390,13 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v94).
-const APP_VERSION = 'v94';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v95).
+const APP_VERSION = 'v95';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 </script>
 <script src="loot-data.js"></script>
+<script src="puzzle-data.js"></script>
 <script>
 
 let spinResults = [];
@@ -4463,7 +4475,7 @@ function showTab(tab, btn) {
   if (tab === 'players' && typeof renderPlayersTab === 'function') renderPlayersTab();
   if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
   if (tab === 'journey') renderJourneyTab();
-  if (tab === 'puzzles') { renderRiddleLibrary(); renderPuzzleLog(); }
+  if (tab === 'puzzles') { renderPuzzleCategoryTabs(); renderPuzzleCategory(); renderPuzzleLog(); }
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -17279,46 +17291,104 @@ function playJourneyOverlay(category) {
 // than DM-authored). Puzzle Log is the scaffold the DM actually asked for — nothing here yet,
 // but a real, working add/edit/delete list from day one rather than an empty tab waiting on a
 // future build, same CRUD shape as Saved Loadouts (see renderSavedLoadouts above).
-const RIDDLE_LIBRARY = [
-  { q: 'I speak without a mouth and hear without ears. I have no body at all, but the wind gives me a voice. What am I?', a: 'An echo' },
-  { q: 'The more you take from me, the bigger I get. What am I?', a: 'A hole' },
-  { q: 'I have cities, but no houses; forests, but no trees; rivers, but no water. What am I?', a: 'A map' },
-  { q: 'I have no bones, yet inside me a whole shape waits to walk, swim, or fly out into the world. What am I?', a: 'An egg' },
-  { q: 'You can catch me, but you can never throw me. What am I?', a: 'A cold' },
-  { q: 'I follow you all day, vanish at night, and I am never quite the same shape twice. What am I?', a: 'A shadow' },
-  { q: 'I dance without feet and eat without a mouth. Touch me and you will learn why people fear me. What am I?', a: 'Fire' },
-  { q: 'No one can see me, hold me, or stop me, and yet everyone claims to be running out of me. What am I?', a: 'Time' },
-  { q: 'I can knock without hands and whistle without lips. I am never seen, only felt. What am I?', a: 'The wind' },
-  { q: 'I have two faces but only one voice, and a single flip of me can settle an argument. What am I?', a: 'A coin' },
-  { q: 'I have a mouth but never speak, a bed but never sleep, and I run for miles without ever taking a step. What am I?', a: 'A river' },
-  { q: 'I have pages but I am not a tree, and I can carry you anywhere without moving an inch. What am I?', a: 'A book' },
-  { q: 'I have hands but cannot clap, and a face but cannot smile. What am I?', a: 'A clock' },
-  { q: 'No two of me are ever quite alike, and yet everyone has carried a full set since the day they were born. What am I?', a: 'Fingerprints' },
-  { q: 'Peel back my layers and you may cry before you find anything at all. What am I?', a: 'An onion' },
-  { q: 'The more there is of me, the less you can see. What am I?', a: 'Darkness' },
-  { q: 'I am always in front of you, but you can never actually reach me. What am I?', a: 'The future' },
-  { q: 'I get wetter the more I dry. What am I?', a: 'A towel' },
+// Backing arrays (RIDDLE_LIBRARY, LOGIC_PUZZLES, etc.) all live in puzzle-data.js now — this
+// registry is what turns those 15 flat arrays into the tabbed category browser below. Riddles
+// keep their own {q, a, tier} shape (a tier badge instead of a mechanical DM note — there's no
+// "DC to hint" for a riddle); everything else shares {title, prompt, solution, note}. One pair
+// of render/reveal functions handles all 15 categories rather than one copy-pasted per category.
+const PUZZLE_CATEGORIES = [
+  { id: 'riddles',      label: '📖 Riddles',        isRiddle: true },
+  { id: 'logic',        label: '🧩 Logic' },
+  { id: 'cipher',       label: '🔤 Ciphers' },
+  { id: 'astronomical', label: '🌌 Astronomical' },
+  { id: 'environmental',label: '⚙️ Environmental' },
+  { id: 'sequence',     label: '🔔 Sequence' },
+  { id: 'moral',        label: '⚖️ Moral / Social' },
+  { id: 'cooperative',  label: '🤝 Cooperative' },
+  { id: 'chargated',    label: '🎭 Class-Gated' },
+  { id: 'illusion',     label: '👁 Illusion' },
+  { id: 'timeloop',     label: '🔁 Time-Loop' },
+  { id: 'antipuzzle',   label: '🔀 Anti-Puzzle' },
+  { id: 'resource',     label: '💰 Resource-Cost' },
+  { id: 'lore',         label: '📜 Lore / Continuity' },
+  { id: 'meta',         label: '🧵 Meta' },
 ];
-function renderRiddleLibrary() {
-  const listEl = document.getElementById('riddleLibraryList');
+// Resolved lazily (not stored on the registry object above) since puzzle-data.js's consts don't
+// exist yet at the moment PUZZLE_CATEGORIES itself is declared — this file loads before it.
+function puzzleCategoryData(id) {
+  switch (id) {
+    case 'riddles': return typeof RIDDLE_LIBRARY !== 'undefined' ? RIDDLE_LIBRARY : [];
+    case 'logic': return typeof LOGIC_PUZZLES !== 'undefined' ? LOGIC_PUZZLES : [];
+    case 'cipher': return typeof CIPHER_PUZZLES !== 'undefined' ? CIPHER_PUZZLES : [];
+    case 'astronomical': return typeof ASTRONOMICAL_PUZZLES !== 'undefined' ? ASTRONOMICAL_PUZZLES : [];
+    case 'environmental': return typeof ENVIRONMENTAL_PUZZLES !== 'undefined' ? ENVIRONMENTAL_PUZZLES : [];
+    case 'sequence': return typeof SEQUENCE_PUZZLES !== 'undefined' ? SEQUENCE_PUZZLES : [];
+    case 'moral': return typeof MORAL_PUZZLES !== 'undefined' ? MORAL_PUZZLES : [];
+    case 'cooperative': return typeof COOPERATIVE_PUZZLES !== 'undefined' ? COOPERATIVE_PUZZLES : [];
+    case 'chargated': return typeof CHARACTER_GATED_PUZZLES !== 'undefined' ? CHARACTER_GATED_PUZZLES : [];
+    case 'illusion': return typeof ILLUSION_PUZZLES !== 'undefined' ? ILLUSION_PUZZLES : [];
+    case 'timeloop': return typeof TIMELOOP_PUZZLES !== 'undefined' ? TIMELOOP_PUZZLES : [];
+    case 'antipuzzle': return typeof ANTIPUZZLE_PUZZLES !== 'undefined' ? ANTIPUZZLE_PUZZLES : [];
+    case 'resource': return typeof RESOURCE_PUZZLES !== 'undefined' ? RESOURCE_PUZZLES : [];
+    case 'lore': return typeof LORE_PUZZLES !== 'undefined' ? LORE_PUZZLES : [];
+    case 'meta': return typeof META_PUZZLES !== 'undefined' ? META_PUZZLES : [];
+    default: return [];
+  }
+}
+let currentPuzzleCategory = 'riddles';
+function setPuzzleCategory(id) {
+  currentPuzzleCategory = id;
+  const searchEl = document.getElementById('puzzleCategorySearch');
+  if (searchEl) searchEl.value = ''; // switching category is a fresh context — stale search text from a different list would just look broken
+  renderPuzzleCategoryTabs();
+  renderPuzzleCategory();
+}
+function renderPuzzleCategoryTabs() {
+  const wrap = document.getElementById('puzzleCategoryTabs');
+  if (!wrap) return;
+  wrap.innerHTML = PUZZLE_CATEGORIES.map(c =>
+    `<button class="puzzle-cat-btn${c.id === currentPuzzleCategory ? ' active' : ''}" onclick="setPuzzleCategory('${c.id}')">${c.label}</button>`
+  ).join('');
+}
+function renderPuzzleCategory() {
+  const cat = PUZZLE_CATEGORIES.find(c => c.id === currentPuzzleCategory) || PUZZLE_CATEGORIES[0];
+  const titleEl = document.getElementById('puzzleCategoryTitle');
+  if (titleEl) titleEl.textContent = cat.label;
+  const listEl = document.getElementById('puzzleCategoryList');
   if (!listEl) return;
-  const search = (document.getElementById('riddleSearch')?.value || '').toLowerCase().trim();
-  const filtered = RIDDLE_LIBRARY.filter(r => !search || r.q.toLowerCase().includes(search));
-  if (!filtered.length) { listEl.innerHTML = '<div class="empty-results">No riddles match your search.</div>'; return; }
-  listEl.innerHTML = filtered.map((r, i) => `
+  const search = (document.getElementById('puzzleCategorySearch')?.value || '').toLowerCase().trim();
+  const items = puzzleCategoryData(cat.id);
+  if (!items.length) { listEl.innerHTML = `<div class="empty-results">No ${cat.label.replace(/^\S+\s/, '').toLowerCase()} entries yet.</div>`; return; }
+  const filtered = items
+    .map((it, idx) => ({ it, idx })) // keep the TRUE index (into the unfiltered array) attached before filtering, so reveal lookups stay correct after a search narrows the list
+    .filter(({ it }) => !search || (cat.isRiddle ? it.q : it.title + ' ' + it.prompt).toLowerCase().includes(search));
+  if (!filtered.length) { listEl.innerHTML = '<div class="empty-results">No entries match your search.</div>'; return; }
+  listEl.innerHTML = filtered.map(({ it, idx }) => cat.isRiddle ? `
     <div class="riddle-card">
-      <div class="riddle-q">${escapeHtml(r.q)}</div>
-      <div class="riddle-answer-wrap" id="riddleAnswerWrap${i}">
-        <button class="riddle-reveal-btn" onclick="revealRiddleAnswer(${i})">👁 Reveal Answer</button>
+      <div class="riddle-q">${escapeHtml(it.q)}${it.tier ? `<span class="riddle-tier tier-${it.tier}">${escapeHtml(it.tier)}</span>` : ''}</div>
+      <div class="riddle-answer-wrap" id="puzzleAnswerWrap${idx}">
+        <button class="riddle-reveal-btn" onclick="revealPuzzleCategoryAnswer(${idx})">👁 Reveal Answer</button>
+      </div>
+    </div>
+  ` : `
+    <div class="riddle-card">
+      <div class="loadout-row-name" style="margin-bottom:0.3rem;">${escapeHtml(it.title)}</div>
+      <div class="puzzle-log-prompt">${escapeHtml(it.prompt)}</div>
+      <div class="riddle-answer-wrap" id="puzzleAnswerWrap${idx}">
+        <button class="riddle-reveal-btn" onclick="revealPuzzleCategoryAnswer(${idx})">👁 Reveal Solution</button>
       </div>
     </div>
   `).join('');
 }
-function revealRiddleAnswer(i) {
-  const wrap = document.getElementById('riddleAnswerWrap' + i);
-  const riddle = RIDDLE_LIBRARY[i];
-  if (!wrap || !riddle) return;
-  wrap.innerHTML = `<span class="riddle-answer">${escapeHtml(riddle.a)}</span>`;
+function revealPuzzleCategoryAnswer(idx) {
+  const cat = PUZZLE_CATEGORIES.find(c => c.id === currentPuzzleCategory) || PUZZLE_CATEGORIES[0];
+  const items = puzzleCategoryData(cat.id);
+  const it = items[idx];
+  const wrap = document.getElementById('puzzleAnswerWrap' + idx);
+  if (!wrap || !it) return;
+  wrap.innerHTML = cat.isRiddle
+    ? `<span class="riddle-answer">${escapeHtml(it.a)}</span>`
+    : `<div class="riddle-answer">${escapeHtml(it.solution)}</div>${it.note ? `<div class="puzzle-dm-note">🎲 ${escapeHtml(it.note)}</div>` : ''}`;
 }
 
 let puzzleLog = [];
