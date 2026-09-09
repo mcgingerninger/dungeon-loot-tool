@@ -3379,8 +3379,8 @@
 <div id="itemTooltip" class="item-tooltip"></div>
 
 <script>
-// Bump this whenever the file is saved as a new version (filename should match, e.g. v93).
-const APP_VERSION = 'v93';
+// Bump this whenever the file is saved as a new version (filename should match, e.g. v94).
+const APP_VERSION = 'v94';
 { const _vEl = document.getElementById('appVersionTag'); if (_vEl) _vEl.textContent = APP_VERSION; }
 // ===================== ITEM DATA =====================
 </script>
@@ -7849,7 +7849,21 @@ function claimThenConsumeLootItem(entry, item, onSuccess, onAlreadyTaken) {
   const claimKey = entry.uid + '_' + item.id;
   if (combatLootActionInFlight.has(claimKey)) return;
   const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
-  if (!self || typeof window.createSelfLootClaim !== 'function') { onSuccess(); return; }
+  if (!self || typeof window.createSelfLootClaim !== 'function') {
+    // Solo/offline play — correct that nothing else can race for this item over the network
+    // (per the comment above), but item.claimedBy isn't only a multiplayer race-guard: every
+    // caller (lootCombatItem/saveCombatItem/discardCombatItem) also uses it as the LOCAL
+    // "already consumed, don't let this be clicked again" guard, and combatLootItemRowHtml only
+    // hides the action buttons once it's truthy. Skipping straight to onSuccess() without ever
+    // setting it left every one of those checks permanently false in solo play — Save/Loot could
+    // be clicked repeatedly to duplicate the same drop into savedGeneratedItems indefinitely
+    // (each mint their own fresh id, so nothing else caught the repeat), and Discard's own
+    // confirm dialog ("No one will be able to loot, save, or receive it after this") was a lie —
+    // the buttons stayed fully live afterward.
+    item.claimedBy = 'local'; item.claimedByUsername = 'You';
+    onSuccess();
+    return;
+  }
   combatLootActionInFlight.add(claimKey);
   window.createSelfLootClaim(entry.uid, item.id).then(() => {
     item.claimedBy = self.uid;
@@ -11793,6 +11807,14 @@ function inventoryCellDrop(evt, row, col) {
     if (!key) return;
     if (!placeNewInventoryItem(key, row, col)) return;
     playerSlots[slotId] = null;
+    // A two-handed weapon occupies weapon1 AND weapon2 with the same key — every OTHER unequip
+    // path (unequipSlot, unequipSlotToStorage, clearAllSlots) already clears both via
+    // pairedWeaponSlot, but dragging straight off a slot onto the grid was missed. Left as-is,
+    // the paired slot kept the weapon "equipped" (still granting its full stat/AC bonus) while
+    // the SAME key now also sat as a standalone item in the inventory grid — a real duplicate
+    // that could be discarded/sold/fed to the Mangler for profit while the doll still had it on.
+    const pairSlot = pairedWeaponSlot(slotId);
+    if (pairSlot && playerSlots[pairSlot] === key) playerSlots[pairSlot] = null;
     clearActiveEffectsForKey(key);
     renderInventoryGrid();
     renderPlayerSlots();
@@ -14537,9 +14559,16 @@ function freshCombatLootSettings(tier) {
 }
 let combatLootSettings = {};
 BAL.rarityOrder.forEach(tier => { combatLootSettings[tier] = freshCombatLootSettings(tier); });
+// updateCombatLootWeight/updateCombatLootField/resetCombatLootPreset used to never call
+// scheduleSave() at all — unlike their Chest/Corpse Loot Settings equivalents just above this
+// section (updateChestLootWeight, resetChestLootPreset), which correctly do. combatLootSettings
+// IS part of the persisted save payload (see saveAppState), so a DM tuning Monster Loot Rarity
+// Weights, item counts, or part-drop chance was silently losing every change back to whatever
+// was last actually saved the moment anything ELSE happened to trigger a save first.
 function resetCombatLootPreset(tier) {
   combatLootSettings[tier] = freshCombatLootSettings(tier);
   renderCombatLootSettings();
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 function updateCombatLootWeight(tier, outTier, value) {
   // parseFloat, not parseInt — the default monster-loot weights (MONSTER_LOOT_RARITY_WEIGHTS)
@@ -14548,9 +14577,11 @@ function updateCombatLootWeight(tier, outTier, value) {
   combatLootSettings[tier].weights[outTier] = parseFloat(value) || 0;
   const el = document.getElementById(`cls-${tier}-${outTier}`);
   if (el) el.textContent = value;
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 function updateCombatLootField(tier, field, value) {
   combatLootSettings[tier][field] = Math.max(0, parseInt(value, 10) || 0);
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 function combatLootSettingsHtml() {
   return BAL.rarityOrder.map(tier => {
@@ -15281,7 +15312,10 @@ function renderPendingAttacksPanel() {
     ${pendingAttackRequests.map(req => {
       const entry = battleRoster.find(e => e.uid === req.monsterUid);
       const targetAc = entry ? (entry.ac !== null && entry.ac !== undefined ? entry.ac : entry.monster.ac) : null;
-      const wouldHit = targetAc != null && req.toHitTotal >= targetAc;
+      // A natural 1 always misses and a natural 20 always hits, same 5e rule
+      // resolveBattleAttack already applies to a monster's own attacks — this preview used to
+      // ignore isFumble/isCrit entirely and judge purely off the total vs AC.
+      const wouldHit = targetAc != null && !req.isFumble && (req.isCrit || req.toHitTotal >= targetAc);
       return `<div class="pending-attack-row">
         <div class="pending-attack-info">
           <strong>${escapeHtml(req.playerUsername)}</strong> attacks <strong>${escapeHtml(req.monsterName)}</strong> with ${escapeHtml(req.weaponName)}${req.isCrit ? ' <span class="weapon-attack-crit">(CRIT)</span>' : req.isFumble ? ' <span class="weapon-attack-fumble">(FUMBLE)</span>' : ''}
@@ -15304,7 +15338,12 @@ function applyPendingAttackRequest(reqId) {
   const entry = battleRoster.find(e => e.uid === req.monsterUid);
   if (entry) {
     const targetAc = entry.ac !== null && entry.ac !== undefined ? entry.ac : entry.monster.ac;
-    const hit = req.toHitTotal >= targetAc;
+    // Was purely `req.toHitTotal >= targetAc`, ignoring isFumble/isCrit — meaning a real natural
+    // 1 could still land as a "hit" (docking HP) whenever the flat total happened to clear AC
+    // anyway, while the log simultaneously labeled it "Player Fumble", and a real natural 20
+    // against a high-AC target could show "Player Critical Hit!" while dealing zero damage.
+    // Mirrors resolveBattleAttack's own monster-attack rule exactly.
+    const hit = !req.isFumble && (req.isCrit || req.toHitTotal >= targetAc);
     if (hit && req.dmgTotal != null && !entry.defeated) {
       entry.hp = Math.max(0, entry.hp - req.dmgTotal);
       if (entry.hp <= 0) entry.defeated = true;
@@ -15363,10 +15402,17 @@ function renderBattlefieldForPlayer() {
 // directly — the DM stays the one source of truth for combat state, same as everywhere else.
 function openBattlefieldAttackPicker(monsterUid) {
   buildTokenIndex();
-  const key = playerSlots.weapon1;
+  // Was hardcoded to weapon1 only — an off-hand-only equip (a valid, legal doll state; see
+  // collectEquippedWeaponInfo, which already lists either/both slots) had no way to attack from
+  // here at all, told to "equip a weapon in your main hand" despite having one equipped. Falls
+  // back to weapon2 when weapon1 has nothing usable, same "whichever slot actually has a
+  // damage-dealing weapon" logic collectEquippedWeaponInfo already uses.
+  const key1 = playerSlots.weapon1;
+  const entry1 = key1 && TOKEN_INDEX[key1];
+  const key = (entry1 && String(entry1.item.dmg || '').trim()) ? key1 : playerSlots.weapon2;
   const entry = key && TOKEN_INDEX[key];
   if (!entry || !String(entry.item.dmg || '').trim()) {
-    flashInvMessage('Equip a weapon with damage dice in your main hand first.', true);
+    flashInvMessage('Equip a weapon with damage dice first.', true);
     return;
   }
   const monster = battlefieldRoster.find(e => e.uid === monsterUid);
@@ -15765,7 +15811,13 @@ function dmToggleDeathSave(kind, idx) {
   const field = kind === 'success' ? 'deathSaveSuccesses' : 'deathSaveFailures';
   const current = viewedPlayerState[field] || 0;
   const next = current === idx + 1 ? idx : idx + 1;
-  if (typeof window.dmSetPlayerInventoryFields === 'function') window.dmSetPlayerInventoryFields(viewedPlayerUid, { [field]: next });
+  if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  // Was fire-and-forget with no .catch() at all — every sibling DM write in this file
+  // (dmTakeViewedPlayerSlotItem, dmTakeViewedPlayerInventoryItem, saveDmEditPlayerModal,
+  // dmKillViewedPlayerCharacter) surfaces a failed write; this one silently produced an
+  // unhandled promise rejection and no feedback on a network blip or permission edge case.
+  window.dmSetPlayerInventoryFields(viewedPlayerUid, { [field]: next })
+    .catch(() => flashPlayersMessage('Failed to update death saves — try again.', true));
 }
 // Standard 5e death save: 10+ is a success, below 10 a failure, a nat 1 counts as two failures,
 // and a nat 20 immediately regains 1 HP and clears both counters — conscious again, same as the
@@ -15795,10 +15847,13 @@ function dmRollPlayerDeathSave() {
     msg = `Rolled ${roll} — failure (${failures}/3).`;
   }
   if (typeof window.dmSetPlayerInventoryFields !== 'function') return;
+  // Same missing-.catch() gap as dmToggleDeathSave just above — a failed write here used to
+  // leave the DM staring at a roll result that never actually got saved, with no indication
+  // anything went wrong.
   window.dmSetPlayerInventoryFields(viewedPlayerUid, fields).then(() => {
     const el = document.getElementById('dmDeathSaveMsg');
     if (el) el.textContent = msg;
-  });
+  }).catch(() => flashPlayersMessage('Failed to save that death save roll — try again.', true));
 }
 // ===================== SAVE-ANY-ROLL-TO-COMBAT (chest / roll loot / deceased human) =====================
 // Generalizes buildPlayerCorpseEntry (below) so a Treasure Chest result, a Roll Loot result, or
@@ -17003,10 +17058,15 @@ function applyJourneyHook(logId) {
   const hook = entry.hook;
   if (hook.type === 'monster') {
     if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) { flashJourneyMessage('Monster database still loading — try again in a moment.', true); return; }
-    const [lo, hi] = hook.crBand;
-    const pool = monsterDatabase.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
-    const monster = ri(pool.length ? pool : monsterDatabase);
+    // hook.crBand used to be destructured here, OUTSIDE the try block below — every current
+    // scenario/follow-up does supply it, but a malformed hook (a future scenario added without
+    // one, or a bad edit) would throw here uncaught, silently breaking this log entry's Apply
+    // button with none of the graceful error handling every other failure mode in this function
+    // already gets. Moved inside the try so it fails the same safe way as everything else.
     try {
+      const [lo, hi] = hook.crBand;
+      const pool = monsterDatabase.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
+      const monster = ri(pool.length ? pool : monsterDatabase);
       battleRoster.push(monster.frozenEntry ? buildFrozenBattleEntry(monster) : buildBattleEntry(monster));
       renderCombatRoster();
       entry.hookApplied = true;
@@ -17306,8 +17366,22 @@ function deletePuzzleLogEntry(id) {
   if (editingPuzzleLogId === id) cancelEditPuzzleLogEntry();
   renderPuzzleLog();
 }
+// Bridge for a connected player's own client — see startPuzzleLogListener in
+// multiplayer-sync.js. Sets the local puzzleLog straight from the DM's shared copy and renders;
+// pushPuzzleLogState (called below, inside renderPuzzleLog) is a no-op for a non-DM role, so this
+// can't bounce back out and overwrite what the DM just wrote.
+window.applyRemotePuzzleLog = function (remoteLog) {
+  puzzleLog = remoteLog || [];
+  renderPuzzleLog();
+};
 function renderPuzzleLog() {
   if (typeof scheduleSave === 'function') scheduleSave();
+  // DM-authored puzzles used to be purely local per-account state — a connected player's own
+  // account never received them at all, so the tab silently showed nothing no matter what the
+  // DM wrote. Pushes to the shared puzzles/{doc} (see pushPuzzleLogState); self-guards on DM
+  // role internally, so this is safe to call unconditionally from both the DM's own edits AND
+  // the player-receiving path above.
+  if (typeof window.pushPuzzleLogState === 'function') window.pushPuzzleLogState(puzzleLog);
   const addArea = document.getElementById('puzzleLogAddArea');
   // Writing puzzles is a DM/Guest job; reading and attempting them is a player one — same
   // isRealPlayerAccount() check already used to hide Save on Fleshmancer/Mangler results.
@@ -17879,11 +17953,28 @@ function removeTokenEverywhere(key) {
   if (key.indexOf('gen:') === 0) {
     const id = key.slice('gen:'.length);
     savedGeneratedItems = savedGeneratedItems.filter(it => String(it.id) !== id);
+    // buildTokenIndex's own diff-update already drops every 'gen:' key still on its
+    // _lastGenTokenKeys list before re-adding whatever's currently in savedGeneratedItems, so
+    // deleting it here too is redundant but harmless.
+    delete TOKEN_INDEX[key];
   } else if (entry && entry.item && entry.item.type === 'craftable' && entry.item.subcategory === 'monsterpart' && lootData[entry.rarity]) {
     const idx = lootData[entry.rarity].indexOf(entry.item);
     if (idx !== -1) lootData[entry.rarity].splice(idx, 1);
+    // lootData's total length just changed, so buildTokenIndex's cache-invalidation check
+    // (totalLen !== _lootTokenIndexLen) will catch this and rebuild on its own next call — but
+    // deleting the now-stale reference here too keeps TOKEN_INDEX correct in the meantime, for
+    // any code that reads it before the next buildTokenIndex() call happens to run.
+    delete TOKEN_INDEX[key];
   }
-  delete TOKEN_INDEX[key];
+  // Deliberately NOT deleted for the third case (a plain, non-monster-part 'loot:' key) — that's
+  // exactly the "shared, infinitely-reusable catalog template... left alone" case the comment
+  // above describes, and lootData itself is genuinely untouched for it. Before buildTokenIndex()
+  // was memoized (see its own comment), deleting it here was harmless — every call rebuilt from
+  // scratch anyway, silently re-adding it a moment later. Once real caching landed, this became a
+  // permanent eviction with no path back: lootData's total length never changes for this case, so
+  // the cache's own invalidation check never fires, and the item could never be found, dragged
+  // back in, equipped, or shown in a tooltip again for the rest of the session — discarding one
+  // placement of a shared catalog item was silently deleting the whole catalog entry forever.
 }
 // Combining no longer mutates the base item in place wherever it happened to be sitting
 // (equipped, in inventory, or just browsed from the catalog) — it consumes both inputs and

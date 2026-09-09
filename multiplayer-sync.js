@@ -64,13 +64,31 @@
 //           allow read: if request.auth != null;
 //           allow write: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
 //         }
+//         // DM-authored puzzle log, shared read the same way battlefield is — see
+//         // pushPuzzleLogState/startPuzzleLogListener for why this exists (puzzleLog used to be
+//         // just a plain per-account field with no way for a player's own account to ever see
+//         // what the DM wrote).
+//         match /puzzles/{doc} {
+//           allow read: if request.auth != null;
+//           allow write: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
+//         }
 //         // Real-time looting: any authenticated user (a player looting for themselves, or the
 //         // DM giving an item to someone) can CREATE a claim, but nobody can ever update or
 //         // delete one — this immutability is what gives true first-write-wins for a specific
 //         // corpse-drop item with zero server-side code and zero DM-online dependency.
+//         // The create rule used to allow ANY authenticated user to set claimedBy to literally
+//         // any uid, including someone else's — window.dmGiveLootItem now checks mp.role
+//         // client-side, but that's only a UX guard; the real fix is here. This requires the
+//         // claim's own claimedBy to be either the caller themselves (ordinary self-loot) or the
+//         // DM acting on someone else's behalf (a gift), closing off a player creating a claim
+//         // for another uid — which, since claims are immutable, previously let them
+//         // permanently squat someone else's real drop with no recovery path.
 //         match /lootClaims/{claimId} {
 //           allow read: if request.auth != null;
-//           allow create: if request.auth != null;
+//           allow create: if request.auth != null && (
+//             request.resource.data.claimedBy == request.auth.uid ||
+//             get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid
+//           );
 //           allow update, delete: if false;
 //         }
 //         // A player's weapon-attack roll, pending the DM's review/apply — anyone signed in can
@@ -160,6 +178,7 @@ function playerDocRef(roomCode, uid) { return doc(db, "rooms", roomCode, "player
 // unrelated thing the DM does elsewhere in the app (restocking the Store, editing their own
 // inventory, etc.).
 function battlefieldDocRef(roomCode) { return doc(db, "rooms", roomCode, "battlefield", "state"); }
+function puzzleLogDocRef(roomCode) { return doc(db, "rooms", roomCode, "puzzles", "log"); }
 function lootClaimDocRef(roomCode, claimId) { return doc(db, "rooms", roomCode, "lootClaims", claimId); }
 function lootClaimsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "lootClaims"); }
 // A player's weapon-attack roll against a monster on the shared Battlefield, pending DM review
@@ -354,7 +373,7 @@ async function connectAsRole(uid, role, roomCode, username) {
   }
   startPlayerListener();
   if (role === "dm") { startRosterListener(); startAttackRequestListener(roomCode); }
-  else startBattlefieldListener(roomCode);
+  else { startBattlefieldListener(roomCode); startPuzzleLogListener(roomCode); }
   startLootClaimListener(roomCode);
   hideGate();
   enforceRoleRestrictions(role);
@@ -671,6 +690,18 @@ window.getMultiplayerSelf = function () {
 // mislabeling as "already claimed by someone else" (nobody has it in that case).
 window.dmGiveLootItem = function (monsterUid, itemId, targetUid, targetUsername, itemData) {
   if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  // Every other cross-player/DM-only write in this file checks mp.role before doing anything
+  // (pushBattlefieldState, removePlayer/removeAllPlayers) — this one didn't. The lootClaims
+  // create rule itself allows ANY authenticated user to create a claim (by design, so a
+  // player's own self-loot works with zero DM-online dependency — see the rules comment up
+  // top), so without this check a player could call this directly from devtools to either
+  // hand themselves an arbitrary fabricated item (self-targeting; giftItemToPlayer's own write
+  // rule still only lets them write their own doc, so this was already possible another way)
+  // or, worse, squat someone ELSE's real drop by creating a bogus claim on their
+  // monsterUid_itemId first — claims are immutable, so that permanently locks the legitimate
+  // looter out with no recovery path, even though the actual item delivery to a non-self
+  // target then correctly fails server-side.
+  if (mp.role !== "dm") return Promise.reject(new Error("Only the DM can give items."));
   return createLootClaim(mp.roomCode, `${monsterUid}_${itemId}`, targetUid, targetUsername)
     .catch((err) => { err.giftStage = "claim"; throw err; })
     .then(() => giftItemToPlayer(mp.roomCode, targetUid, itemData))
@@ -792,6 +823,40 @@ async function startBattlefieldListener(roomCode) {
   });
 }
 
+// ---------- Puzzle Log (DM-only write, shared read) — same shape as Battlefield above ----------
+// The Puzzles tab's own comment in the main file claims every entry "stays visible to players",
+// but puzzleLog was only ever a plain field inside each account's own per-player state blob
+// (same as inventoryGrid/characterCurrentHp) — nothing broadcast the DM's authored puzzles to a
+// connected PLAYER's own separate account at all. A player would only ever see THEIR OWN
+// puzzleLog (always empty, since the add/edit/delete UI is already hidden from them) — the
+// feature silently never worked over real multiplayer. This gives it the same DM-writes/
+// players-listen channel Combat's battlefield doc already has.
+let _puzzleLogPushTimer = null;
+function pushPuzzleLogState(puzzleLog) {
+  if (!mp.connected || !mp.roomCode || mp.role !== "dm") return;
+  clearTimeout(_puzzleLogPushTimer);
+  _puzzleLogPushTimer = setTimeout(() => {
+    setDoc(puzzleLogDocRef(mp.roomCode), {
+      puzzleLog: sanitizeNestedArrays(puzzleLog || []), updatedAt: serverTimestamp(),
+    }).catch((err) => console.error("[multiplayer-sync] pushPuzzleLogState failed:", err));
+  }, 400);
+}
+window.pushPuzzleLogState = pushPuzzleLogState;
+
+let mpPuzzleLogUnsub = null;
+async function startPuzzleLogListener(roomCode) {
+  if (mpPuzzleLogUnsub) mpPuzzleLogUnsub();
+  const roomSnap = await getDoc(roomDocRef(roomCode));
+  if (!roomSnap.exists()) return;
+  mpPuzzleLogUnsub = onSnapshot(puzzleLogDocRef(roomCode), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (typeof window.applyRemotePuzzleLog === "function") {
+      window.applyRemotePuzzleLog(unsanitizeNestedArrays(data.puzzleLog || []));
+    }
+  });
+}
+
 // DM-only: a live, read-only view of ONE specific player's full state, for the Players tab —
 // separate from startRosterListener (which only ever extracts a thin HP/AC summary for every
 // player at once) since fetching everyone's entire inventory/equipment continuously would be
@@ -830,6 +895,10 @@ window.stopViewedPlayerListener = stopViewedPlayerListener;
 function startPlayerListener() {
   if (mp.playerUnsub) mp.playerUnsub();
   let sawDocExist = false;
+  // Tracks whether THIS session has ever actually applied a remote snapshot yet — see its use
+  // below for the reconnect gap this closes (mp.lastAppliedExtRev starting at 0 every fresh
+  // session, same as mp.pushRev used to, before connectAsRole started seeding that one).
+  let hasAppliedRemoteThisSession = false;
   mp.playerUnsub = onSnapshot(playerDocRef(mp.roomCode, mp.uid), (snap) => {
     if (!snap.exists()) {
       if (sawDocExist && mp.connected && !mp.kicked) {
@@ -879,7 +948,21 @@ function startPlayerListener() {
     // the same rev (the DM's writes never touch rev at all, so extRev moving is the only signal
     // that one of them landed). Only the former gets skipped.
     const remoteExtRev = typeof remote.extRev === "number" ? remote.extRev : 0;
-    if (remote.rev === mp.pushRev && remoteExtRev === mp.lastAppliedExtRev) return;
+    // connectAsRole seeds mp.pushRev from this account's own stored `rev` on reconnect (so the
+    // rev half of this comparison is correctly "caught up" immediately) but mp.lastAppliedExtRev
+    // has no equivalent seed — it always starts at 0 on a fresh page load. For any account whose
+    // extRev is ALSO still 0 server-side (true for most players before they're first hit/gifted,
+    // and effectively every DM account, since nothing ever cross-writes extRev into a DM's own
+    // doc), BOTH halves of the skip condition below were true on the very first snapshot of a
+    // brand-new session — so the listener treated its own account's real saved state as "just my
+    // own echo, nothing to do" and never applied it at all. Harmless on an ordinary same-tab
+    // reload (loadAppState() already populated everything from localStorage first), but a login
+    // on a new device/browser/incognito window (empty localStorage) would silently keep blank
+    // local state, and a subsequent local edit could then push that blank state back over the
+    // real server data, clobbering it for good. hasAppliedRemoteThisSession forces at least the
+    // FIRST snapshot each session through, regardless of how it compares to these counters.
+    if (hasAppliedRemoteThisSession && remote.rev === mp.pushRev && remoteExtRev === mp.lastAppliedExtRev) return;
+    hasAppliedRemoteThisSession = true;
     mp.lastAppliedExtRev = remoteExtRev;
     mp.applyingRemote = true;
     try {
@@ -942,22 +1025,29 @@ function startRosterListener() {
 // just removes them again if it becomes a real problem); a proper "banned from this campaign"
 // list is a small, well-contained addition if it's ever actually needed — a new
 // rooms/{code}/removed/{uid} marker doc, checked at the top of connectAsRole.
+// Returns true/false so callers can actually tell whether the removal landed, instead of the
+// failure being swallowed silently — the single-Remove button below used to fire-and-forget
+// this with no .then()/.catch() at all, so a failed removal (network blip, a rules edge case)
+// produced literally no feedback and the DM just saw nothing happen; window.removeAllPlayers
+// below used to always report every attempted uid as removed regardless of what actually
+// succeeded, for the same reason.
 async function removePlayer(uid) {
-  if (!mp.connected || mp.role !== "dm" || !mp.roomCode) return;
-  if (uid === mp.uid) return; // DM can't remove themselves this way
-  try { await deleteDoc(playerDocRef(mp.roomCode, uid)); } catch (err) { /* rules will reject if not actually DM */ }
+  if (!mp.connected || mp.role !== "dm" || !mp.roomCode) return false;
+  if (uid === mp.uid) return false; // DM can't remove themselves this way
+  try { await deleteDoc(playerDocRef(mp.roomCode, uid)); return true; } catch (err) { return false; }
 }
 // Bulk version for the Players tab's "Remove All Players" action — same effect as clicking
 // Remove on every connected player one at a time (see removePlayer's own comment: this deletes
 // each player's document/progress in THIS campaign, not their login, so they can still rejoin
 // with the same username/password and start fresh). Uses mp.roster directly rather than the
 // main file's connectedPlayers snapshot so it always acts on whoever is currently in the
-// roster, not a possibly-slightly-stale copy. Returns the count actually removed.
+// roster, not a possibly-slightly-stale copy. Returns the count ACTUALLY removed, not the
+// count attempted.
 window.removeAllPlayers = async function () {
   if (!mp.connected || mp.role !== "dm" || !mp.roomCode) return 0;
   const uids = [...mp.roster.keys()].filter((uid) => uid !== mp.uid);
-  await Promise.all(uids.map((uid) => removePlayer(uid)));
-  return uids.length;
+  const results = await Promise.all(uids.map((uid) => removePlayer(uid)));
+  return results.filter(Boolean).length;
 };
 
 // ===================== ROLE-BASED TAB RESTRICTIONS =====================
@@ -1307,7 +1397,9 @@ function renderAccountPanel() {
   rosterContainer.querySelectorAll(".mp-remove-btn").forEach((el) => {
     el.onclick = () => {
       if (confirm(`Remove ${el.previousElementSibling.textContent} from your campaign? Their character data will be deleted.`)) {
-        removePlayer(el.getAttribute("data-uid"));
+        removePlayer(el.getAttribute("data-uid")).then((ok) => {
+          if (!ok) alert("Couldn't remove that player — check your connection and try again.");
+        });
       }
     };
   });
