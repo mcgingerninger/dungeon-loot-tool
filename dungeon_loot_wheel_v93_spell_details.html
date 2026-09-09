@@ -2371,6 +2371,14 @@
         <span class="inspect-toggle-label">🔍 Inspection Mode — hide item details</span>
       </label>
       <button class="action-btn" onclick="clearChestResults()" style="margin-top:0.2rem">Clear Results</button>
+
+      <details class="collapsible" style="margin-top:0.6rem;">
+        <summary>⚖ Chest Loot Rarity</summary>
+        <div class="collapsible-body">
+          <p class="modweights-intro">How likely each rarity of item is when a chest of a given tier is opened — set per chest tier, same idea as the Combat tab's Monster Loot Settings but tuned richer, since a chest is curated treasure rather than a random creature's pockets.</p>
+          <div id="chestLootSettingsPanel"></div>
+        </div>
+      </details>
     </div>
 
     <!-- Results panel -->
@@ -2408,6 +2416,14 @@
         <span class="inspect-toggle-label">🔍 Inspection Mode — hide item details</span>
       </label>
       <button class="action-btn" onclick="clearDeceasedResults()" style="margin-top:0.2rem">Clear Results</button>
+
+      <details class="collapsible" style="margin-top:0.6rem;">
+        <summary>⚖ Corpse Loot Rarity</summary>
+        <div class="collapsible-body">
+          <p class="modweights-intro">How likely each rarity of item is when a corpse of a given tier is generated — slightly more mundane than a chest of the same tier (this was just what they happened to be carrying), but still better than a random creature's drop of the same tier.</p>
+          <div id="corpseLootSettingsPanel"></div>
+        </div>
+      </details>
     </div>
 
     <!-- Results panel -->
@@ -4368,7 +4384,7 @@ function showTab(tab, btn) {
   // Random Loot and Treasure Chest are two modes of the same tab now (see setSpinLootMode) —
   // both get refreshed on entry regardless of which is currently visible, so switching modes
   // mid-tab never shows stale content.
-  if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); renderDeceasedResults(); }
+  if (tab === 'spin') { updateInventorySummary(); renderChestSVG(); renderChestResults(); renderDeceasedResults(); renderChestLootSettings(); renderCorpseLootSettings(); }
   // The equip doll, grafted-limb slots, and Active Effects panel all live on the Inventory
   // tab now (so items equip straight out of the inventory grid) — the Player tab is just the
   // browsable Token Library plus Saved Loadouts.
@@ -5009,24 +5025,114 @@ const CHEST_ITEM_GROUPS = [
   { label: 'Companion',   types: ['companion'],  weight: 1 },
 ];
 
-// Rarity mixing rules — a chest of rarity X guarantees at least one item of tier X,
-// and fills remaining slots from tier X or anything lower, weighted so the chest's own
-// tier is most common, with a rapidly-decaying chance of reaching further down.
+// Rarity mixing rules — a chest/corpse of rarity X guarantees at least one item of tier X,
+// and fills remaining slots from a full weighted distribution across ALL SIX rarities, same
+// convention as MONSTER_LOOT_RARITY_WEIGHTS below (raw weights, not required to sum to 100 —
+// weightedPickFromObject normalizes by share of the total).
 const RARITY_TIER_ORDER = ['common','uncommon','rare','superrare','legendary','celestial'];
 
-function buildCascadeWeights(chestRarity) {
-  const idx = RARITY_TIER_ORDER.indexOf(chestRarity);
-  const weights = {};
-  let w = 8;
-  for (let i = idx; i >= 0; i--) {
-    weights[RARITY_TIER_ORDER[i]] = w;
-    w = Math.max(1, Math.round(w * 0.4));
-  }
-  return weights;
+// Replaces the old fixed 0.4x-decay cascade (buildCascadeWeights), which produced a common%
+// as low as ~7% at celestial — chests/corpses read as an almost-guaranteed jackpot every time,
+// far more skewed toward the top than even a celestial-tier CREATURE's own loot (see
+// MONSTER_LOOT_RARITY_WEIGHTS.celestial.common: 40). Hand-tuned instead so a chest's common%
+// lands at 30 and a corpse's at 35 at celestial specifically — better odds than a creature drop
+// of the same tier (a curated treasure source SHOULD beat a random monster's pockets), but
+// nowhere near the old cascade's skew — and scales smoothly down through the lower tiers the
+// same way MONSTER_LOOT_RARITY_WEIGHTS does. A corpse sits slightly more mundane than a chest
+// of the same tier at every step (it's just whatever that person happened to be carrying, not
+// curated treasure), never quite as generous at the top end.
+const CHEST_LOOT_RARITY_WEIGHTS = {
+  common:    { common: 97,   uncommon: 3,    rare: 0.4,  superrare: 0.08,  legendary: 0.015, celestial: 0.002 },
+  uncommon:  { common: 82,   uncommon: 14,   rare: 3,    superrare: 0.8,   legendary: 0.18,  celestial: 0.03 },
+  rare:      { common: 62,   uncommon: 22,   rare: 11,   superrare: 4,     legendary: 0.8,   celestial: 0.2 },
+  superrare: { common: 46,   uncommon: 26,   rare: 15,   superrare: 9,     legendary: 3,     celestial: 0.7 },
+  legendary: { common: 36,   uncommon: 24,   rare: 17,   superrare: 13,    legendary: 8,     celestial: 2 },
+  celestial: { common: 30,   uncommon: 22,   rare: 16,   superrare: 14,    legendary: 11,    celestial: 7 },
+};
+const CORPSE_LOOT_RARITY_WEIGHTS = {
+  common:    { common: 98,   uncommon: 2,    rare: 0.3,  superrare: 0.05,  legendary: 0.01,  celestial: 0.001 },
+  uncommon:  { common: 85,   uncommon: 12,   rare: 2.5,  superrare: 0.5,   legendary: 0.1,   celestial: 0.02 },
+  rare:      { common: 68,   uncommon: 19,   rare: 9.5,  superrare: 3,     legendary: 0.5,   celestial: 0.1 },
+  superrare: { common: 52,   uncommon: 25,   rare: 14,   superrare: 7.5,   legendary: 1.8,   celestial: 0.4 },
+  legendary: { common: 42,   uncommon: 25,   rare: 17,   superrare: 11,    legendary: 4.5,   celestial: 1.2 },
+  celestial: { common: 35,   uncommon: 23,   rare: 16,   superrare: 12.5,  legendary: 9,     celestial: 4.5 },
+};
+let chestLootSettings = {};
+let corpseLootSettings = {};
+RARITY_TIER_ORDER.forEach(tier => {
+  chestLootSettings[tier] = { weights: { ...CHEST_LOOT_RARITY_WEIGHTS[tier] } };
+  corpseLootSettings[tier] = { weights: { ...CORPSE_LOOT_RARITY_WEIGHTS[tier] } };
+});
+// Shared by the Chest and Corpse loot-rarity sliders (and reusable by anything similar later)
+// — one row per output rarity, wired to a named global update function so the same markup
+// works for either settings object without two near-duplicate render functions.
+function lootWeightRowsHtml(tier, weights, idPrefix, updateFnName) {
+  return BAL.rarityOrder.map(outTier => `
+    <div class="mw-row"><label style="color:${rarityColors[outTier]}">${rarityNames[outTier]}</label>
+      <input type="range" min="0" max="100" step="0.01" value="${weights[outTier] || 0}" oninput="${updateFnName}('${tier}','${outTier}',this.value)">
+      <span class="mw-val" id="${idPrefix}-${tier}-${outTier}">${weights[outTier] || 0}</span>
+    </div>`).join('');
 }
-
-const CHEST_CASCADE_WEIGHTS = {};
-RARITY_TIER_ORDER.forEach(r => { CHEST_CASCADE_WEIGHTS[r] = buildCascadeWeights(r); });
+function chestLootSettingsHtml() {
+  return RARITY_TIER_ORDER.map(tier => `
+    <details class="collapsible">
+      <summary><span style="color:${rarityColors[tier]}">${rarityNames[tier]}</span> Chest Loot Preset</summary>
+      <div class="collapsible-body">
+        <div class="mw-card">
+          <h3>Output Rarity Weights</h3>
+          <p class="mw-desc">How likely each rarity of item is when a ${rarityNames[tier]} chest is opened — relative weights, not percentages.</p>
+          ${lootWeightRowsHtml(tier, chestLootSettings[tier].weights, 'chls', 'updateChestLootWeight')}
+        </div>
+        <button class="mw-reset-btn" onclick="resetChestLootPreset('${tier}')">Reset to ${rarityNames[tier]} Default</button>
+      </div>
+    </details>
+  `).join('');
+}
+function corpseLootSettingsHtml() {
+  return RARITY_TIER_ORDER.map(tier => `
+    <details class="collapsible">
+      <summary><span style="color:${rarityColors[tier]}">${rarityNames[tier]}</span> Corpse Loot Preset</summary>
+      <div class="collapsible-body">
+        <div class="mw-card">
+          <h3>Output Rarity Weights</h3>
+          <p class="mw-desc">How likely each rarity of item is when a ${rarityNames[tier]} corpse is generated — relative weights, not percentages.</p>
+          ${lootWeightRowsHtml(tier, corpseLootSettings[tier].weights, 'cols', 'updateCorpseLootWeight')}
+        </div>
+        <button class="mw-reset-btn" onclick="resetCorpseLootPreset('${tier}')">Reset to ${rarityNames[tier]} Default</button>
+      </div>
+    </details>
+  `).join('');
+}
+function renderChestLootSettings() {
+  const wrap = document.getElementById('chestLootSettingsPanel');
+  if (wrap) wrap.innerHTML = chestLootSettingsHtml();
+}
+function renderCorpseLootSettings() {
+  const wrap = document.getElementById('corpseLootSettingsPanel');
+  if (wrap) wrap.innerHTML = corpseLootSettingsHtml();
+}
+function updateChestLootWeight(tier, outTier, value) {
+  chestLootSettings[tier].weights[outTier] = parseFloat(value) || 0;
+  const el = document.getElementById(`chls-${tier}-${outTier}`);
+  if (el) el.textContent = value;
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function updateCorpseLootWeight(tier, outTier, value) {
+  corpseLootSettings[tier].weights[outTier] = parseFloat(value) || 0;
+  const el = document.getElementById(`cols-${tier}-${outTier}`);
+  if (el) el.textContent = value;
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function resetChestLootPreset(tier) {
+  chestLootSettings[tier] = { weights: { ...CHEST_LOOT_RARITY_WEIGHTS[tier] } };
+  renderChestLootSettings();
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function resetCorpseLootPreset(tier) {
+  corpseLootSettings[tier] = { weights: { ...CORPSE_LOOT_RARITY_WEIGHTS[tier] } };
+  renderCorpseLootSettings();
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
 
 // Chest SVG pixel art per rarity
 const CHEST_SVGS = {
@@ -5459,20 +5565,14 @@ function openChest() {
   }, 650);
 }
 
-// Parameterized for the same reason pickGoldForRarity is — Deceased Human has its own
-// independent rarity selection and needs the identical cascade logic without touching chestRarity.
-function pickCascadedRarity(baseRarity) {
-  const weights = CHEST_CASCADE_WEIGHTS[baseRarity];
-  const entries = Object.entries(weights);
-  const total = entries.reduce((a, [, w]) => a + w, 0);
-  let r = Math.random() * total;
-  for (const [tier, w] of entries) {
-    r -= w;
-    if (r <= 0) return tier;
-  }
-  return entries[0][0];
+// Parameterized by settings object for the same reason pickGoldForRarity is — Deceased Human
+// has its own independent rarity selection, and now its own independent weight table
+// (corpseLootSettings) too, rather than sharing chestLootSettings/chestRarity.
+function pickWeightedRarity(baseRarity, settingsObj) {
+  const settings = settingsObj[baseRarity] || settingsObj.common;
+  return weightedPickFromObject(settings.weights);
 }
-function pickChestRarity() { return pickCascadedRarity(chestRarity); }
+function pickChestRarity() { return pickWeightedRarity(chestRarity, chestLootSettings); }
 
 // Parameterized so both Treasure Chest and the Deceased Human generator (which has its own
 // independent rarity selection, not tied to chestRarity) can share one gold table/formula
@@ -5659,15 +5759,16 @@ function setDeceasedRarity(rarity, btn) {
   document.querySelectorAll('#spinDeceasedPanel .chest-rarity-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
-// Draws one item of the requested type(s), cascading down through lower rarities the same way
-// Treasure Chest's own item picks do (pickCascadedRarity) rather than forcing every single piece
-// to be exactly the selected tier — a "legendary" body can still be mostly ordinary gear with
-// one or two standout pieces, same texture as a chest of that tier.
+// Draws one item of the requested type(s), weighted down through lower rarities the same way
+// Treasure Chest's own item picks do (pickWeightedRarity) rather than forcing every single
+// piece to be exactly the selected tier — a "legendary" body can still be mostly ordinary gear
+// with one or two standout pieces. Uses corpseLootSettings, not chestLootSettings — a corpse
+// reads slightly more mundane than a chest of the same declared tier.
 function pickDeceasedItem(types, usedNames) {
   let tries = 0;
   while (tries < 40) {
     tries++;
-    const r = pickCascadedRarity(deceasedRarity);
+    const r = pickWeightedRarity(deceasedRarity, corpseLootSettings);
     const pool = (lootData[r] || []).filter(it => types.includes(it.type) && !usedNames.has(it.name) && !isMonsterPartItem(it));
     if (!pool.length) continue;
     const raw = pool[Math.floor(Math.random() * pool.length)];
@@ -14033,7 +14134,9 @@ function addMonsterToBattle(idx, expectedName) {
 // variant tier if it has one (a "Legendary" variant Kobold loots like a legendary creature),
 // otherwise a CR band — feeding into a per-tier weight/count/part-chance preset that's fully
 // visible and adjustable in the collapsible "Monster Loot Settings" panel above the search
-// box, seeded from the exact same CHEST_CASCADE_WEIGHTS used by treasure chests.
+// box — its own MONSTER_LOOT_RARITY_WEIGHTS table, deliberately less generous than either
+// CHEST_LOOT_RARITY_WEIGHTS or CORPSE_LOOT_RARITY_WEIGHTS (a random creature's pockets are
+// worse odds than curated treasure or a body's belongings).
 
 // ---------- Monster Parts (new "craftable" item category) ----------
 // Works from any creature in the registry — the part is just the source monster's own name
@@ -14247,10 +14350,11 @@ function monsterRarityTier(monster, variant) {
 }
 
 // ---------- Loot settings: one adjustable preset per monster rarity tier ----------
-// Seeded from CHEST_CASCADE_WEIGHTS (the exact same "mostly this tier, some spillover"
-// distribution treasure chests already use) plus sensible item-count/part-chance defaults,
-// so common monsters drop a little junk and celestial ones drop a small hoard — but every
-// number here is a live, editable setting, not a hardcoded roll.
+// Same "mostly this tier, some spillover across all six rarities" shape as
+// CHEST_LOOT_RARITY_WEIGHTS/CORPSE_LOOT_RARITY_WEIGHTS, just its own (stingier) numbers — a
+// random creature's pockets are worse odds than curated treasure or a body's belongings — plus
+// sensible item-count/part-chance defaults, so common monsters drop a little junk and celestial
+// ones drop a small hoard. Every number here is a live, editable setting, not a hardcoded roll.
 const COMBAT_LOOT_PRESET_DEFAULTS = {
   common:    { minItems:1, maxItems:2, partChance:10 },
   uncommon:  { minItems:1, maxItems:3, partChance:20 },
@@ -14260,12 +14364,13 @@ const COMBAT_LOOT_PRESET_DEFAULTS = {
   celestial: { minItems:3, maxItems:6, partChance:85 },
 };
 // Monster-defeat loot draws from a distribution over ALL SIX rarities regardless of the
-// monster's own tier — unlike a treasure chest (CHEST_CASCADE_WEIGHTS, which can never roll
-// above its own rolled rarity), even a common creature has a tiny non-zero shot at legendary
+// monster's own tier — same as chests/corpses now (CHEST_LOOT_RARITY_WEIGHTS/
+// CORPSE_LOOT_RARITY_WEIGHTS) — so even a common creature has a tiny non-zero shot at legendary
 // or celestial gear (0.001 / 0.0001 respectively). Common is a hard floor at every tier
 // except celestial (where it's explicitly 40%, the one stated exception); uncommon never
-// exceeds 25% (reached only at celestial). Raw weights, not required to sum to 100 — same
-// convention as CHEST_CASCADE_WEIGHTS and the Rarity Chances sliders; weightedPickFromObject()
+// exceeds 25% (reached only at celestial). Deliberately stingier than either chest or corpse
+// loot at every tier — see CHEST_LOOT_RARITY_WEIGHTS's comment. Raw weights, not required to
+// sum to 100 — same convention as the Rarity Chances sliders; weightedPickFromObject()
 // normalizes by share of the total.
 const MONSTER_LOOT_RARITY_WEIGHTS = {
   common:    { common: 99.5, uncommon: 0.44, rare: 0.05, superrare: 0.008, legendary: 0.001, celestial: 0.0001 },
@@ -16253,14 +16358,7 @@ function rollBountyBoard() {
 // itself uses, so the awarded chest actually shows up there, openable for real.
 function awardChestOfRarity(rarity, count) {
   count = count || rn(4, 7);
-  const weights = CHEST_CASCADE_WEIGHTS[rarity] || CHEST_CASCADE_WEIGHTS.common;
-  const pickRarity = () => {
-    const entries = Object.entries(weights);
-    const total = entries.reduce((a, [, w]) => a + w, 0);
-    let r = Math.random() * total;
-    for (const [tier, w] of entries) { r -= w; if (r <= 0) return tier; }
-    return entries[0][0];
-  };
+  const pickRarity = () => pickWeightedRarity(rarity, chestLootSettings);
   const g = CHEST_GOLD[rarity] || CHEST_GOLD.common;
   const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
   let gold;
@@ -17555,7 +17653,7 @@ function saveAppState() {
       _battleActionTextMap, _battleActionCounter,
       activeBounties, bountyCounter,
       manglerFinishedWork, manglerPartKey, manglerItemKey, manglerFocus,
-      combatLootSettings, modWeights, fleshModWeights,
+      combatLootSettings, chestLootSettings, corpseLootSettings, modWeights, fleshModWeights,
       characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies,
       characterCurrentHp, characterMaxHp, characterMaxHpEffective, characterHitDice, characterAc, characterClass,
       appliedLootClaimIds,
@@ -17614,6 +17712,8 @@ function applyStateBlob(data) {
   if (data.manglerItemKey !== undefined) manglerItemKey = data.manglerItemKey;
   if (data.manglerFocus) manglerFocus = data.manglerFocus;
   if (data.combatLootSettings) combatLootSettings = data.combatLootSettings;
+  if (data.chestLootSettings) chestLootSettings = data.chestLootSettings;
+  if (data.corpseLootSettings) corpseLootSettings = data.corpseLootSettings;
   if (data.modWeights) modWeights = data.modWeights;
   if (data.fleshModWeights) fleshModWeights = data.fleshModWeights;
   if (data.characterAbilityScores) characterAbilityScores = data.characterAbilityScores;
@@ -17666,6 +17766,13 @@ function refreshAllViewsAfterStateApply() {
   refreshGoldDisplays();
   if (typeof renderSavedItems === 'function') renderSavedItems();
   if (typeof renderCharacterSheet === 'function') renderCharacterSheet();
+  // Loot is the default active tab on first page load (its "active" class is baked into the
+  // static HTML — nothing ever calls showTab('spin', ...) to reach it that first time), so
+  // these two would otherwise stay genuinely empty <div>s until the user clicked away to
+  // another tab and back. Unlike chestResultsPanel/deceasedResultsPanel, which already have
+  // correct static placeholder text baked in and don't need an initial render to look right.
+  if (typeof renderChestLootSettings === 'function') renderChestLootSettings();
+  if (typeof renderCorpseLootSettings === 'function') renderCorpseLootSettings();
 }
 // Bridge for multiplayer-sync.js's logOut()/resetLocalSessionState() — logging out never
 // touched any of this file's own in-memory state (inventoryGrid, playerSlots, the character
