@@ -9871,11 +9871,23 @@ setTimeout(() => { if (typeof loadSpellDatabase === 'function') loadSpellDatabas
 // that's expired — the whole reason "goes away when the timer runs out" is visible at all.
 // Only bothers re-rendering while at least one timer was running at the start of the tick
 // (covers both "still ticking" and "just expired, re-render once more to reflect it's gone").
+// Deliberately calls renderActiveEffectsDisplay (NOT renderActiveEffects) on a plain tick —
+// this used to call the scheduleSave()-wrapped version every single second for as long as any
+// timed effect was running, which meant a 10-minute buff quietly pushed to Firestore roughly
+// once a second for its whole duration just to keep a countdown NUMBER visually ticking down.
+// expiresAt itself is already synced state; the display is a derived, recomputed-at-render
+// view of it, not new state — so only an actual expiry (a real change worth telling the DM/
+// other players about) goes through the full save-triggering path.
 setInterval(() => {
   if (typeof activeTimedEffects === 'undefined' || !activeTimedEffects.length) return;
   const now = Date.now();
+  const before = activeTimedEffects.length;
   activeTimedEffects = activeTimedEffects.filter(e => e.expiresAt > now);
-  if (typeof renderActiveEffects === 'function') renderActiveEffects();
+  if (activeTimedEffects.length !== before) {
+    if (typeof renderActiveEffects === 'function') renderActiveEffects();
+  } else if (typeof renderActiveEffectsDisplay === 'function') {
+    renderActiveEffectsDisplay();
+  }
 }, 1000);
 
 // Double-click detection using native dblclick event.
@@ -12335,8 +12347,16 @@ function formatRemainingTime(ms) {
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
+// Split from the actual DOM-building logic (renderActiveEffectsDisplay, below) so the
+// per-second countdown ticker can refresh the on-screen timer text without also marking
+// state dirty and triggering a real Firestore push every second — see that setInterval's own
+// comment for the bug this closes. Every OTHER call site (equip/unequip/consume/etc. — all
+// genuine actions) still goes through this wrapper and schedules a save as before.
 function renderActiveEffects() {
   if (typeof scheduleSave === 'function') scheduleSave();
+  renderActiveEffectsDisplay();
+}
+function renderActiveEffectsDisplay() {
   const container = document.getElementById('activeEffectsList');
   if (!container) return;
   // Iterate a FIXED slot order (SLOT_LABELS, matching the doll's own layout), not
@@ -14864,10 +14884,25 @@ function reconcileRosterCards(wrap, entries, mode, skipIfInteracting) {
     );
   });
 }
+// DOM refresh only — no save, no battlefield push. Used by the passive
+// onConnectedPlayersChanged bridge (fires on every roster snapshot, i.e. every time ANY
+// connected player's doc changes for ANY reason — equipping an item, moving loot, anything)
+// so the DM's targeting UI can pick up a player's fresh HP/AC without writing anything back.
+// Before this split, that passive read fired the FULL renderCombatRoster below on every single
+// other player's every single action — marking the DM's own entire state dirty (a real push
+// within ~400ms via scheduleSave) AND re-pushing battleRoster/battleLog to the shared
+// battlefield doc, even though neither had actually changed. With several active players that
+// amplifies into a large multiple of genuine write volume for no functional reason — a much
+// bigger contributor to Firestore usage than any single slow interval. Every real DM action
+// (rolling attacks, adding/removing a creature, the HP slider, etc.) still calls the full
+// renderCombatRoster() and correctly saves/pushes.
+function renderCombatRosterDisplay(skipIfInteracting) {
+  reconcileRosterCards(document.getElementById('combatRoster'), battleRoster, 'dm', skipIfInteracting);
+}
 function renderCombatRoster(skipIfInteracting) {
   if (typeof scheduleSave === 'function') scheduleSave();
   if (typeof window.pushBattlefieldState === 'function') window.pushBattlefieldState(battleRoster, battleLog);
-  reconcileRosterCards(document.getElementById('combatRoster'), battleRoster, 'dm', skipIfInteracting);
+  renderCombatRosterDisplay(skipIfInteracting);
 }
 
 // DM-only: every player attack awaiting review (see openBattlefieldAttackPicker in the player
@@ -17001,7 +17036,10 @@ window.applyRemoteMultiplayerState = applyRemoteMultiplayerState;
 let connectedPlayers = [];
 window.onConnectedPlayersChanged = function (players) {
   connectedPlayers = players;
-  if (typeof renderCombatRoster === 'function' && document.getElementById('combatRoster')) renderCombatRoster();
+  // Display-only refresh — see renderCombatRosterDisplay's comment for why this must NOT be
+  // the full renderCombatRoster() (this fires on every unrelated player action, and the full
+  // version saves the DM's own state and re-pushes battlefield data every single time).
+  if (typeof renderCombatRosterDisplay === 'function' && document.getElementById('combatRoster')) renderCombatRosterDisplay();
   if (typeof renderPlayersTab === 'function' && document.getElementById('playersListEl')) renderPlayersTab();
 };
 loadAppState();
