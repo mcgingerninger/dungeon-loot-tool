@@ -7201,6 +7201,7 @@ function generateUniqueItem() {
         <button class="ic-action-btn" onclick="saveGenItem()">💾 Save Item</button>
         <button class="ic-action-btn" onclick="copyGenItem()">📋 Copy Text</button>
         <button class="ic-action-btn" onclick="generateUniqueItem()">🎲 Reroll</button>
+        <button class="ic-action-btn" onclick="discardGenItem()">🗑 Discard</button>
       </div>
     </div>
   `;
@@ -7876,6 +7877,16 @@ function saveGenItem() {
   const btn = document.querySelector('#genCard .ic-action-btn');
   if (btn) { const orig = btn.textContent; btn.textContent = '✓ Saved!'; setTimeout(() => btn.textContent = orig, 1200); }
 }
+// Dismisses the current card back to the empty state without saving it anywhere — the
+// counterpart to Save Item that Generate Item never had (Reroll replaces the card with a new
+// roll, it doesn't let you just walk away from this one).
+function discardGenItem() {
+  window._lastGenItem = null;
+  const resultEl = document.getElementById('genResult');
+  const emptyEl = document.getElementById('genEmpty');
+  if (resultEl) resultEl.innerHTML = '';
+  if (emptyEl) emptyEl.style.display = 'flex';
+}
 
 function renderSavedItems() {
   if (typeof scheduleSave === 'function') scheduleSave();
@@ -7957,6 +7968,7 @@ function loadSavedItem(id) {
         <button class="ic-action-btn" onclick="saveGenItem()">💾 Save Again</button>
         <button class="ic-action-btn" onclick="copyGenItem()">📋 Copy Text</button>
         <button class="ic-action-btn" onclick="generateUniqueItem()">🎲 Reroll</button>
+        <button class="ic-action-btn" onclick="discardGenItem()">🗑 Discard</button>
       </div>
     </div>`;
 }
@@ -8172,6 +8184,15 @@ function addPlayerGold(amount) {
   syncCurrencyTokens(getPlayerGold() + amount);
   refreshGoldDisplays();
   scheduleSave();
+}
+// True for a real Player account, false for DM or Guest/debug — same body.role-player check
+// spendPlayerGold below already uses for unlimited DM gold. Used to hide the "Save" action on
+// Fleshmancer/Mangler results (the Store's own crafting flows, player-visible unlike the DM/
+// Guest-only Wheel/Chest/Deceased/Generate-Item tabs): a player who just paid gold to craft or
+// summon something should Loot it (a real consequence of that spend) or Discard it, not have a
+// side door straight into their Token Library that bypasses ever actually carrying the thing.
+function isRealPlayerAccount() {
+  return typeof document !== 'undefined' && document.body.classList.contains('role-player');
 }
 // Returns false (spending nothing) if there isn't enough gold — callers must check the
 // return value before handing over an item, never assume it succeeded.
@@ -8753,7 +8774,7 @@ function reworkPartIntoGraft() {
         <div class="ic-modifiers">${modsHtml}</div>
       </div>
       <div class="item-card-actions" id="fleshSaveActions">
-        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>
+        ${isRealPlayerAccount() ? '' : '<button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>'}
         <button class="ic-action-btn" onclick="lootFleshItem()">🎒 Loot</button>
         <button class="ic-action-btn" onclick="discardFleshItem()">🗑 Discard</button>
       </div>
@@ -8849,7 +8870,7 @@ function attemptFleshAttach() {
         <div class="ic-modifiers">${modsHtml}</div>
       </div>
       <div class="item-card-actions" id="fleshSaveActions">
-        <button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>
+        ${isRealPlayerAccount() ? '' : '<button class="ic-action-btn" onclick="saveFleshItem()">💾 Save</button>'}
         <button class="ic-action-btn" onclick="lootFleshItem()">🎒 Loot</button>
         <button class="ic-action-btn" onclick="discardFleshItem()">🗑 Discard</button>
       </div>
@@ -17639,7 +17660,7 @@ function renderManglerFinishedWork() {
       </div>
     </div>
     <div class="mangler-finished-actions">
-      <button class="action-btn" onclick="saveManglerFinishedWork()">💾 Save</button>
+      ${isRealPlayerAccount() ? '' : '<button class="action-btn" onclick="saveManglerFinishedWork()">💾 Save</button>'}
       <button class="action-btn mangler-retrieve-btn" onclick="retrieveManglerFinishedWork()">🎒 Loot</button>
       <button class="action-btn mangler-discard-btn" onclick="discardManglerFinishedWork()">🗑 Discard</button>
     </div>
