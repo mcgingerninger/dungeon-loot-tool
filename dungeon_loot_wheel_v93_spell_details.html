@@ -1351,8 +1351,18 @@
   .token-card {
     background:var(--surface); border:1px solid var(--border); border-top:4px solid var(--common);
     padding:0.7rem 0.8rem; cursor:grab; transition:transform 0.15s, box-shadow 0.15s;
-    display:flex; flex-direction:column; gap:0.4rem;
+    display:flex; flex-direction:column; gap:0.4rem; position:relative;
   }
+  /* Every Token Library card needs a way out that doesn't depend on there being an open
+     equip slot to drag/right-click it into — before this, an item with nowhere left to equip
+     (or that the player simply didn't want) had no discard path at all and just sat there
+     permanently. removeTokenEverywhere already fully supported deleting a token directly (see
+     its own comment); this is the first UI actually wired to it from the plain library card. */
+  .token-discard-btn {
+    position:absolute; top:0.3rem; right:0.3rem; background:transparent; border:none;
+    color:var(--text-dim); opacity:0.5; cursor:pointer; font-size:0.85rem; line-height:1; padding:0.15rem;
+  }
+  .token-discard-btn:hover { opacity:1; color:var(--danger); }
   .token-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(0,0,0,0.4); }
   .token-card:active { cursor:grabbing; }
   .token-card.common    { border-top-color:var(--common); }
@@ -5015,6 +5025,22 @@ const CHEST_GOLD = {
   legendary: { min: 2400,   max: 12000,  label: 'gp',  mult: 1   },
   celestial: { min: 12000,  max: 60000,  label: 'gp',  mult: 1   },
 };
+// Shared by pickGoldForRarity/rollCombatGoldForTier/awardChestOfRarity — those three used to
+// each carry their own copy of `(amount/1000).toFixed(1).replace('.0','') + ',000 gp'`, which
+// only ever produced a clean result for an exact multiple of 1000 (12000 -> "12,000 gp"); any
+// other amount in that range (the vast majority of real rolls) never matched the '.0' it was
+// trying to strip, so e.g. 1100 rendered as the literal broken string "1.1,000 gp". The
+// >=10000 branch had its own separate bug: toFixed(0) silently rounded DOWN to the nearest
+// whole thousand and always appended a fake ",000" — a genuine 12,345 gp roll displayed as
+// exactly "12,000 gp", quietly losing real precision on every high-value roll. Both replaced
+// with plain comma-grouped integers — no abbreviation, no rounding, the real number every time.
+function formatGoldReward(amount, rarity) {
+  if (rarity === 'common') {
+    const sp = Math.floor(amount * 0.3), cp = Math.floor(amount * 2);
+    return `${sp} sp, ${cp} cp`;
+  }
+  return amount.toLocaleString() + ' gp';
+}
 
 // Item category groups — chest tries to include one of each relevant group
 const CHEST_ITEM_GROUPS = [
@@ -5580,15 +5606,7 @@ function pickChestRarity() { return pickWeightedRarity(chestRarity, chestLootSet
 function pickGoldForRarity(rarity) {
   const g = CHEST_GOLD[rarity];
   const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
-  if (rarity === 'common') {
-    // Common tier gives silver and copper instead of gold
-    const sp = Math.floor(amount * 0.3);
-    const cp = Math.floor(amount * 2);
-    return `${sp} sp, ${cp} cp`;
-  }
-  if (amount >= 10000) return (amount / 1000).toFixed(0) + ',000 gp';
-  if (amount >= 1000) return (amount / 1000).toFixed(1).replace('.0','') + ',000 gp';
-  return amount + ' gp';
+  return formatGoldReward(amount, rarity);
 }
 function pickChestGold() { return pickGoldForRarity(chestRarity); }
 
@@ -11203,11 +11221,24 @@ function tokenCardHtml(e, showSlotSelect = true, rightClickAction) {
          onmouseenter="showTokenTooltip(event,'${safeKey}')"
          onmousemove="moveTokenTooltip(event)"
          onmouseleave="hideTokenTooltip()">
+      <button class="token-discard-btn" title="Discard" onclick="event.stopPropagation();discardTokenLibraryItem('${safeKey}')">✕</button>
       <div class="token-card-head">${itemPixelIcon(item, 30, e.rarity)}<div class="token-card-name">${escapeHtml(item.name)}</div></div>
       <div class="token-card-rarity">${rarityNames[e.rarity] || e.rarity}</div>${slotSelectHtml}
       <div class="token-card-effect">${escapeHtml(shortPreview)}</div>
     </div>
   `;
+}
+// The one thing tokenCardHtml's card couldn't do on its own — drag-to-equip and right-click-
+// to-equip both only ever succeed if a matching slot happens to be open; an item with nowhere
+// left to go (or one the player simply doesn't want) had no way out at all otherwise.
+function discardTokenLibraryItem(key) {
+  buildTokenIndex();
+  const entry = TOKEN_INDEX[key];
+  const name = entry ? entry.item.name : 'Item';
+  removeTokenEverywhere(key);
+  renderInventoryTokenGrid();
+  if (typeof flashInvMessage === 'function') flashInvMessage(`${name} discarded.`);
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 
 let _draggedTokenKey = null;
@@ -12755,6 +12786,11 @@ document.addEventListener('dragend', () => {
   _draggedInvPlacement = null;
   _draggedSlotId = null;
 }, true);
+// The tooltip is shown by onmouseenter/onmousemove on the card being dragged — starting a
+// drag doesn't fire a mouseleave on it in every browser, so without this it stayed visible,
+// fixed in place at wherever the cursor was when the drag began, floating over the drop
+// target and the rest of the screen for the whole drag instead of getting out of the way.
+document.addEventListener('dragstart', hideTokenTooltip, true);
 window.addEventListener('scroll', hideTokenTooltip, true);
 // Same tooltip as the Token Library/Inventory (buildTooltipHtml), but for an item that isn't
 // in TOKEN_INDEX at all — combat loot (entry.loot.items) is generated fresh per kill and never
@@ -14446,16 +14482,13 @@ function weightedPickFromObject(weights) {
   for (const [k, w] of entries) { r -= w; if (r <= 0) return k; }
   return entries[0][0];
 }
-// Same gold-formatting logic as pickChestGold()/awardChestOfRarity(), duplicated rather than
-// shared since it hangs off a different settings object (combatLootSettings' tier, not the
-// Chest tab's own chestRarity global) — see awardChestOfRarity's comment for the reasoning.
+// Same CHEST_GOLD table as pickChestGold()/awardChestOfRarity(), just keyed off a different
+// tier source (the monster's own loot tier, not the Chest tab's chestRarity global) — shares
+// formatGoldReward for the actual formatting now instead of its own copy of the logic.
 function rollCombatGoldForTier(tier) {
   const g = CHEST_GOLD[tier] || CHEST_GOLD.common;
   const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
-  if (tier === 'common') { const sp = Math.floor(amount * 0.3), cp = Math.floor(amount * 2); return `${sp} sp, ${cp} cp`; }
-  if (amount >= 10000) return (amount / 1000).toFixed(0) + ',000 gp';
-  if (amount >= 1000) return (amount / 1000).toFixed(1).replace('.0', '') + ',000 gp';
-  return amount + ' gp';
+  return formatGoldReward(amount, tier);
 }
 // A monster stacked with more named traits (see rollMonsterTraitCount — a plain creature
 // rolls 0-2, an elite one reliably rolls several) reads as mechanically tougher, so its loot
@@ -16361,11 +16394,7 @@ function awardChestOfRarity(rarity, count) {
   const pickRarity = () => pickWeightedRarity(rarity, chestLootSettings);
   const g = CHEST_GOLD[rarity] || CHEST_GOLD.common;
   const amount = Math.floor(g.min + Math.random() * (g.max - g.min + 1));
-  let gold;
-  if (rarity === 'common') { const sp = Math.floor(amount * 0.3), cp = Math.floor(amount * 2); gold = `${sp} sp, ${cp} cp`; }
-  else if (amount >= 10000) gold = (amount / 1000).toFixed(0) + ',000 gp';
-  else if (amount >= 1000) gold = (amount / 1000).toFixed(1).replace('.0', '') + ',000 gp';
-  else gold = amount + ' gp';
+  const gold = formatGoldReward(amount, rarity);
 
   const items = [];
   const usedNames = new Set();
