@@ -1972,6 +1972,67 @@
   .cls-field-row input[type="number"]{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;padding:.3rem .4rem}
   .cls-field-row input[type="range"]{accent-color:var(--gold);vertical-align:middle}
 
+  /* ---- Journey Encounters ---- */
+  .journey-setting-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.6rem;margin-bottom:1rem;}
+  .journey-setting-card{background:var(--surface);border:1px solid var(--border);padding:0.4rem;cursor:pointer;text-align:center;color:var(--text);font-family:'Crimson Text',serif;}
+  .journey-setting-card:hover{border-color:var(--gold);}
+  .journey-setting-card.active{border-color:var(--gold);background:var(--surface2);box-shadow:0 0 0 1px var(--gold) inset;}
+  .journey-setting-icon{width:100%;aspect-ratio:8/5;overflow:hidden;margin-bottom:0.3rem;border:1px solid var(--border);}
+  .journey-setting-label{font-size:0.82rem;}
+  .journey-scene{width:100%;height:100%;display:block;shape-rendering:crispEdges;}
+  .journey-thumb .journey-anim-cloud,.journey-thumb .journey-anim-firefly,.journey-thumb .journey-anim-fog,
+  .journey-thumb .journey-anim-bubble,.journey-thumb .journey-anim-sun,.journey-thumb .journey-anim-shimmer,
+  .journey-thumb .journey-anim-torch-flame,.journey-thumb .journey-anim-windmill{animation:none;}
+  .journey-stage{position:relative;width:100%;aspect-ratio:8/5;max-width:480px;margin:0 auto 1rem;border:2px solid var(--border);overflow:hidden;background:#000;}
+  .journey-stage::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;background:var(--journey-flash-color,#a0a8b0);mix-blend-mode:overlay;}
+  .journey-stage.journey-flash::after{animation:journey-flash-fade 0.9s ease-out;}
+  @keyframes journey-flash-fade{0%{opacity:0.55;}100%{opacity:0;}}
+  .journey-overlay-layer{position:absolute;top:6px;right:6px;width:26%;max-width:64px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));}
+  .journey-overlay-svg{width:100%;height:auto;display:block;shape-rendering:crispEdges;}
+  @keyframes journey-cloud-drift{0%{transform:translateX(-6px);}100%{transform:translateX(76px);}}
+  .journey-anim-cloud{animation:journey-cloud-drift 9s linear infinite;}
+  @keyframes journey-windmill-spin{to{transform:rotate(360deg);}}
+  .journey-anim-windmill{animation:journey-windmill-spin 3.2s linear infinite;}
+  @keyframes journey-firefly-pulse{0%,100%{opacity:0.1;}50%{opacity:1;}}
+  .journey-anim-firefly{animation:journey-firefly-pulse 2.4s ease-in-out infinite;}
+  @keyframes journey-fog-drift{0%{transform:translateX(0);}100%{transform:translateX(30px);}}
+  .journey-anim-fog{animation:journey-fog-drift 11s ease-in-out infinite alternate;}
+  @keyframes journey-bubble-rise{0%{transform:translateY(0);opacity:0.8;}100%{transform:translateY(-6px);opacity:0;}}
+  .journey-anim-bubble{animation:journey-bubble-rise 2.6s ease-in infinite;}
+  @keyframes journey-sun-pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.25);}}
+  .journey-anim-sun{animation:journey-sun-pulse 3s ease-in-out infinite;}
+  @keyframes journey-shimmer-skew{0%,100%{transform:skewY(0deg);}50%{transform:skewY(0.6deg);}}
+  .journey-anim-shimmer{animation:journey-shimmer-skew 1.8s ease-in-out infinite;}
+  @keyframes journey-torch-flicker{0%,100%{opacity:1;transform:scale(1);}45%{opacity:0.7;transform:scale(0.85);}70%{opacity:1;transform:scale(1.1);}}
+  .journey-anim-torch-flame{animation:journey-torch-flicker 0.6s ease-in-out infinite;transform-origin:center;}
+  @keyframes journey-shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-1px) rotate(-3deg);}75%{transform:translateX(1px) rotate(3deg);}}
+  .journey-anim-shake{animation:journey-shake 0.3s linear infinite;}
+  @keyframes journey-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-2px);}}
+  .journey-anim-bob{animation:journey-bob 1.1s ease-in-out infinite;}
+  @keyframes journey-rain-fall{0%{transform:translateY(-2px);opacity:0.3;}100%{transform:translateY(6px);opacity:0.9;}}
+  .journey-anim-rain{animation:journey-rain-fall 0.5s linear infinite;}
+  @keyframes journey-pulse{0%,100%{opacity:0.7;transform:scale(1);}50%{opacity:1;transform:scale(1.08);}}
+  .journey-anim-pulse{animation:journey-pulse 1.3s ease-in-out infinite;transform-origin:center;}
+  @keyframes journey-flicker{0%,100%{opacity:1;}50%{opacity:0.5;}}
+  .journey-anim-flicker{animation:journey-flicker 0.5s steps(2) infinite;}
+  @keyframes journey-twinkle{0%,100%{opacity:0.6;transform:scale(0.9) rotate(0deg);}50%{opacity:1;transform:scale(1.1) rotate(15deg);}}
+  .journey-anim-twinkle{animation:journey-twinkle 1s ease-in-out infinite;transform-origin:center;}
+  .journey-anim-cloud-drift{animation:journey-cloud-drift 5s linear infinite;}
+  .journey-roll-row{display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.8rem;}
+  .journey-log-list{display:flex;flex-direction:column;gap:0.6rem;max-height:520px;overflow-y:auto;}
+  .journey-log-entry{background:var(--surface);border:1px solid var(--border);padding:0.6rem 0.8rem;}
+  .journey-log-head{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;flex-wrap:wrap;}
+  .journey-cat-badge{font-family:'Share Tech Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.12rem 0.4rem;border:1px solid;}
+  .journey-log-setting{font-size:0.78rem;color:var(--text-dim);margin-left:auto;}
+  .journey-log-title{font-weight:600;color:var(--gold-bright);margin-bottom:0.2rem;}
+  .journey-log-text{color:var(--text);font-size:0.9rem;line-height:1.5;margin-bottom:0.4rem;}
+  .journey-hook-done{color:var(--uncommon);font-size:0.82rem;font-style:italic;}
+  @media (prefers-reduced-motion: reduce){
+    .journey-anim-cloud,.journey-anim-windmill,.journey-anim-firefly,.journey-anim-fog,.journey-anim-bubble,
+    .journey-anim-sun,.journey-anim-shimmer,.journey-anim-torch-flame,.journey-anim-shake,.journey-anim-bob,
+    .journey-anim-rain,.journey-anim-pulse,.journey-anim-flicker,.journey-anim-twinkle,.journey-anim-cloud-drift{animation:none;}
+  }
+
 </style>
 <style>
 #spell-master-database-note {
@@ -1998,6 +2059,7 @@
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
   <button class="tab-btn" onclick="showTab('players',this)">👥 Players</button>
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
+  <button class="tab-btn" onclick="showTab('journey',this)">🧭 Journey</button>
   <!-- Player-only — the opposite direction from multiplayer-sync.js's body.role-player hide
        list (which hides DM-only things): this stays hidden by default and is revealed only
        for players by enforceRoleRestrictions there. -->
@@ -2993,6 +3055,31 @@
       <div class="combat-log" id="combatLog"><div class="combat-log-empty">No attacks rolled yet.</div></div>
     </div>
   </div>
+</div>
+
+<!-- JOURNEY TAB — DM/Guest-only random travel-scenario generator. See the JOURNEY ENCOUNTERS
+     section of the script for the full data model/roll engine (JOURNEY_SETTINGS/
+     JOURNEY_SCENARIOS/journeyRoll). Hidden from players the same way Combat is (see
+     multiplayer-sync.js's body.role-player CSS block) — this is a DM narration tool. -->
+<div id="tab-journey" class="tab-content">
+  <div class="journey-setting-picker" id="journeySettingPicker"></div>
+  <div class="journey-stage" id="journeyStage"></div>
+  <div class="journey-roll-row">
+    <button class="generate-btn" onclick="rollJourneyEncounter()">🎲 See What Happens</button>
+    <button class="action-btn" onclick="clearJourneyLog()">Clear Log</button>
+  </div>
+  <div class="store-buy-msg" id="journeyMsg"></div>
+
+  <details class="collapsible">
+    <summary>⚖ Encounter Weights</summary>
+    <div class="collapsible-body">
+      <p class="modweights-intro">How likely each kind of scenario is for the currently selected setting — higher weight means it comes up more often. "Uneventful" is always in the mix; that's the point.</p>
+      <div id="journeyWeightsGrid"></div>
+    </div>
+  </details>
+
+  <h3 style="color:var(--gold);font-size:1rem;letter-spacing:0.04em;margin-top:1.2rem;">📜 Journey Log</h3>
+  <div class="journey-log-list" id="journeyLogList"></div>
 </div>
 
 <!-- BATTLEFIELD TAB — player-only, read-only live view of the DM's combat roster. Populated
@@ -4284,6 +4371,7 @@ function showTab(tab, btn) {
   if (tab === 'store') { renderStoreTab(); renderInventoryGrid(); }
   if (tab === 'players' && typeof renderPlayersTab === 'function') renderPlayersTab();
   if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
+  if (tab === 'journey') renderJourneyTab();
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -16337,6 +16425,558 @@ function renderBountyPanel() {
   wrap.innerHTML = activeBounties.map(bountyCardHtml).join('');
 }
 
+// ===================== JOURNEY ENCOUNTERS =====================
+// A random travel-scenario generator for the connective tissue of a session — the stretch
+// where the party is just moving through a setting between planned scenes. Pick a setting,
+// roll, get a genuinely varied scenario back (sometimes nothing, sometimes a fight, weather,
+// a strange omen, a divine encounter...). DM/Guest-only (see body.role-player hiding the tab),
+// same as Combat/Store — this is a narration tool, not something players interact with.
+//
+// Each category maps to one small pixel-art "overlay" animation (see journeyOverlaySvg) shown
+// over the selected setting's own animated backdrop (journeyBackdropSvg) — deliberately NOT
+// one bespoke animation per scenario (180 of those, by hand, would be shallow at best); every
+// individual scenario is "this category's animation, over this setting's backdrop, with this
+// scenario's own title/text," the same reasoning as the existing battle-stage scene reusing
+// FIGHT_STYLES across every possible roll rather than animating each one individually.
+const JOURNEY_CATEGORY_DEFS = {
+  nothing:   { label: 'Uneventful',        overlay: 'calm',      color: '#a0a8b0' },
+  peaceful:  { label: 'Peaceful Encounter', overlay: 'social',    color: '#4caf7d' },
+  hostile:   { label: 'Hostile Encounter',  overlay: 'combat',    color: '#e05252' },
+  weather:   { label: 'Weather',            overlay: 'weather',   color: '#5b9cf6' },
+  strange:   { label: 'Strange & Mystical', overlay: 'strange',   color: '#c47cf5' },
+  divine:    { label: 'Divine Encounter',   overlay: 'divine',    color: '#ff9f43' },
+  hazard:    { label: 'Hazard',             overlay: 'hazard',    color: '#e0a52e' },
+  discovery: { label: 'Discovery',          overlay: 'discovery', color: '#7de7ff' },
+};
+// Per-setting category weights — deliberately different per setting so each one actually
+// feels different to travel through, not just re-skinned. "Uneventful" always carries real
+// weight (20-35%) so a rolled event still reads as something, matching how travel montages
+// actually play out at a real table.
+const JOURNEY_SETTINGS = [
+  { key: 'countryside', label: 'Countryside & Roads', icon: '🌾',
+    weights: { nothing: 35, peaceful: 20, hostile: 12, weather: 10, strange: 6, divine: 5, hazard: 5, discovery: 7 } },
+  { key: 'forest', label: 'Deep Forest', icon: '🌲',
+    weights: { nothing: 28, peaceful: 12, hostile: 15, weather: 8, strange: 15, divine: 6, hazard: 9, discovery: 7 } },
+  { key: 'mountains', label: 'Mountains & Highlands', icon: '⛰️',
+    weights: { nothing: 25, peaceful: 8, hostile: 15, weather: 20, strange: 7, divine: 5, hazard: 13, discovery: 7 } },
+  { key: 'swamp', label: 'Swamp & Wetlands', icon: '🐊',
+    weights: { nothing: 22, peaceful: 6, hostile: 18, weather: 10, strange: 14, divine: 3, hazard: 20, discovery: 7 } },
+  { key: 'desert', label: 'Desert & Wastes', icon: '🏜️',
+    weights: { nothing: 26, peaceful: 8, hostile: 13, weather: 18, strange: 10, divine: 6, hazard: 12, discovery: 7 } },
+  { key: 'underground', label: 'Underground & Caverns', icon: '🕳️',
+    weights: { nothing: 20, peaceful: 5, hostile: 22, weather: 1, strange: 18, divine: 4, hazard: 22, discovery: 8 } },
+];
+function journeySettingDef(key) { return JOURNEY_SETTINGS.find(s => s.key === key); }
+
+// hook (optional): {type:'monster', crBand:[lo,hi]} spawns a real creature into Combat via the
+// exact same buildBattleEntry/CR-filtering pattern bounty targets use; {type:'loot', rarity}
+// rolls a real item via pickItem/resolveScrollSpell; {type:'buff'|'debuff', text, durationMs}
+// starts a real countdown in Active Effects via the existing startTimedEffect. Most
+// Uneventful/Weather/Strange scenarios carry no hook at all — pure narration, correct pacing,
+// not a gap.
+const JOURNEY_SCENARIOS = {
+  countryside: [
+    { category:'nothing', title:'A Long, Quiet Stretch of Road', text:'Dust, birdsong, and the creak of a cart wheel somewhere behind you. Nothing else happens for hours.' },
+    { category:'nothing', title:'Market Day Traffic', text:'Carts loaded with cabbages and squabbling geese clog the road toward town. Nobody so much as glances at you.' },
+    { category:'nothing', title:'Fields Under a Wide Sky', text:'Miles of golden grain, a lazy hawk circling overhead, and absolutely nothing to show for the afternoon.' },
+    { category:'nothing', title:"The Milestone Says You're Close", text:'A worn stone marker gives the distance to the next town. The road itself offers nothing more remarkable than that.' },
+    { category:'nothing', title:'A Postman on His Rounds', text:'He tips his hat, doesn’t stop, and is gone around the bend before you can ask him for news.' },
+    { category:'peaceful', title:"A Farmer's Cart, Stuck in a Rut", text:'An old farmer swears cheerfully at his mule. A shoulder to the wheel gets him moving again and buys some real gratitude.' },
+    { category:'peaceful', title:'A Traveling Minstrel', text:'She trades news, rumor, and a genuinely decent song for a shared meal and a place by the fire.' },
+    { category:'peaceful', title:'Children Playing at Knights', text:'A village’s kids stage a mock battle with sticks and a garbage-lid shield. One insists you settle a dispute about who won.' },
+    { category:'peaceful', title:'A Shepherd Counting Sheep', text:'He asks for a second opinion on the count. It comes out different both times. He seems entirely unbothered by this.' },
+    { category:'hostile', title:'Bandits at the Old Ford', text:'Three ragged men block the crossing, more bored than bloodthirsty. One of them is missing a boot.', hook:{type:'monster', crBand:[0,2]} },
+    { category:'hostile', title:"A Rival Caravan Guard's Grudge", text:'He recognizes you from somewhere — a debt, a duel, a dead friend, take your pick — and he’s brought backup.', hook:{type:'monster', crBand:[1,3]} },
+    { category:'hostile', title:'Wolves Grown Bold', text:'A starving pack has taken to raiding the road in broad daylight. They’re not afraid of you, which is the problem.', hook:{type:'monster', crBand:[0,2]} },
+    { category:'hostile', title:"The Toll That Isn't", text:'Self-appointed "toll collectors" have strung a rope across the road. There is no toll booth. There is no authority. There are clubs.', hook:{type:'monster', crBand:[0,2]} },
+    { category:'hostile', title:'A Farmhand Gone Feral', text:'Something out in the wheat isn’t moving like a person should anymore, and it’s coming this way.', hook:{type:'monster', crBand:[1,3]} },
+    { category:'hostile', title:"Highwaymen in Merchant's Clothing", text:'The friendly trader flags you down to look at his wares. His "wares" turn out to be an ambush.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'weather', title:'A Sudden Squall', text:'Rain turns the road to mud in minutes. Travel slows to a miserable crawl for the rest of the day.' },
+    { category:'weather', title:'Unseasonable Heat', text:'The grain wilts. So does everyone’s temper. Water runs low faster than expected.' },
+    { category:'weather', title:'Fog Rolls Off the Fields', text:'A thick, low fog swallows the road whole. Nothing dangerous in it — probably — but you can’t see ten feet.' },
+    { category:'strange', title:"The Scarecrow That Wasn't There Yesterday", text:'You could swear this field was empty this morning. The scarecrow’s head is turned to watch the road.' },
+    { category:'strange', title:'A Second Shadow', text:'For just a moment, at just the right angle, someone’s shadow falls the wrong direction. Then it doesn’t.' },
+    { category:'strange', title:'Crows Speaking in Turn', text:'A line of crows on a fence takes turns making a sound that is almost, unmistakably, a word.' },
+    { category:'strange', title:'The Well That Answers', text:'Drop a coin and make a wish at this roadside well, travelers say, and it answers back. Someone just tested it.' },
+    { category:'divine', title:"A Traveling Pilgrim's Blessing", text:'An old pilgrim presses a hand to your brow and mutters a genuine, working blessing before continuing on her way, asking nothing in return.', hook:{type:'buff', text:'+1 Saving Throws', durationMs:3600000} },
+    { category:'divine', title:'An Old Shrine, Freshly Tended', text:'A roadside shrine to a minor harvest god, decades old, has fresh flowers on it this morning. No one claims to have left them.' },
+    { category:'divine', title:"A Beggar Who Isn't", text:'The ragged beggar at the crossroads accepts your coin with eyes that are briefly, unmistakably, not human. Then he’s just a beggar again.' },
+    { category:'hazard', title:'A Collapsed Bridge', text:'The bridge ahead gave way sometime recently — the wood is still fresh at the break. The ford downstream will cost you the day.' },
+    { category:'hazard', title:'Sinkhole Beneath the Cart Path', text:'The ground swallowed a cart whole overnight, mule and all. The hole is still there, thinly covered in loose dirt.' },
+    { category:'hazard', title:'A Poisoned Well, Marked with Red Cloth', text:'Someone tied a strip of red cloth to the well’s post — the local warning for "don’t drink this." No one’s around to explain why.' },
+    { category:'discovery', title:"A Merchant's Lost Strongbox", text:'A strongbox lies half-buried in a ditch, thrown clear of some long-ago robbery and never recovered.', hook:{type:'loot', rarity:'uncommon'} },
+    { category:'discovery', title:'An Abandoned Farmstead', text:'Doors open, hearth cold for years, nothing taken — whatever happened here, it happened fast.' },
+    { category:'discovery', title:"A Peddler's Overturned Cart", text:'Wheels-up in a ditch, goods scattered, peddler nowhere in sight. Some of what spilled is still worth having.' },
+    { category:'discovery', title:'Buried Coin Beneath a Fence Post', text:'A loose fence post rattles oddly when kicked. Someone buried a coin purse under it a long time ago.', hook:{type:'loot', rarity:'common'} },
+  ],
+  forest: [
+    { category:'nothing', title:'A Deer Trail, Well Worn', text:'You follow a game trail through the green for hours. It leads nowhere in particular and nothing follows it but you.' },
+    { category:'nothing', title:'The Canopy Blocks the Sky', text:'Hours pass under a ceiling of leaves without a single break to check the sun. Uneventful, if a little disorienting.' },
+    { category:'nothing', title:'A Stand of Old Growth', text:'Trees older than any kingdom nearby, utterly indifferent to your passing through them.' },
+    { category:'nothing', title:'Squirrels Arguing Overhead', text:'A furious, extended squirrel dispute plays out above the trail. It has nothing to do with you.' },
+    { category:'nothing', title:'Moss-Thick and Silent', text:'The forest swallows sound here. Footsteps, voices, everything comes out muffled. Nothing comes of it.' },
+    { category:'peaceful', title:'A Hermit Woodcarver', text:'He lives alone in a hut built into a hollow tree and is delighted, almost suspiciously so, to have visitors to talk to.' },
+    { category:'peaceful', title:'A Ranger Marking the Trail', text:'She’s cutting fresh blazes into bark for a hunting party behind her and shares trail advice freely.' },
+    { category:'peaceful', title:'A Fox That Won’t Stop Following', text:'It keeps a careful ten paces back for over an hour, watching, before losing interest and vanishing into the brush.' },
+    { category:'hostile', title:'A Territorial Owlbear', text:'Something large moved through the brush ahead and it did not sound like it was moving away.', hook:{type:'monster', crBand:[2,5]} },
+    { category:'hostile', title:'Bandits Using the Canopy', text:'Rope bridges and platforms hidden in the branches mean the ambush comes from directly overhead.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'hostile', title:'A Pack of Displacer Beasts', text:'Something is stalking you that isn’t quite where your eyes say it is.', hook:{type:'monster', crBand:[3,6]} },
+    { category:'hostile', title:'Territorial Dryad', text:'She does not appreciate uninvited guests near her tree, and she has ways of making that clear.', hook:{type:'monster', crBand:[2,5]} },
+    { category:'hostile', title:'A Swarm on the Move', text:'The undergrowth ahead is moving as one — thousands of small, hungry somethings, all headed your way.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'weather', title:'A Green Twilight', text:'Storm clouds turn the canopy an eerie green-black an hour before the rain even starts.' },
+    { category:'weather', title:'Windfall', text:'A hard wind brings down dead branches all around — nothing serious, just a long, nervous afternoon.' },
+    { category:'strange', title:'Trees That Face the Wrong Way', text:'Every tree along this stretch has grown leaning toward the same distant point, as if reaching for something years ago.' },
+    { category:'strange', title:'A Ring of Mushrooms, Freshly Grown', text:'A perfect fairy ring has sprung up overnight in the middle of the trail. Something danced here recently.' },
+    { category:'strange', title:'Lights Between the Trunks', text:'Small cold lights drift between the trees at a distance, keeping pace, never approaching.' },
+    { category:'strange', title:'A Song With No Singer', text:'Music drifts through the woods — faint, lovely, and coming from no direction anyone can pin down.' },
+    { category:'strange', title:'The Path That Loops', text:'You’ve passed this same fallen log three times now, despite walking in a straight line the whole way.' },
+    { category:'divine', title:'A Grove Sacred to Someone', text:'Carved offerings hang from the branches of one very old, very specific tree. Leaving something feels like the right idea.', hook:{type:'buff', text:'+1 Wisdom', durationMs:3600000} },
+    { category:'divine', title:'A Unicorn at a Distance', text:'It watches you cross a clearing from the treeline, entirely still, and is gone the moment you look directly at it.' },
+    { category:'hazard', title:'A Bog Hidden by Leaves', text:'What looked like solid ground swallows a boot to the knee before anyone notices the leaf-litter was floating.' },
+    { category:'hazard', title:'A Rotted Rope Bridge', text:'The only crossing over a ravine is a bridge that has clearly seen better decades.' },
+    { category:'hazard', title:'Territorial Wasps, Disturbed', text:'A nest the size of a wagon wheel hangs directly over the trail, and something just knocked into it.' },
+    { category:'hazard', title:'Poisonous Berries, Freshly Fallen', text:'A carpet of tempting-looking berries covers the trail. The dead birds nearby are a hint.' },
+    { category:'discovery', title:"A Druid's Abandoned Camp", text:'Cold ashes, a few left-behind tools, and dried herbs worth taking if no one comes back to claim them.', hook:{type:'loot', rarity:'uncommon'} },
+    { category:'discovery', title:'A Hollow Tree, Long Used as a Cache', text:'Someone’s been stashing goods in this hollow for years, and hasn’t come back for them in a long while.', hook:{type:'loot', rarity:'rare'} },
+    { category:'discovery', title:'An Old Woodcutter’s Shed', text:'Tools, rope, and a few things worth more than firewood, left behind and forgotten.' },
+    { category:'discovery', title:'A Nest of Shed Skin', text:'Something large sheds here regularly. What it left behind sometimes has something caught in it.', hook:{type:'loot', rarity:'common'} },
+  ],
+  mountains: [
+    { category:'nothing', title:'Switchbacks, Endless', text:'Hours of climbing switchbacks with a view that doesn’t change fast enough to notice. Nothing happens but the altitude.' },
+    { category:'nothing', title:'A Goat Trail', text:'Wild goats have worn a perfectly serviceable path along the cliff face. They watch you use it with mild contempt.' },
+    { category:'nothing', title:'Thin, Cold Air', text:'Breathing gets a little harder. Nothing else does.' },
+    { category:'nothing', title:'A Ridge With a View', text:'You can see for miles up here. There is nothing of note in any of those miles.' },
+    { category:'peaceful', title:'A Hermit at the Tree Line', text:'He lives alone up here by choice and offers tea, a fire, and an unsettling amount of well-informed local gossip.' },
+    { category:'peaceful', title:'A Herd of Wild Sheep', text:'Sure-footed and unbothered, they part around you on the trail without breaking stride.' },
+    { category:'hostile', title:'A Territorial Griffon', text:'It was circling the peak above you. Now it isn’t circling anymore.', hook:{type:'monster', crBand:[3,6]} },
+    { category:'hostile', title:'Rockslide Bandits', text:'They know exactly which loose scree to kick loose to pin a traveler in place before robbing them.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'hostile', title:'A Young Hill Giant, Hungry', text:'He’s not old enough to know better and not small enough to matter.', hook:{type:'monster', crBand:[4,7]} },
+    { category:'hostile', title:'Stirges in the Rock Crevices', text:'A whole colony of them wakes up at once, and they are extremely interested in your blood.', hook:{type:'monster', crBand:[0,3]} },
+    { category:'hostile', title:'A Territorial Yeti', text:'Its tracks in the snow are the first warning. Its roar is the second, and the last.', hook:{type:'monster', crBand:[3,7]} },
+    { category:'weather', title:'A Sudden Whiteout', text:'Snow comes in sideways with no warning, cutting visibility to nothing and the temperature with it.' },
+    { category:'weather', title:'Thin Ice on the Pass', text:'A late frost has glazed the trail. Every step needs care the whole rest of the day.' },
+    { category:'weather', title:'Lightning at the Ridgeline', text:'A storm rolls in fast and low, close enough that the hair on your arms stands up more than once.' },
+    { category:'weather', title:'An Avalanche, Distant', text:'A wall of snow lets go on a far slope with a sound like the mountain clearing its throat. It isn’t close. This time.' },
+    { category:'strange', title:'A Cairn That Wasn’t There', text:'A stack of stones has appeared overnight on the trail, arranged with clear, deliberate intent no one can decipher.' },
+    { category:'strange', title:'Singing Stone', text:'A particular rock formation hums, faintly, only when the wind comes from a specific direction.' },
+    { category:'strange', title:'Footprints Ending in Nothing', text:'A single trail of footprints in fresh snow simply stops, mid-stride, with nowhere for whoever made them to have gone.' },
+    { category:'divine', title:'A Sky-Shrine at the Summit', text:'Ancient stonework at the peak still holds power — a place where prayers to the sky gods are said to actually be heard.', hook:{type:'buff', text:'+1 Constitution', durationMs:3600000} },
+    { category:'divine', title:'An Eagle That Watches Too Closely', text:'It circles at exactly your pace for exactly too long to be a normal bird, then departs toward the sun.' },
+    { category:'hazard', title:'A Crumbling Ledge', text:'The trail narrows to a shelf of rock that clearly isn’t going to hold much longer.' },
+    { category:'hazard', title:'A Hidden Crevasse', text:'A snow bridge over a deep crack looks perfectly solid. It is not.' },
+    { category:'hazard', title:'Falling Rock', text:'Something above dislodges a spray of loose stone with no warning at all.' },
+    { category:'hazard', title:'Thin Mountain Air, Too Thin', text:'The trail climbs higher than it has any business going, and the altitude starts taking a real toll.' },
+    { category:'discovery', title:'A Dwarven Waystone', text:'An old trail marker carved by dwarven hands centuries ago, with a small cache tucked into its base.', hook:{type:'loot', rarity:'rare'} },
+    { category:'discovery', title:'A Fallen Climber’s Gear', text:'Someone didn’t make it up this pass. Their equipment, mostly intact, still might.', hook:{type:'loot', rarity:'uncommon'} },
+    { category:'discovery', title:'A Vein of Raw Ore', text:'A glint in the rock face turns out to be a genuine, unclaimed mineral seam.' },
+    { category:'discovery', title:'An Eagle’s Nest, Abandoned', text:'Built into a high crag, long empty, and full of the shiny things eagles like to collect.', hook:{type:'loot', rarity:'uncommon'} },
+  ],
+  swamp: [
+    { category:'nothing', title:'Waist-Deep and Slow', text:'Hours of wading through murky water that never gets any shallower or any more interesting.' },
+    { category:'nothing', title:'A Drone of Insects', text:'A constant, droning hum of insects fills the air for the whole crossing. Nothing bites. This time.' },
+    { category:'nothing', title:'Cypress and Silence', text:'Twisted trees rise from still black water for as far as the eye can see. Nothing moves in any of it.' },
+    { category:'peaceful', title:'A Swamp Hermit’s Hut', text:'Built on stilts and strung with charms against, apparently, everything. The hermit is friendlier than the decor suggests.' },
+    { category:'peaceful', title:'A Heron, Unbothered', text:'It watches you pass with the specific disdain of a creature that has seen much worse than you wade through here.' },
+    { category:'hostile', title:'A Black Dragon’s Old Territory', text:'The bones scattered along this stretch of bog are old. The territorial marking scent on them is not.', hook:{type:'monster', crBand:[4,8]} },
+    { category:'hostile', title:'Bullywugs, Territorial', text:'A whole colony rises out of the muck at once, croaking something that is almost certainly a war cry.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'hostile', title:'Something Beneath the Water', text:'The surface goes still in a way that still water shouldn’t, right before something underneath it moves.', hook:{type:'monster', crBand:[2,6]} },
+    { category:'hostile', title:'A Will-o’-Wisp’s Lure', text:'A friendly-looking light leads travelers off the safe path and straight toward whatever it actually wants them to meet.', hook:{type:'monster', crBand:[3,7]} },
+    { category:'hostile', title:'Rot-Touched and Hungry', text:'Something that used to be a person is dragging itself out of the bog, and it has not eaten in a long time.', hook:{type:'monster', crBand:[1,5]} },
+    { category:'hostile', title:'Giant Leeches, Massing', text:'Dozens of them, drawn by the scent of anything warm-blooded, converge on the shallows all at once.', hook:{type:'monster', crBand:[0,3]} },
+    { category:'weather', title:'A Fog That Doesn’t Lift', text:'Thick, gray, and cold — this fog has clearly been sitting on the water for days.' },
+    { category:'weather', title:'A Warm, Sudden Rain', text:'Warm rain turns every low spot into a new pond and every dry path into a new bog.' },
+    { category:'strange', title:'A Village That Isn’t on Any Map', text:'Lights and cookfire smoke rise from stilted huts that no local guide has ever mentioned.' },
+    { category:'strange', title:'The Corpse Candles', text:'Pale lights hover low over a stretch of open bog, in exactly the pattern of a burial ground no one can find.' },
+    { category:'strange', title:'A Tree That Bleeds Sap the Color of Rust', text:'A cut into the bark weeps a slow, thick, reddish-brown sap that smells faintly of copper.' },
+    { category:'strange', title:'Frogs Chanting in Unison', text:'Every frog within earshot croaks the exact same three-note pattern, over and over, in perfect unison.' },
+    { category:'divine', title:'A Shrine Half-Sunk in the Muck', text:'A stone idol to some forgotten swamp deity, mostly submerged, still faintly warm to the touch.', hook:{type:'buff', text:'+1 Constitution', durationMs:3600000} },
+    { category:'hazard', title:'Quicksand, Well Hidden', text:'A stretch of ground that looked solid a moment ago is not solid anymore.' },
+    { category:'hazard', title:'A Cloud of Disease-Bearing Gnats', text:'A thick, biting swarm descends without warning, and more than a few bites start to itch strangely.' },
+    { category:'hazard', title:'Rotted Planking on the Only Bridge', text:'The single log bridge across this channel has been slowly rotting for a very long time.' },
+    { category:'hazard', title:'A Gas Pocket, Disturbed', text:'A misstep releases a bubble of foul, flammable swamp gas right next to an open torch.' },
+    { category:'hazard', title:'Poisoned Water, No Warning Sign', text:'The only drinkable-looking water for miles has an odd sheen that means it very much isn’t.' },
+    { category:'discovery', title:'A Sunken Barge', text:'Half-swallowed by the muck, its cargo hold still mostly sealed against the water.', hook:{type:'loot', rarity:'rare'} },
+    { category:'discovery', title:'A Witch’s Abandoned Still', text:'Bottles, herbs, and half-finished concoctions, left behind in a hurry a while ago.', hook:{type:'loot', rarity:'uncommon'} },
+    { category:'discovery', title:'A Skeleton, Still Wearing Its Gear', text:'Whoever they were, they didn’t make it out — but some of what they carried survived the bog better than they did.', hook:{type:'loot', rarity:'uncommon'} },
+  ],
+  desert: [
+    { category:'nothing', title:'Dunes, Identical', text:'Hours of climbing and descending dunes that all look exactly like the last one.' },
+    { category:'nothing', title:'A Sky Without a Cloud', text:'Flat, blinding, endless heat, and nothing else to report for the whole day.' },
+    { category:'nothing', title:'Wind-Scoured Silence', text:'The wind erases your tracks almost as fast as you make them. Otherwise, nothing.' },
+    { category:'peaceful', title:'A Nomad Caravan', text:'They share water, shade, and news freely, in the specific way people who understand the desert always do.' },
+    { category:'peaceful', title:'A Desert Fox, Curious', text:'It trails the caravan at a respectful distance for hours, clearly hoping for scraps.' },
+    { category:'hostile', title:'A Buried Ambush', text:'What looked like more sand was, in fact, several people who had been extremely patient.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'hostile', title:'A Young Blue Dragon’s Territory', text:'The scorched sand and the smell of ozone both suggest you’ve wandered somewhere you shouldn’t have.', hook:{type:'monster', crBand:[5,9]} },
+    { category:'hostile', title:'Giant Scorpions, Nesting', text:'The sand ahead is riddled with burrows, and something large just noticed you walking over its roof.', hook:{type:'monster', crBand:[1,4]} },
+    { category:'hostile', title:'A Sand Elemental, Roused', text:'A dune rises, reshapes itself, and stops looking anything like a dune.', hook:{type:'monster', crBand:[3,7]} },
+    { category:'hostile', title:'Raiders on Camelback', text:'Fast, mobile, and entirely willing to relieve you of everything you’re carrying.', hook:{type:'monster', crBand:[1,5]} },
+    { category:'weather', title:'A Sandstorm, Building Fast', text:'The horizon turns brown and starts moving. There is not much time to find shelter.' },
+    { category:'weather', title:'A Mirage, Convincing', text:'An oasis shimmers into view exactly where the map says there shouldn’t be one.' },
+    { category:'weather', title:'The Cold Desert Night', text:'The heat of the day gives way to a genuinely dangerous cold once the sun goes down.' },
+    { category:'weather', title:'Heat Haze and Dehydration', text:'The air itself seems to shimmer and swim. Water runs low faster than anyone accounted for.' },
+    { category:'strange', title:'A Buried Statue, Watching', text:'Only the head and shoulders show above the sand — an ancient carved face, worn smooth, somehow still tracking your movement.' },
+    { category:'strange', title:'Singing Sands', text:'A particular dune emits a low, resonant hum when the wind crosses it just right, like a held breath.' },
+    { category:'strange', title:'A City-Shaped Mirage', text:'For one impossible moment, spires and towers rise on the horizon exactly where the map insists there is nothing.' },
+    { category:'strange', title:'Glass Where Sand Should Be', text:'A patch of desert has been fused into smooth, black glass, in a perfect circle, for no evident reason.' },
+    { category:'divine', title:'A Sun-Priest’s Blessing', text:'A wandering priest of the sun offers a genuine blessing against the heat, free of charge, and vanishes into the shimmer.', hook:{type:'buff', text:'+1 Constitution', durationMs:3600000} },
+    { category:'hazard', title:'Quicksand Beneath a Crust of Salt', text:'A stretch of ground that looks perfectly solid is anything but, under a thin crust of dried salt.' },
+    { category:'hazard', title:'A Flash Flood in a Dry Wash', text:'Rain fell somewhere far away, and the dry riverbed you’re walking through just remembered it’s a river.' },
+    { category:'hazard', title:'A Nest of Sand Vipers', text:'Dozens of them, well camouflaged, all disturbed at once by a careless step.' },
+    { category:'hazard', title:'Collapsing Dune Face', text:'A steep dune gives way all at once underfoot, burying more than just your boots.' },
+    { category:'discovery', title:'A Half-Buried Ruin', text:'Weathered stonework from a civilization no one currently living can name pokes up through the sand.', hook:{type:'loot', rarity:'rare'} },
+    { category:'discovery', title:'A Caravan Lost to Time', text:'Sun-bleached wagon wheels and scattered cargo, decades old, still holding a few things worth digging out.', hook:{type:'loot', rarity:'uncommon'} },
+    { category:'discovery', title:'An Oasis, Genuinely Real This Time', text:'Water, shade, and a small cache someone left behind for future travelers, or forgot entirely.', hook:{type:'loot', rarity:'common'} },
+  ],
+  underground: [
+    { category:'nothing', title:'A Long, Dark Tunnel', text:'Hours of featureless stone passage, lit only by whatever you’re carrying. Nothing else down here, apparently.' },
+    { category:'nothing', title:'Dripping Water, Steady', text:'A slow, rhythmic drip echoes from somewhere unseen for the entire stretch. Nothing more comes of it.' },
+    { category:'nothing', title:'A Fork That Leads Nowhere', text:'A side passage peters out into solid rock after a hundred feet. A waste of torchlight, nothing else.' },
+    { category:'peaceful', title:'A Deep Gnome Trader', text:'She’s set up a small stall in a natural alcove, selling supplies to anyone foolish enough to be down here.' },
+    { category:'peaceful', title:'Bioluminescent Fungus', text:'A whole cavern wall glows faint blue-green — beautiful, harmless, and worth a moment’s pause.' },
+    { category:'hostile', title:'A Roper, Disguised as Stone', text:'One of the stalagmites was never a stalagmite at all.', hook:{type:'monster', crBand:[3,7]} },
+    { category:'hostile', title:'Duergar Patrol', text:'Grim, armored, and entirely unwelcoming of trespassers in their tunnels.', hook:{type:'monster', crBand:[2,6]} },
+    { category:'hostile', title:'A Nest of Carrion Crawlers', text:'The smell should have been warning enough. Now several long, paralytic-tentacled somethings are very interested.', hook:{type:'monster', crBand:[2,5]} },
+    { category:'hostile', title:'An Otyugh in the Refuse Pit', text:'Something has been living in this trash heap for a long time, and it considers the pit its territory.', hook:{type:'monster', crBand:[3,6]} },
+    { category:'hostile', title:'A Cave-In, Provoked on Purpose', text:'Something intelligent just brought part of the ceiling down between you and the way out — deliberately.', hook:{type:'monster', crBand:[2,6]} },
+    { category:'hostile', title:'A Mind Flayer’s Thrall Patrol', text:'Their eyes are wrong, their movements are synchronized, and none of them are acting entirely of their own will.', hook:{type:'monster', crBand:[4,9]} },
+    { category:'hostile', title:'Giant Spiders, Web-Warned', text:'Thick webbing across the whole passage means whatever spun it already knows you’re here.', hook:{type:'monster', crBand:[1,5]} },
+    { category:'weather', title:'A Sudden Updraft', text:'A blast of surprisingly strong air rushes through the tunnel from some unseen shaft, extinguishing more than one torch.' },
+    { category:'strange', title:"The Tunnel Remembers Footsteps That Aren't Yours", text:'Fresh mud prints, walking backward, vanish at the next bend for no traceable reason.' },
+    { category:'strange', title:'Echoes That Arrive Early', text:'A shout comes back to you a half-second before you actually make it.' },
+    { category:'strange', title:'A Door With No Room Behind It', text:'A perfectly ordinary stone door, carefully carved, opens onto solid rock.' },
+    { category:'strange', title:'Runes That Rearrange Themselves', text:'A wall of ancient script is subtly different every time you look away and back.' },
+    { category:'strange', title:'A Cold Spot With No Draft', text:'One specific patch of tunnel is freezing, still, silent, and utterly windless.' },
+    { category:'divine', title:'A Buried Shrine, Older Than the Tunnels', text:'Whoever carved these tunnels built around this shrine rather than through it, and it still hums faintly with old power.', hook:{type:'buff', text:'+1 Wisdom', durationMs:3600000} },
+    { category:'hazard', title:'A Pressure Plate, Poorly Hidden', text:'Old dust has settled unevenly over a section of floor in a way that suggests something underneath it.' },
+    { category:'hazard', title:'Unstable Ceiling', text:'A long crack runs the length of the passage overhead, and it’s clearly gotten worse recently.' },
+    { category:'hazard', title:'A Pit Trap, Freshly Reset', text:'Someone — or something — has recently rearmed a very old trap.' },
+    { category:'hazard', title:'Poison Gas Vents', text:'A faint hiss and a chemical smell come from a crack in the wall, right at head height.' },
+    { category:'hazard', title:'A Flooded Passage', text:'The only way forward is chest-deep, ice-cold water of unknown depth and unknown contents.' },
+    { category:'discovery', title:'A Forgotten Vault Door', text:'Sealed, ancient, and — remarkably — still unopened by anyone else who’s passed this way.', hook:{type:'loot', rarity:'superrare'} },
+    { category:'discovery', title:'A Dead Adventurer’s Cache', text:'Someone didn’t make it out of these tunnels, but they were smart enough to stash supplies along the way.', hook:{type:'loot', rarity:'rare'} },
+    { category:'discovery', title:'A Vein of Gemstones', text:'A wall catches the torchlight in a way bare rock shouldn’t.', hook:{type:'loot', rarity:'uncommon'} },
+  ],
+};
+
+let journeySetting = 'countryside';
+let journeyLog = [];
+let journeyLogCounter = 0;
+let journeyRecentTitles = [];
+
+function journeyPickCategory(settingKey) {
+  const def = journeySettingDef(settingKey);
+  return weightedPickFromObject((def && def.weights) || {});
+}
+function journeyRoll() {
+  const category = journeyPickCategory(journeySetting);
+  const pool = (JOURNEY_SCENARIOS[journeySetting] || []).filter(s => s.category === category);
+  if (!pool.length) return null;
+  const notRecent = pool.filter(s => !journeyRecentTitles.includes(s.title));
+  const scenario = ri(notRecent.length ? notRecent : pool);
+  journeyRecentTitles.push(scenario.title);
+  if (journeyRecentTitles.length > 12) journeyRecentTitles.shift();
+  return { scenario, category };
+}
+function selectJourneySetting(key) {
+  journeySetting = key;
+  renderJourneyTab();
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function flashJourneyMessage(msg, isError) {
+  const el = document.getElementById('journeyMsg');
+  if (!el) return;
+  el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+  el.style.color = isError ? 'var(--danger)' : '';
+  el.classList.add('show');
+  clearTimeout(window._journeyMsgTimer);
+  window._journeyMsgTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+function rollJourneyEncounter() {
+  const result = journeyRoll();
+  if (!result) { flashJourneyMessage('No scenarios defined for that setting yet.', true); return; }
+  const { scenario, category } = result;
+  journeyLog.unshift({
+    id: 'journey' + (++journeyLogCounter), settingKey: journeySetting, category,
+    title: scenario.title, text: scenario.text, hook: scenario.hook || null, hookApplied: false, at: Date.now(),
+  });
+  if (journeyLog.length > 60) journeyLog.length = 60;
+  renderJourneyTab();
+  playJourneyOverlay(category);
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function clearJourneyLog() {
+  journeyLog = [];
+  renderJourneyTab();
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+// Each hook type reuses an existing, already-battle-tested system rather than inventing a new
+// one: monster targeting mirrors pickBountyTargetMonster's CR-band filtering, loot reuses the
+// exact pickItem/resolveScrollSpell/placeItemIntoInventory chain the Store already uses, and
+// buffs reuse startTimedEffect (the same countdown system potions already use) — a divine
+// blessing rolled here shows up in Active Effects on the Inventory tab exactly like a potion
+// would, countdown and all.
+function applyJourneyHook(logId) {
+  const entry = journeyLog.find(e => e.id === logId);
+  if (!entry || !entry.hook || entry.hookApplied) return;
+  const hook = entry.hook;
+  if (hook.type === 'monster') {
+    if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) { flashJourneyMessage('Monster database still loading — try again in a moment.', true); return; }
+    const [lo, hi] = hook.crBand;
+    const pool = monsterDatabase.filter(m => { const cr = crSortValue(m.cr); return cr >= lo && cr <= hi; });
+    const monster = ri(pool.length ? pool : monsterDatabase);
+    try {
+      battleRoster.push(monster.frozenEntry ? buildFrozenBattleEntry(monster) : buildBattleEntry(monster));
+      renderCombatRoster();
+      entry.hookApplied = true;
+      flashJourneyMessage(`${monster.name} added to the Combat tab.`);
+    } catch (err) {
+      flashJourneyMessage(`Couldn't add a creature — ${err.message || 'something went wrong'}.`, true);
+      return;
+    }
+  } else if (hook.type === 'loot') {
+    const raw = pickItem(hook.rarity);
+    const item = resolveScrollSpell(raw);
+    const { placed } = placeItemIntoInventory(item);
+    entry.hookApplied = true;
+    flashJourneyMessage(placed ? `${item.name} added to your inventory.` : `${item.name} — inventory full, waiting in the Token Library.`);
+  } else if (hook.type === 'buff' || hook.type === 'debuff') {
+    startTimedEffect({ name: entry.title }, 'journey:' + entry.id, hook.type === 'buff' ? 'rare' : 'uncommon', hook.text, hook.durationMs || 3600000);
+    entry.hookApplied = true;
+    if (typeof renderActiveEffects === 'function') renderActiveEffects();
+    flashJourneyMessage(`${hook.type === 'buff' ? 'Blessing' : 'Effect'} applied — see Active Effects on the Inventory tab.`);
+  }
+  renderJourneyTab();
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function journeyHookLabel(hook) {
+  if (hook.type === 'monster') return '⚔ Send to Combat';
+  if (hook.type === 'loot') return '🎒 Roll Loot';
+  if (hook.type === 'buff') return '✨ Apply Blessing';
+  if (hook.type === 'debuff') return '💀 Apply Effect';
+  return 'Apply';
+}
+function journeyLogEntryHtml(entry) {
+  const cat = JOURNEY_CATEGORY_DEFS[entry.category] || {};
+  const settingDef = journeySettingDef(entry.settingKey);
+  const hookBtn = !entry.hook ? '' : entry.hookApplied
+    ? `<span class="journey-hook-done">✓ Applied</span>`
+    : `<button class="ic-action-btn" onclick="applyJourneyHook('${entry.id}')">${journeyHookLabel(entry.hook)}</button>`;
+  return `
+    <div class="journey-log-entry">
+      <div class="journey-log-head">
+        <span class="journey-cat-badge" style="border-color:${cat.color};color:${cat.color};background:${cat.color}22;">${escapeHtml(cat.label || entry.category)}</span>
+        <span class="journey-log-setting">${settingDef ? settingDef.icon : ''} ${settingDef ? escapeHtml(settingDef.label) : ''}</span>
+      </div>
+      <div class="journey-log-title">${escapeHtml(entry.title)}</div>
+      <div class="journey-log-text">${escapeHtml(entry.text)}</div>
+      ${hookBtn}
+    </div>
+  `;
+}
+function renderJourneyTab() {
+  const pickerEl = document.getElementById('journeySettingPicker');
+  if (pickerEl) {
+    pickerEl.innerHTML = JOURNEY_SETTINGS.map(s => `
+      <button class="journey-setting-card${s.key === journeySetting ? ' active' : ''}" onclick="selectJourneySetting('${s.key}')">
+        <div class="journey-setting-icon">${journeyBackdropSvg(s.key, false)}</div>
+        <div class="journey-setting-label">${s.icon} ${escapeHtml(s.label)}</div>
+      </button>
+    `).join('');
+  }
+  const stageEl = document.getElementById('journeyStage');
+  if (stageEl && stageEl.dataset.builtFor !== journeySetting) {
+    stageEl.dataset.builtFor = journeySetting;
+    stageEl.className = 'journey-stage';
+    stageEl.innerHTML = journeyBackdropSvg(journeySetting, true) + '<div class="journey-overlay-layer" id="journeyOverlayLayer"></div>';
+  }
+  const logEl = document.getElementById('journeyLogList');
+  if (logEl) logEl.innerHTML = journeyLog.length ? journeyLog.map(journeyLogEntryHtml).join('') : '<div class="empty-results">No rolls yet — click "See What Happens" above.</div>';
+  renderJourneyWeights();
+}
+// One slider per category for the CURRENTLY SELECTED setting only — each setting keeps its
+// own weight table (see JOURNEY_SETTINGS), same reasoning as combatLootSettings being per
+// monster-rarity-tier rather than one global slider set.
+function renderJourneyWeights() {
+  const grid = document.getElementById('journeyWeightsGrid');
+  if (!grid) return;
+  const def = journeySettingDef(journeySetting);
+  if (!def) { grid.innerHTML = ''; return; }
+  grid.innerHTML = Object.keys(JOURNEY_CATEGORY_DEFS).map(cat => {
+    const label = JOURNEY_CATEGORY_DEFS[cat].label;
+    const val = def.weights[cat] || 0;
+    return `<div class="cls-field-row">
+      <label style="min-width:150px;">${escapeHtml(label)}</label>
+      <input type="range" min="0" max="40" value="${val}" oninput="updateJourneyWeight('${cat}', this.value)">
+      <span id="journeyWeightVal-${cat}" style="min-width:2ch;display:inline-block;">${val}</span>
+    </div>`;
+  }).join('');
+}
+function updateJourneyWeight(category, value) {
+  const def = journeySettingDef(journeySetting);
+  if (!def) return;
+  def.weights[category] = parseInt(value, 10) || 0;
+  const label = document.getElementById('journeyWeightVal-' + category);
+  if (label) label.textContent = def.weights[category];
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+function playJourneyOverlay(category) {
+  const layer = document.getElementById('journeyOverlayLayer');
+  const stage = document.getElementById('journeyStage');
+  if (!layer || !stage) return;
+  const overlay = (JOURNEY_CATEGORY_DEFS[category] || {}).overlay || 'calm';
+  layer.innerHTML = journeyOverlaySvg(overlay);
+  stage.classList.remove('journey-flash');
+  void stage.offsetWidth; // restart the flash animation even if the same category rolls twice in a row
+  stage.style.setProperty('--journey-flash-color', (JOURNEY_CATEGORY_DEFS[category] || {}).color || '#a0a8b0');
+  stage.classList.add('journey-flash');
+}
+
+// ---------- Journey pixel-art scenes ----------
+// Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
+// animation on wrapper classes, see .battle-stage/.pixel-char) — just scene-scale (1-3 animated
+// focal elements) rather than character-scale. One backdrop per setting, reused across every
+// roll in that setting; one small overlay glyph per category, reused across every scenario in
+// that category — see the JOURNEY ENCOUNTERS section header comment for why per-scenario
+// animations (180 of them) aren't the right call here.
+function journeyBackdropSvg(settingKey, animated) {
+  const cls = animated ? '' : ' journey-thumb';
+  if (settingKey === 'countryside') return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#7ec8e3"/>
+      <rect class="journey-anim-cloud" x="6" y="5" width="8" height="3" fill="#fff" opacity="0.85"/>
+      <rect class="journey-anim-cloud" x="34" y="9" width="10" height="3" fill="#fff" opacity="0.7" style="animation-delay:-4s"/>
+      <rect x="0" y="24" width="64" height="16" fill="#6a9a4a"/>
+      <rect x="0" y="22" width="64" height="3" fill="#7fb75a"/>
+      <rect x="0" y="34" width="64" height="6" fill="#c9a86a"/>
+      <g class="journey-anim-windmill" style="transform-origin:46px 20px;">
+        <rect x="45" y="12" width="2" height="14" fill="#8a6a4a"/>
+        <rect x="45" y="18" width="2" height="4" fill="#3a2a18"/>
+        <rect x="44" y="14" width="1" height="4" fill="#e8dcc8"/>
+        <rect x="47" y="14" width="1" height="4" fill="#e8dcc8"/>
+        <rect x="43" y="19" width="1" height="1" fill="#e8dcc8"/>
+        <rect x="48" y="19" width="1" height="1" fill="#e8dcc8"/>
+      </g>
+      <rect x="8" y="30" width="6" height="6" fill="#a05a3a"/>
+      <rect x="8" y="27" width="6" height="3" fill="#7a3a2a"/>
+    </svg>`;
+  if (settingKey === 'forest') return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#1c2e1a"/>
+      <rect x="0" y="18" width="64" height="22" fill="#2a4a24"/>
+      <rect x="4" y="10" width="16" height="12" fill="#234a20"/>
+      <rect x="20" y="6" width="20" height="16" fill="#2a5a26"/>
+      <rect x="38" y="9" width="20" height="13" fill="#204418"/>
+      <rect x="10" y="22" width="3" height="14" fill="#3a2a18"/>
+      <rect x="30" y="22" width="3" height="16" fill="#3a2a18"/>
+      <rect x="50" y="22" width="3" height="14" fill="#3a2a18"/>
+      <rect class="journey-anim-firefly" x="16" y="20" width="1" height="1" fill="#e8d96a"/>
+      <rect class="journey-anim-firefly" x="34" y="16" width="1" height="1" fill="#e8d96a" style="animation-delay:-1.1s"/>
+      <rect class="journey-anim-firefly" x="45" y="24" width="1" height="1" fill="#e8d96a" style="animation-delay:-2.3s"/>
+      <rect class="journey-anim-firefly" x="24" y="27" width="1" height="1" fill="#e8d96a" style="animation-delay:-0.6s"/>
+    </svg>`;
+  if (settingKey === 'mountains') return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#a9c8d8"/>
+      <rect class="journey-anim-cloud" x="4" y="6" width="10" height="2" fill="#fff" opacity="0.8" style="animation-duration:14s"/>
+      <rect class="journey-anim-cloud" x="40" y="4" width="8" height="2" fill="#fff" opacity="0.7" style="animation-duration:16s;animation-delay:-5s"/>
+      <polygon points="0,36 14,10 28,36" fill="#8a97a6"/>
+      <polygon points="10,10 14,10 18,17 10,17" fill="#f4f8fb"/>
+      <polygon points="20,36 36,4 52,36" fill="#707d8c"/>
+      <polygon points="30,4 36,4 41,14 27,14" fill="#f4f8fb"/>
+      <polygon points="42,36 54,16 64,36" fill="#8a97a6"/>
+      <polygon points="49,16 54,16 58,23 47,23" fill="#f4f8fb"/>
+      <rect x="0" y="35" width="64" height="5" fill="#c7d3da"/>
+    </svg>`;
+  if (settingKey === 'swamp') return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#3a4a3a"/>
+      <rect x="0" y="22" width="64" height="18" fill="#2a3a30"/>
+      <polygon points="10,22 14,4 18,22" fill="#233428"/>
+      <polygon points="30,22 34,2 38,22" fill="#1e2e24"/>
+      <polygon points="48,22 52,6 56,22" fill="#233428"/>
+      <rect class="journey-anim-fog" x="-10" y="20" width="40" height="4" fill="#c9d6c9" opacity="0.25"/>
+      <rect class="journey-anim-fog" x="34" y="24" width="40" height="3" fill="#c9d6c9" opacity="0.2" style="animation-delay:-6s;animation-direction:reverse"/>
+      <circle class="journey-anim-bubble" cx="20" cy="34" r="1" fill="#7a9a7a"/>
+      <circle class="journey-anim-bubble" cx="40" cy="32" r="1" fill="#7a9a7a" style="animation-delay:-1.4s"/>
+      <circle class="journey-anim-bubble" cx="52" cy="35" r="1" fill="#7a9a7a" style="animation-delay:-2.7s"/>
+    </svg>`;
+  if (settingKey === 'desert') return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#f0c987"/>
+      <circle class="journey-anim-sun" cx="50" cy="10" r="5" fill="#ffd25a"/>
+      <polygon points="0,40 0,26 20,20 40,28 64,22 64,40" fill="#e0ab5f"/>
+      <polygon points="0,40 0,32 24,30 48,36 64,32 64,40" fill="#c98f47"/>
+      <rect class="journey-anim-shimmer" x="0" y="18" width="64" height="6" fill="#fff" opacity="0.08"/>
+    </svg>`;
+  // underground
+  return `
+    <svg class="journey-scene${cls}" viewBox="0 0 64 40" preserveAspectRatio="xMidYMid slice">
+      <rect width="64" height="40" fill="#0e0d10"/>
+      <polygon points="0,0 10,0 4,14 0,10" fill="#2a2830"/>
+      <polygon points="22,0 30,0 27,10 24,10" fill="#2a2830"/>
+      <polygon points="46,0 56,0 50,16 46,9" fill="#221f26"/>
+      <polygon points="0,40 12,40 6,28 0,32" fill="#2a2830"/>
+      <polygon points="40,40 52,40 47,26 41,30" fill="#221f26"/>
+      <rect x="12" y="16" width="2" height="10" fill="#4a3826"/>
+      <circle class="journey-anim-torch-flame" cx="13" cy="14" r="2" fill="#ff9f43"/>
+      <rect x="50" y="18" width="2" height="10" fill="#4a3826"/>
+      <circle class="journey-anim-torch-flame" cx="51" cy="16" r="2" fill="#ff9f43" style="animation-delay:-0.4s"/>
+    </svg>`;
+}
+// Small icon-scale glyph shown briefly over the stage after a roll — see playJourneyOverlay.
+function journeyOverlaySvg(overlayKey) {
+  if (overlayKey === 'combat') return `
+    <svg class="journey-overlay-svg journey-anim-shake" viewBox="0 0 24 24">
+      <rect x="3" y="16" width="2" height="2" fill="#a0a8b0"/><rect x="5" y="14" width="2" height="2" fill="#a0a8b0"/>
+      <rect x="7" y="12" width="2" height="2" fill="#a0a8b0"/><rect x="9" y="10" width="2" height="2" fill="#e8dcc8"/>
+      <rect x="11" y="8" width="2" height="2" fill="#c9a84c"/>
+      <rect x="19" y="16" width="2" height="2" fill="#a0a8b0"/><rect x="17" y="14" width="2" height="2" fill="#a0a8b0"/>
+      <rect x="15" y="12" width="2" height="2" fill="#a0a8b0"/><rect x="13" y="10" width="2" height="2" fill="#e8dcc8"/>
+    </svg>`;
+  if (overlayKey === 'social') return `
+    <svg class="journey-overlay-svg journey-anim-bob" viewBox="0 0 24 24">
+      <rect x="4" y="6" width="16" height="10" fill="#e8dcc8"/><rect x="6" y="16" width="3" height="3" fill="#e8dcc8"/>
+      <rect x="7" y="9" width="2" height="2" fill="#e05252"/><rect x="11" y="9" width="2" height="2" fill="#e05252"/>
+      <rect x="15" y="9" width="2" height="2" fill="#e05252"/>
+    </svg>`;
+  if (overlayKey === 'weather') return `
+    <svg class="journey-overlay-svg" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="16" height="6" fill="#c7d3da"/>
+      <rect class="journey-anim-rain" x="6" y="11" width="2" height="4" fill="#5b9cf6"/>
+      <rect class="journey-anim-rain" x="11" y="11" width="2" height="4" fill="#5b9cf6" style="animation-delay:-0.3s"/>
+      <rect class="journey-anim-rain" x="16" y="11" width="2" height="4" fill="#5b9cf6" style="animation-delay:-0.6s"/>
+    </svg>`;
+  if (overlayKey === 'strange') return `
+    <svg class="journey-overlay-svg journey-anim-pulse" viewBox="0 0 24 24">
+      <rect x="6" y="10" width="12" height="4" fill="#c47cf5"/>
+      <rect x="10" y="8" width="4" height="2" fill="#c47cf5"/><rect x="10" y="14" width="4" height="2" fill="#c47cf5"/>
+      <rect x="11" y="11" width="2" height="2" fill="#1a1015"/>
+    </svg>`;
+  if (overlayKey === 'divine') return `
+    <svg class="journey-overlay-svg journey-anim-pulse" viewBox="0 0 24 24">
+      <rect x="11" y="3" width="2" height="4" fill="#ffd25a"/><rect x="11" y="17" width="2" height="4" fill="#ffd25a"/>
+      <rect x="3" y="11" width="4" height="2" fill="#ffd25a"/><rect x="17" y="11" width="4" height="2" fill="#ffd25a"/>
+      <rect x="9" y="9" width="6" height="6" fill="#ff9f43"/>
+    </svg>`;
+  if (overlayKey === 'hazard') return `
+    <svg class="journey-overlay-svg journey-anim-flicker" viewBox="0 0 24 24">
+      <polygon points="12,4 21,19 3,19" fill="#e0a52e"/>
+      <rect x="11" y="10" width="2" height="5" fill="#1a1015"/><rect x="11" y="16" width="2" height="2" fill="#1a1015"/>
+    </svg>`;
+  if (overlayKey === 'discovery') return `
+    <svg class="journey-overlay-svg journey-anim-twinkle" viewBox="0 0 24 24">
+      <rect x="10" y="4" width="2" height="4" fill="#7de7ff"/><rect x="10" y="16" width="2" height="4" fill="#7de7ff"/>
+      <rect x="4" y="10" width="4" height="2" fill="#7de7ff"/><rect x="16" y="10" width="4" height="2" fill="#7de7ff"/>
+      <rect x="9" y="9" width="4" height="4" fill="#fff"/>
+    </svg>`;
+  // calm / uneventful
+  return `
+    <svg class="journey-overlay-svg journey-anim-cloud-drift" viewBox="0 0 24 24">
+      <rect x="4" y="10" width="10" height="3" fill="#fff" opacity="0.85"/>
+      <rect x="7" y="8" width="6" height="2" fill="#fff" opacity="0.85"/>
+    </svg>`;
+}
+
 // ===================== MONSTER MANGLER =====================
 // A workbench, not a shop: drag a monster part into one slot and a weapon or armor piece
 // into the other, and combining works the part's latent modifier (see generateMonsterPart())
@@ -16879,6 +17519,11 @@ function saveAppState() {
       characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies,
       characterCurrentHp, characterMaxHp, characterMaxHpEffective, characterHitDice, characterAc, characterClass,
       appliedLootClaimIds,
+      // journeySettingWeights is derived from JOURNEY_SETTINGS (which updateJourneyWeight
+      // mutates directly, same pattern as combatLootSettings) rather than a separately
+      // tracked override object — reconstructed the same way on load, below.
+      journeySetting, journeyLog, journeyLogCounter,
+      journeySettingWeights: Object.fromEntries(JOURNEY_SETTINGS.map(s => [s.key, s.weights])),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
@@ -16955,6 +17600,12 @@ function applyStateBlob(data) {
   if (typeof data.characterAc === 'number') characterAc = data.characterAc;
   if (data.characterClass !== undefined) characterClass = data.characterClass;
   if (data.appliedLootClaimIds) appliedLootClaimIds = data.appliedLootClaimIds;
+  if (data.journeySetting) journeySetting = data.journeySetting;
+  if (Array.isArray(data.journeyLog)) journeyLog = data.journeyLog;
+  if (typeof data.journeyLogCounter === 'number') journeyLogCounter = data.journeyLogCounter;
+  if (data.journeySettingWeights) {
+    JOURNEY_SETTINGS.forEach(s => { if (data.journeySettingWeights[s.key]) s.weights = data.journeySettingWeights[s.key]; });
+  }
 }
 function loadAppState() {
   let data = null;
@@ -17014,6 +17665,9 @@ window.resetMainAppStateToBlank = function () {
   battlefieldLog = [];
   viewedPlayerUid = null;
   viewedPlayerState = null;
+  journeySetting = 'countryside';
+  journeyLog = [];
+  journeyLogCounter = 0;
   refreshAllViewsAfterStateApply();
   if (typeof saveAppState === 'function') saveAppState();
 };
