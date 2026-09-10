@@ -10,65 +10,74 @@
 
 // Reworked from the original 18-riddle library, which was almost entirely the same rigid
 // "I [verb clause]... What am I?" template — genuinely monotonous, and a few had answers that
-// weren't fairly inferable from their own clues. Replaced with four difficulty tiers and
-// deliberately mixed formats: rhyming couplets, sphinx/NPC-framed questions, narrative-framed
-// riddles, straight wordplay, and classic "I am" riddles mixed in rather than used exclusively.
+// weren't fairly inferable from their own clues. Replaced with four difficulty tiers and mixed
+// formats (rhyming couplets, straight wordplay, classic "I am" riddles).
+//
+// A later pass ("A sphinx blocks your path and asks: ...", "A cartographer's riddle, scrawled
+// in the margin of an old map: ...") wrapped many of these in narrator/NPC scene-setting around
+// the actual question, plus redundant trailing tags ("What is the answer?" after a riddle that
+// already ends in its own question). Stripped back out here so `q` holds only the riddle itself
+// — a few (e.g. "Three sisters live in the same house...") were left untouched since the
+// scenario itself IS the riddle, not a wrapper around one, and a couple of now-orphaned pronouns
+// ("What is she talking about?" with "she" removed) were tightened to stay self-contained. This
+// is about riddle content specifically — read-aloud "prompt" text on every OTHER puzzle category
+// below is a different field for a different purpose and is untouched.
 const RIDDLE_LIBRARY = [
   // ---- EASY ----
   { q: 'What has a bank but no money, and a mouth but never speaks?', a: 'A river', tier: 'easy' },
   { q: 'What has to be broken before you can ever use it?', a: 'An egg', tier: 'easy' },
-  { q: 'A sphinx blocks your path and asks: "What grows taller the more you cut it down?" What is the answer?', a: 'Grass', tier: 'easy' },
+  { q: 'What grows taller the more you cut it down?', a: 'Grass', tier: 'easy' },
   { q: 'What has one eye but cannot see a single thing?', a: 'A needle', tier: 'easy' },
   { q: 'Light as a feather, yet the strongest warrior alive cannot hold me for more than a few minutes. What am I?', a: 'Your breath', tier: 'easy' },
-  { q: 'An old woman warns a traveler: "Never trust a thing with four legs and a face, but no head." What is she talking about?', a: 'A bed', tier: 'easy' },
+  { q: 'Never trust a thing with four legs and a face, but no head. What is it?', a: 'A bed', tier: 'easy' },
   { q: 'What kind of band never plays a single note of music?', a: 'A rubber band', tier: 'easy' },
   { q: 'The more you take from me, the bigger I get. What am I?', a: 'A hole', tier: 'easy' },
   { q: 'I have cities but no houses, forests but no trees, and rivers but not a drop of water. What am I?', a: 'A map', tier: 'easy' },
   { q: 'Steady I glow, by day and by night, unless a cloud should block my light. What am I?', a: 'The sun', tier: 'easy' },
-  { q: 'A merchant offers this riddle for a discount: "What can you catch, but never once throw?" What do you say?', a: 'A cold', tier: 'easy' },
+  { q: 'What can you catch, but never once throw?', a: 'A cold', tier: 'easy' },
   { q: 'What runs all around a farmyard, yet never once moves from its spot?', a: 'A fence', tier: 'easy' },
   { q: 'I follow you all day long, vanish the moment the sun goes down, and I am never quite the same shape twice. What am I?', a: 'Your shadow', tier: 'easy' },
   { q: 'What can you hold in your left hand but never in your right?', a: 'Your right hand', tier: 'easy' },
   { q: 'I get wetter and wetter the more I try to dry things off. What am I?', a: 'A towel', tier: 'easy' },
   // ---- MEDIUM ----
-  { q: 'Two travelers approach a fork in the road. One says: "Take the path with no beginning and no end, and you will always arrive." What kind of path is she describing?', a: 'A circle (a loop road)', tier: 'medium' },
+  { q: 'Take the path with no beginning and no end, and you will always arrive. What kind of path is this?', a: 'A circle (a loop road)', tier: 'medium' },
   { q: 'Silver I am beneath a full moon, gold beneath the sun, yet touch me and you will find I am neither metal at all. What am I?', a: 'Light (moonlight/sunlight)', tier: 'medium' },
-  { q: 'The innkeeper leans in and asks: "I am a word that sounds exactly the same as my own first letter, no matter how many of my other letters you drop. What word am I?" What is the word?', a: 'Queue (it\'s pronounced identically to the letter Q)', tier: 'medium' },
+  { q: 'I am a word that sounds exactly the same as my own first letter, no matter how many of my other letters you drop. What word am I?', a: 'Queue (it\'s pronounced identically to the letter Q)', tier: 'medium' },
   { q: 'I have a heart that does not beat, a spine that cannot bend, and pages full of thoughts that are not my own. What am I?', a: 'A book', tier: 'medium' },
   { q: 'What can travel all the way around the world while staying tucked in a single corner the entire time?', a: 'A postage stamp', tier: 'medium' },
-  { q: 'The dying king whispers to his heir: "I have no voice, yet I command every soul in this castle to rise or rest. Find me, and you find the true throne." What is he describing?', a: 'A bell (the castle bell that signals the hours)', tier: 'medium' },
+  { q: 'I have no voice, yet I command every soul in this castle to rise or rest. Find me, and you find the true throne. What am I?', a: 'A bell (the castle bell that signals the hours)', tier: 'medium' },
   { q: 'Cut me and I do not bleed. Cook me and I only grow. Ignore me, and I will eventually vanish on my own. What am I?', a: 'Bread dough (or bread)', tier: 'medium' },
   { q: 'What belongs to you, yet everyone else uses it far more often than you ever will?', a: 'Your name', tier: 'medium' },
   { q: 'I am not alive, yet I can grow. I have no lungs, yet I need air. I have no mouth, yet water kills me. What am I?', a: 'Fire', tier: 'medium' },
-  { q: 'A cartographer\'s riddle, scrawled in the margin of an old map: "Forward I am heavy, backward I am not. What am I?"', a: 'The word "TON" (backward, "NOT")', tier: 'medium' },
+  { q: 'Forward I am heavy, backward I am not. What am I?', a: 'The word "TON" (backward, "NOT")', tier: 'medium' },
   { q: 'What is so fragile that simply saying its name out loud can break it?', a: 'Silence', tier: 'medium' },
   { q: 'I have branches, but no leaves, no trunk, and no roots at all. What am I?', a: 'A bank (as in a bank branch)', tier: 'medium' },
-  { q: 'A jailer offers a prisoner this bargain: "Name the thing that is always coming but never actually arrives, and I will let you go." What should the prisoner say?', a: 'Tomorrow', tier: 'medium' },
+  { q: 'Name the thing that is always coming but never actually arrives. What is it?', a: 'Tomorrow', tier: 'medium' },
   { q: 'What has many keys but cannot open a single lock?', a: 'A piano', tier: 'medium' },
   // ---- HARD ----
   { q: 'I am taken from a mine and shut up in a wooden case, from which I am never released, and yet I am used by almost everyone. What am I?', a: 'Pencil lead (graphite)', tier: 'hard' },
-  { q: 'A dying sorcerer leaves behind a final riddle for his apprentice: "The more of me there is, the less you can see. I have no substance, yet I can fill an entire tower. What am I, and where would you look for me first?" What does she answer, and where does she search?', a: 'Darkness — she should search the tower\'s lowest, most enclosed room, where light never reaches', tier: 'hard' },
+  { q: 'The more of me there is, the less you can see. I have no substance, yet I can fill an entire tower. What am I, and where would you look for me first?', a: 'Darkness — search the tower\'s lowest, most enclosed room, where light never reaches', tier: 'hard' },
   { q: 'Three sisters live in the same house, yet none of them has ever seen the other two, though they pass by each other constantly. Who are they?', a: 'Day, evening, and night (or similar: the parts of a day)', tier: 'hard' },
   { q: 'I am always hungry and must always be fed, but whatever I touch soon turns red, then black, then nothing at all. What am I?', a: 'Fire', tier: 'hard' },
-  { q: 'A locked door bears this inscription: "Speak my name, and I disappear. What am I?" What single word opens the door?', a: 'Silence', tier: 'hard' },
+  { q: 'Speak my name, and I disappear. What am I?', a: 'Silence', tier: 'hard' },
   { q: 'What can run but never walks, has a mouth but never talks, has a bed but never sleeps, and has a head but never weeps?', a: 'A river', tier: 'hard' },
-  { q: 'An old riddle carved above a scholar\'s door: "I go up, but I never come back down on my own. I have no body, yet a fire is where I\'m born. What am I?"', a: 'Smoke', tier: 'hard' },
+  { q: 'I go up, but I never come back down on my own. I have no body, yet a fire is where I\'m born. What am I?', a: 'Smoke', tier: 'hard' },
   { q: 'What building has the most stories, yet none of them are ever written down?', a: 'A library (a building full of "stories" as a pun on floors/books)', tier: 'hard' },
   { q: 'I am not a season, yet I can be spring, summer, autumn, or winter all within a single hour. What am I?', a: 'The weather', tier: 'hard' },
-  { q: 'A retired assassin tells you: "I have killed thousands without ever lifting a blade, and I am welcomed into every home in the realm each night." What is he?', a: 'Sleep (or: a clock/time)', tier: 'hard' },
+  { q: 'I have killed thousands without ever lifting a blade, and I am welcomed into every home in the realm each night. What am I?', a: 'Sleep (or: a clock/time)', tier: 'hard' },
   { q: 'What can be given, but never actually bought, and once broken, is nearly impossible to fully repair?', a: 'Trust', tier: 'hard' },
   { q: 'I have no beginning and no end, yet I contain every edge, every corner, and every point in between. What am I?', a: 'A circle', tier: 'hard' },
   // ---- LEGENDARY ----
-  { q: 'The lich pauses mid-incantation and offers you a final bargain: "Name the only thing that grows larger the more it is shared, yet costs the giver nothing at all to give away." Answer correctly, and it will not attack. What do you say?', a: 'Knowledge (deliberately open-ended — this is one of the rare riddles here with more than one fair answer; kindness, love, and happiness all satisfy the same logic. Reward any answer the player can genuinely justify.)', tier: 'legendary' },
-  { q: 'A celestial guardian tests your worth with this: "I am the only thief who can steal your entire life without you noticing a single theft, one moment at a time." What — or who — am I?', a: 'Time', tier: 'legendary' },
-  { q: 'Deep in the archives, a riddle is bound in iron: "I am told a thousand different ways by a thousand different mouths, and no two tellings are ever quite the same, yet I am still called by one single name. What am I?"', a: 'A legend (or: a myth/story)', tier: 'legendary' },
-  { q: 'An ancient oracle speaks in a language that shifts as she talks: "Kill me and you gain nothing. Feed me and I will consume you both. Ignore me, and I fade to nothing on my own. What am I, three times over?"', a: 'A grudge (or: a feud/hatred — the "three times" hints that the same answer must fit "kill," "feed," and "ignore")', tier: 'legendary' },
-  { q: 'The final guardian of the vault asks: "I have no body, yet I grow. I have no lungs, yet I am killed by truth. Kings fear me more than any blade. What am I?"', a: 'A lie (or: a rumor)', tier: 'legendary' },
-  { q: 'A riddle etched into the throne of a fallen empire: "I crowned a thousand kings and buried just as many. Armies have marched in my name, yet I have never once lifted a blade myself." What am I?', a: 'War', tier: 'legendary' },
-  { q: 'The dragon coils tighter and asks: "What can you give away completely, and still keep every last piece of it for yourself?" Answer wisely.', a: 'A promise (your word — giving it away means honoring it, not losing it)', tier: 'legendary' },
-  { q: 'A spectral judge intones: "I am heavier than the mountain the moment you try to set me down, yet weightless the instant you choose to carry me freely. What am I?"', a: 'A burden (or a duty/responsibility — the riddle is about willingness, not literal weight)', tier: 'legendary' },
-  { q: 'The final test before the throne of the forgotten god: "Name the one thing every mortal is certain to lose, that no army, no spell, and no amount of gold has ever once been able to buy back." What is it?', a: 'Youth', tier: 'legendary' },
-  { q: 'A riddle whispered by the wind itself, high atop the world\'s tallest peak: "I touch every single thing that has ever existed, yet I myself can never be touched, held, or truly seen. I have no mouth, and yet I am the reason anything can be heard at all." What am I?', a: 'Air (the wind itself)', tier: 'legendary' }
+  { q: 'Name the only thing that grows larger the more it is shared, yet costs the giver nothing at all to give away. What is it?', a: 'Knowledge (deliberately open-ended — this is one of the rare riddles here with more than one fair answer; kindness, love, and happiness all satisfy the same logic. Reward any answer the player can genuinely justify.)', tier: 'legendary' },
+  { q: 'I am the only thief who can steal your entire life without you noticing a single theft, one moment at a time. What — or who — am I?', a: 'Time', tier: 'legendary' },
+  { q: 'I am told a thousand different ways by a thousand different mouths, and no two tellings are ever quite the same, yet I am still called by one single name. What am I?', a: 'A legend (or: a myth/story)', tier: 'legendary' },
+  { q: 'Kill me and you gain nothing. Feed me and I will consume you both. Ignore me, and I fade to nothing on my own. What am I, three times over?', a: 'A grudge (or: a feud/hatred — the "three times" hints that the same answer must fit "kill," "feed," and "ignore")', tier: 'legendary' },
+  { q: 'I have no body, yet I grow. I have no lungs, yet I am killed by truth. Kings fear me more than any blade. What am I?', a: 'A lie (or: a rumor)', tier: 'legendary' },
+  { q: 'I crowned a thousand kings and buried just as many. Armies have marched in my name, yet I have never once lifted a blade myself. What am I?', a: 'War', tier: 'legendary' },
+  { q: 'What can you give away completely, and still keep every last piece of it for yourself?', a: 'A promise (your word — giving it away means honoring it, not losing it)', tier: 'legendary' },
+  { q: 'I am heavier than the mountain the moment you try to set me down, yet weightless the instant you choose to carry me freely. What am I?', a: 'A burden (or a duty/responsibility — the riddle is about willingness, not literal weight)', tier: 'legendary' },
+  { q: 'Name the one thing every mortal is certain to lose, that no army, no spell, and no amount of gold has ever once been able to buy back. What is it?', a: 'Youth', tier: 'legendary' },
+  { q: 'I touch every single thing that has ever existed, yet I myself can never be touched, held, or truly seen. I have no mouth, and yet I am the reason anything can be heard at all. What am I?', a: 'Air (the wind itself)', tier: 'legendary' }
 ];
 
 const LOGIC_PUZZLES = [
