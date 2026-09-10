@@ -101,6 +101,21 @@
 //           allow update: if false;
 //           allow delete: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
 //         }
+//         // Gambling table state — same DM-only-write, shared-read shape as battlefield/puzzles
+//         // above. See pushGamblingState/startGamblingListener.
+//         match /gambling/{doc} {
+//           allow read: if request.auth != null;
+//           allow write: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
+//         }
+//         // A player's bet/hit/stand/spin/hold-discard, pending the DM's dealer logic — same
+//         // submit-and-forget shape as attackRequests above (anyone signed in can submit their
+//         // own action, nobody can edit one once submitted, only the DM deletes one once applied).
+//         match /gamblingActions/{reqId} {
+//           allow read: if request.auth != null;
+//           allow create: if request.auth != null;
+//           allow update: if false;
+//           allow delete: if request.auth != null && get(/databases/$(database)/documents/rooms/$(roomCode)).data.dmUid == request.auth.uid;
+//         }
 //       }
 //     }
 //   }
@@ -207,6 +222,14 @@ function lootClaimsCollectionRef(roomCode) { return collection(db, "rooms", room
 // an actual attack needing review, never on unrelated per-player autosave noise.
 function attackRequestsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "attackRequests"); }
 function attackRequestDocRef(roomCode, reqId) { return doc(db, "rooms", roomCode, "attackRequests", reqId); }
+// Gambling table state (see gamblingState / GAMBLING_HANDLERS in the main file) — same
+// DM-writes/everyone-reads shape as battlefieldDocRef, and the same player-submits/DM-applies
+// request queue as attackRequests, for exactly the same reasons: a player's bet/hit/spin only
+// ever fires the DM's listener when something at the table actually happened, never on
+// unrelated per-player autosave noise.
+function gamblingDocRef(roomCode) { return doc(db, "rooms", roomCode, "gambling", "state"); }
+function gamblingActionsCollectionRef(roomCode) { return collection(db, "rooms", roomCode, "gamblingActions"); }
+function gamblingActionDocRef(roomCode, reqId) { return doc(db, "rooms", roomCode, "gamblingActions", reqId); }
 
 // All multiplayer session state lives here, not scattered across module-level variables.
 const mp = {
@@ -400,8 +423,8 @@ async function connectAsRole(uid, role, roomCode, username) {
     }
   }
   startPlayerListener();
-  if (role === "dm") { startRosterListener(); startAttackRequestListener(roomCode); }
-  else { startBattlefieldListener(roomCode); startPuzzleLogListener(roomCode); }
+  if (role === "dm") { startRosterListener(); startAttackRequestListener(roomCode); startGamblingActionListener(roomCode); }
+  else { startBattlefieldListener(roomCode); startPuzzleLogListener(roomCode); startGamblingListener(roomCode); }
   startLootClaimListener(roomCode);
   hideGate();
   enforceRoleRestrictions(role);
@@ -884,6 +907,69 @@ async function startPuzzleLogListener(roomCode) {
     }
   });
 }
+
+// ---------- Gambling (DM-only write, shared read; player actions -> DM-applied queue) ----------
+// Table state (see gamblingState/GAMBLING_HANDLERS in the main file) uses the exact same
+// DM-writes/everyone-reads shape as Battlefield/Puzzle Log above. On top of that, a player's own
+// action (placing a bet, hit/stand, a spin, a hold/discard) needs a way to actually reach the
+// dealer — that reuses attackRequests' player-submits/DM-applies queue instead of a second
+// mechanism, since the shape of the problem is identical: a player proposing something that only
+// the DM's client is trusted to actually resolve.
+let _gamblingPushTimer = null;
+function pushGamblingState(gamblingState) {
+  if (!mp.connected || !mp.roomCode || mp.role !== "dm") return;
+  clearTimeout(_gamblingPushTimer);
+  _gamblingPushTimer = setTimeout(() => {
+    setDoc(gamblingDocRef(mp.roomCode), {
+      gamblingState: sanitizeNestedArrays(gamblingState || { game: null, table: null }), updatedAt: serverTimestamp(),
+    }).catch((err) => console.error("[multiplayer-sync] pushGamblingState failed:", err));
+  }, 400);
+}
+window.pushGamblingState = pushGamblingState;
+
+let mpGamblingUnsub = null;
+async function startGamblingListener(roomCode) {
+  if (mpGamblingUnsub) mpGamblingUnsub();
+  const roomSnap = await getDoc(roomDocRef(roomCode));
+  if (!roomSnap.exists()) return;
+  mpGamblingUnsub = onSnapshot(gamblingDocRef(roomCode), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (typeof window.applyRemoteGamblingState === "function") {
+      window.applyRemoteGamblingState(unsanitizeNestedArrays(data.gamblingState || { game: null, table: null }));
+    }
+  });
+}
+// Player-only: submits one action (a bet, hit/stand, spin, hold/discard...) for the DM's
+// listener to apply. doc(collectionRef) with no id generates a fresh random id, same as
+// submitBattlefieldAttack.
+window.submitGamblingActionRemote = function (action) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  const ref = doc(gamblingActionsCollectionRef(mp.roomCode));
+  return setDoc(ref, {
+    ...action,
+    playerUid: mp.uid,
+    playerUsername: mp.username,
+    createdAt: serverTimestamp(),
+  });
+};
+// DM-only: hands the main file the full current list of pending requests on every change, same
+// as startAttackRequestListener — gambling actions apply immediately rather than sitting in a
+// review queue (see applyIncomingGamblingActions in the main file), so this list is normally
+// empty a moment after each snapshot, not something the DM browses.
+let mpGamblingActionUnsub = null;
+function startGamblingActionListener(roomCode) {
+  if (mpGamblingActionUnsub) mpGamblingActionUnsub();
+  mpGamblingActionUnsub = onSnapshot(gamblingActionsCollectionRef(roomCode), (snap) => {
+    const list = [];
+    snap.forEach((docSnap) => list.push({ id: docSnap.id, ...docSnap.data() }));
+    if (list.length && typeof window.applyIncomingGamblingActions === "function") window.applyIncomingGamblingActions(list);
+  });
+}
+window.resolveGamblingActionRemote = function (reqId) {
+  if (!mp.connected || !mp.roomCode) return Promise.reject(new Error("Not connected"));
+  return deleteDoc(gamblingActionDocRef(mp.roomCode, reqId));
+};
 
 // DM-only: a live, read-only view of ONE specific player's full state, for the Players tab —
 // separate from startRosterListener (which only ever extracts a thin HP/AC summary for every

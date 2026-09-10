@@ -1760,6 +1760,39 @@
   }
   .riddle-reveal-btn:hover, .puzzle-reveal-btn:hover { border-color:var(--gold); background:rgba(201,168,76,0.08); }
   .puzzle-log-prompt { color:var(--text); font-size:0.88rem; line-height:1.55; margin:0.3rem 0 0.5rem; white-space:pre-wrap; }
+  /* ---- Gambling: shared table shell (see GAMBLING_HANDLERS) — each game's own pixel art
+     (wheel, cards, reels) is added alongside its own render function, not here. ---- */
+  .gambling-host-picker { background:var(--surface); border:1px solid var(--border); padding:1.2rem; text-align:center; }
+  .gambling-host-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.7rem; max-width:640px; margin:0 auto; }
+  .gambling-host-btn {
+    background:var(--surface2); border:2px solid var(--border); color:var(--gold);
+    font-family:'Crimson Text',serif; font-size:1.05rem; padding:1rem 0.8rem; cursor:pointer;
+    transition:all 0.15s; letter-spacing:0.02em;
+  }
+  .gambling-host-btn:hover { border-color:var(--gold); background:rgba(201,168,76,0.1); }
+  .gambling-table-header {
+    display:flex; align-items:center; justify-content:space-between; background:var(--surface2);
+    border:2px solid var(--gold); padding:0.7rem 1rem; margin-bottom:1rem;
+  }
+  .gambling-table-title { font-family:'Crimson Text',serif; font-size:1.15rem; color:var(--gold-bright); letter-spacing:0.04em; }
+  .gambling-felt { background:radial-gradient(ellipse at center, #1a3a2a 0%, #0d2418 100%); border:3px solid #3a2a18; padding:1.2rem; box-shadow:inset 0 0 30px rgba(0,0,0,0.5); }
+  .gambling-chip {
+    display:inline-flex; align-items:center; justify-content:center; width:2.2rem; height:2.2rem;
+    border-radius:50%; font-family:'Share Tech Mono',monospace; font-size:0.65rem; font-weight:700;
+    border:2px dashed rgba(255,255,255,0.5); flex-shrink:0;
+  }
+  .gambling-bet-row { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.6rem; }
+  .gambling-bet-input { width:100px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'Share Tech Mono',monospace; padding:0.4rem 0.5rem; }
+  .gambling-action-btn { background:var(--surface2); border:1px solid var(--gold); color:var(--gold); font-family:'Crimson Text',serif; font-size:0.9rem; padding:0.4rem 0.9rem; cursor:pointer; transition:all 0.15s; }
+  .gambling-action-btn:hover { background:rgba(201,168,76,0.12); }
+  .gambling-action-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .gambling-seat-list { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.8rem; }
+  .gambling-seat { background:rgba(0,0,0,0.25); border:1px solid var(--border); padding:0.5rem 0.7rem; display:flex; justify-content:space-between; align-items:center; font-size:0.88rem; }
+  .gambling-seat.is-self { border-color:var(--gold); }
+  .gambling-result-banner { text-align:center; font-family:'Crimson Text',serif; font-size:1.1rem; padding:0.6rem; margin-bottom:0.8rem; }
+  .gambling-result-banner.win { color:var(--uncommon); }
+  .gambling-result-banner.lose { color:var(--danger); }
+  .gambling-msg { min-height:1.3em; color:var(--danger); font-size:0.85rem; font-style:italic; margin-bottom:0.4rem; }
   .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
   .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
   .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
@@ -2172,6 +2205,7 @@
   <button class="tab-btn" onclick="showTab('store',this)">🛒 Store</button>
   <button class="tab-btn" onclick="showTab('journey',this)">🧭 Journey</button>
   <button class="tab-btn" onclick="showTab('puzzles',this)">🧩 Puzzles</button>
+  <button class="tab-btn" onclick="showTab('gambling',this)">🎰 Gambling</button>
   <!-- Player-only — the opposite direction from multiplayer-sync.js's body.role-player hide
        list (which hides DM-only things): this stays hidden by default and is revealed only
        for players by enforceRoleRestrictions there. -->
@@ -3247,6 +3281,17 @@
     <input type="text" id="puzzleLogSearch" class="loadout-search" placeholder="Search puzzle log…" oninput="renderPuzzleLog()">
     <div id="puzzleLogList" class="loadout-list"></div>
   </div>
+</div>
+
+<!-- GAMBLING TAB — visible to Player and DM/Guest alike, same reasoning as Puzzles: playing at
+     the table is a player-facing activity, not DM narration. The DM is the dealer/host (opens
+     a table, runs the dealer logic); players join with a real gold bet. Mirrors the existing
+     Combat "battlefield" multiplayer pattern exactly — see gamblingState/pushGamblingState
+     below and the matching bridge functions in multiplayer-sync.js. -->
+<div id="tab-gambling" class="tab-content">
+  <p style="color:var(--text-dim);font-size:0.88rem;font-style:italic;margin-bottom:1rem;">🎰 The Rusty Dice — fictional in-app stakes only, paid and won in the same gold your inventory already tracks.</p>
+  <div id="gamblingShell"></div>
+  <div id="gamblingTable"></div>
 </div>
 
 <!-- BATTLEFIELD TAB — player-only, read-only live view of the DM's combat roster. Populated
@@ -4562,6 +4607,7 @@ function showTab(tab, btn) {
   if (tab === 'battlefield' && typeof renderBattlefieldForPlayer === 'function') renderBattlefieldForPlayer();
   if (tab === 'journey') renderJourneyTab();
   if (tab === 'puzzles') { renderPuzzleCategoryTabs(); renderPuzzleCategory(); renderPuzzleLog(); }
+  if (tab === 'gambling') renderGamblingTab();
 }
 
 // ===================== ITEM COMPENDIUM (Items / Spells / Monsters / Effects sub-tabs) =====================
@@ -17826,6 +17872,137 @@ function revealPuzzleLogAnswer(id) {
   wrap.innerHTML = `<span class="riddle-answer">${escapeHtml(entry.answer)}</span>`;
 }
 
+// ===================== GAMBLING (shared framework) =====================
+// The DM is always the dealer/host — opens one table at a time, runs the actual dealer logic
+// (a hand's outcome, a spin's result) — and players join with a real bet paid out of the exact
+// same gold economy every other system already uses (spendPlayerGold/addPlayerGold), not a
+// separate currency. Multiplayer sync deliberately mirrors Combat's existing "battlefield"
+// pattern rather than inventing a new one: the DM's client is the one source of truth, pushed to
+// rooms/{code}/gambling/state and read by everyone via onSnapshot (see pushGamblingState /
+// window.applyRemoteGamblingState, and startGamblingListener in multiplayer-sync.js); a
+// player's own action (bet, hit, stand, spin, hold/discard, fold) is submitted as a request doc
+// in rooms/{code}/gamblingActions for the DM's listener to apply, exactly like a player's own
+// weapon-attack roll is submitted for the DM to apply today (see submitBattlefieldAttack). Solo/
+// Guest play — no multiplayer session at all — just applies the same action function locally and
+// immediately, so building and testing a game never depends on two real connected accounts.
+//
+// Each game (roulette/blackjack/slots/poker) registers one entry in GAMBLING_HANDLERS:
+// { newTable(), applyAction(table, action), renderHtml(table) }. The framework here only ever
+// knows "which game is running" and "who's the dealer" — it has zero knowledge of what a
+// roulette bet or a poker hand actually looks like, so a fifth game later is one more registry
+// entry, not a change to anything below.
+const GAMBLING_GAMES = [
+  { id: 'roulette',  label: '🎡 Roulette' },
+  { id: 'blackjack', label: '🃏 Blackjack' },
+  { id: 'slots',     label: '🎰 Slots' },
+  { id: 'poker',     label: '♠ Five-Card Poker' },
+];
+const GAMBLING_HANDLERS = {};
+let gamblingState = { game: null, table: null };
+
+function gamblingGameLabel(id) { return (GAMBLING_GAMES.find(g => g.id === id) || {}).label || id; }
+// Stable per-viewer identity for table state keyed by uid: the real multiplayer uid when
+// connected, or a fixed 'solo' key for Guest/offline play — so a game handler never needs to
+// know or care which mode it's running in.
+function gamblingSelfUid() {
+  const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
+  return self ? self.uid : 'solo';
+}
+function gamblingSelfName() {
+  const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
+  return self ? self.username : 'You';
+}
+
+// Calls straight through to multiplayer-sync.js's own window.pushGamblingState, the same way
+// combat calls window.pushBattlefieldState(battleRoster, battleLog) at each mutation point —
+// that bridge function is a no-op unless this account is actually the connected DM, and does
+// its own debouncing internally, so nothing here needs to duplicate that.
+function pushGamblingState() {
+  if (typeof scheduleSave === 'function') scheduleSave();
+  if (typeof window.pushGamblingState === 'function') window.pushGamblingState(gamblingState);
+}
+// Bridge multiplayer-sync.js calls on every snapshot of the shared table — for BOTH roles,
+// same as applyRemoteBattlefieldState, so the DM's own other devices stay in sync too.
+window.applyRemoteGamblingState = function (state) {
+  gamblingState = state || { game: null, table: null };
+  renderGamblingTab();
+};
+
+function hostGamblingGame(gameId) {
+  if (isRealPlayerAccount()) return; // dealer-only action
+  const handler = GAMBLING_HANDLERS[gameId];
+  if (!handler) return;
+  gamblingState = { game: gameId, table: handler.newTable() };
+  renderGamblingTab();
+  pushGamblingState();
+}
+function closeGamblingTable() {
+  if (isRealPlayerAccount()) return;
+  gamblingState = { game: null, table: null };
+  renderGamblingTab();
+  pushGamblingState();
+}
+// One entry point for every player action across all four games. Connected players go through
+// the DM-review request queue (matching submitBattlefieldAttack); solo/Guest play (no
+// multiplayer session at all, including the DM testing solo) applies immediately since there's
+// no separate dealer client to hand it to.
+function submitGamblingAction(action) {
+  const self = typeof window.getMultiplayerSelf === 'function' ? window.getMultiplayerSelf() : null;
+  if (self && self.role === 'player' && typeof window.submitGamblingActionRemote === 'function') {
+    window.submitGamblingActionRemote(action);
+    return;
+  }
+  applyGamblingAction({ ...action, playerUid: gamblingSelfUid(), playerUsername: gamblingSelfName() });
+  renderGamblingTab();
+  pushGamblingState();
+}
+// The one place gamblingState.table actually changes. A request for a game that isn't running
+// anymore (DM closed the table between the click and this arriving) is silently dropped rather
+// than erroring — same "just no-op" spirit as resolveBattleAttack on a defeated monster.
+function applyGamblingAction(action) {
+  const handler = GAMBLING_HANDLERS[gamblingState.game];
+  if (!handler || !gamblingState.table) return;
+  handler.applyAction(gamblingState.table, action);
+}
+// Fired by multiplayer-sync.js's gambling-action listener, DM-side only. Gambling actions apply
+// immediately rather than sitting in a review queue like a player's attack roll does — the
+// dealer logic itself (blackjack's bust rules, a wheel's payout table) is the authority here,
+// not a manual "does this look right" click, so there's nothing for the DM to review.
+window.applyIncomingGamblingActions = function (list) {
+  list.forEach(req => {
+    applyGamblingAction(req);
+    if (typeof window.resolveGamblingActionRemote === 'function') window.resolveGamblingActionRemote(req.id);
+  });
+  renderGamblingTab();
+  pushGamblingState();
+};
+
+function renderGamblingShell() {
+  const wrap = document.getElementById('gamblingShell');
+  if (!wrap) return;
+  const isPlayer = isRealPlayerAccount();
+  if (!gamblingState.game) {
+    wrap.innerHTML = isPlayer
+      ? `<div class="empty-results">No table is open — wait for the DM to deal you in.</div>`
+      : `<div class="gambling-host-picker">
+          <h3 style="color:var(--gold);letter-spacing:0.04em;margin-bottom:0.6rem;">Host a Game</h3>
+          <div class="gambling-host-grid">${GAMBLING_GAMES.map(g => `<button class="gambling-host-btn" onclick="hostGamblingGame('${g.id}')">${g.label}</button>`).join('')}</div>
+        </div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="gambling-table-header">
+    <span class="gambling-table-title">${gamblingGameLabel(gamblingState.game)}</span>
+    ${isPlayer ? '' : '<button class="loadout-del-btn" onclick="closeGamblingTable()">✕ Close Table</button>'}
+  </div>`;
+}
+function renderGamblingTab() {
+  renderGamblingShell();
+  const wrap = document.getElementById('gamblingTable');
+  if (!wrap) return;
+  const handler = gamblingState.game && GAMBLING_HANDLERS[gamblingState.game];
+  wrap.innerHTML = (handler && gamblingState.table) ? handler.renderHtml(gamblingState.table) : '';
+}
+
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
 // animation on wrapper classes, see .battle-stage/.pixel-char) — just scene-scale (1-3 animated
@@ -18537,6 +18714,7 @@ function saveAppState() {
       journeySetting, journeyLog, journeyLogCounter,
       journeySettingWeights: Object.fromEntries(JOURNEY_SETTINGS.map(s => [s.key, s.weights])),
       puzzleLog,
+      gamblingState,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     // Multiplayer hook (see multiplayer-sync.js) — a no-op if that file isn't loaded or no
@@ -18622,6 +18800,7 @@ function applyStateBlob(data) {
     JOURNEY_SETTINGS.forEach(s => { if (data.journeySettingWeights[s.key]) s.weights = data.journeySettingWeights[s.key]; });
   }
   if (Array.isArray(data.puzzleLog)) puzzleLog = data.puzzleLog;
+  if (data.gamblingState) gamblingState = data.gamblingState;
 }
 function loadAppState() {
   let data = null;
