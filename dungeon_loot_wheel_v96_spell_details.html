@@ -1793,6 +1793,18 @@
   .gambling-result-banner.win { color:var(--uncommon); }
   .gambling-result-banner.lose { color:var(--danger); }
   .gambling-msg { min-height:1.3em; color:var(--danger); font-size:0.85rem; font-style:italic; margin-bottom:0.4rem; }
+  /* ---- Roulette ---- */
+  .roulette-wheel-wrap { display:flex; justify-content:center; margin-bottom:0.8rem; }
+  .roulette-number-grid { display:grid; grid-template-columns:repeat(9,1fr); gap:3px; margin-bottom:0.8rem; }
+  .roulette-number-btn { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-family:'Share Tech Mono',monospace; font-size:0.72rem; font-weight:700; color:#fff; cursor:pointer; border:1px solid rgba(255,255,255,0.2); }
+  .roulette-number-btn.red { background:#8a2020; }
+  .roulette-number-btn.black { background:#1a1a1a; }
+  .roulette-number-btn.green { background:#1a5c34; }
+  .roulette-number-btn.selected { outline:2px solid var(--gold); outline-offset:1px; }
+  .roulette-outside-bets { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:0.4rem; margin-bottom:0.8rem; }
+  .roulette-outside-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.5rem; cursor:pointer; }
+  .roulette-outside-btn:hover { border-color:var(--gold); }
+  .roulette-outside-btn.selected { border-color:var(--gold); background:rgba(201,168,76,0.15); color:var(--gold); }
   .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
   .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
   .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
@@ -17995,13 +18007,208 @@ function renderGamblingShell() {
     ${isPlayer ? '' : '<button class="loadout-del-btn" onclick="closeGamblingTable()">✕ Close Table</button>'}
   </div>`;
 }
+// Gold is NOT a simple scalar field the DM could remotely increment the way combat HP is
+// (getPlayerGold() derives it from currency-tier items inside inventoryGrid) — so unlike HP
+// deltas, a bet's cost and a round's payout are each applied locally, by whichever account the
+// gold actually belongs to, never cross-account. Placing a bet spends locally before the action
+// is even submitted (see placeGamblingBet); a round's payout is announced in the shared,
+// DM-broadcast table.lastResult.payouts (uid -> amount) and every client checks here, on every
+// render, whether IT has an unapplied payout addressed to its own uid — persisted the same way
+// appliedLootClaimIds guards a reload from re-granting an already-applied combat loot claim.
+let appliedGamblingPayoutIds = [];
+function checkOwnGamblingPayout() {
+  const table = gamblingState.table;
+  const result = table && table.lastResult;
+  if (!result || !result.roundId || !result.payouts) return;
+  const uid = gamblingSelfUid();
+  const payoutId = gamblingState.game + ':' + result.roundId + ':' + uid;
+  if (appliedGamblingPayoutIds.includes(payoutId)) return;
+  appliedGamblingPayoutIds.push(payoutId);
+  if (appliedGamblingPayoutIds.length > 300) appliedGamblingPayoutIds = appliedGamblingPayoutIds.slice(-300);
+  const amount = result.payouts[uid];
+  if (amount) addPlayerGold(amount);
+  else if (typeof scheduleSave === 'function') scheduleSave();
+}
+// Shared by every game's "place a bet" button: spends the bettor's OWN gold locally (same
+// reasoning as checkOwnGamblingPayout — this account is the only one that can correctly touch
+// its own currency tokens), then submits the bookkeeping action for the DM to record on the
+// shared table. Returns false (and spends nothing, submits nothing) if the bettor can't afford
+// it, so callers can show an inline error instead of silently failing.
+function placeGamblingBet(amount, extra) {
+  if (!(amount > 0)) return false;
+  if (!spendPlayerGold(amount)) return false;
+  submitGamblingAction({ type: 'place_bet', amount, ...extra });
+  return true;
+}
 function renderGamblingTab() {
   renderGamblingShell();
+  checkOwnGamblingPayout();
   const wrap = document.getElementById('gamblingTable');
   if (!wrap) return;
   const handler = gamblingState.game && GAMBLING_HANDLERS[gamblingState.game];
   wrap.innerHTML = (handler && gamblingState.table) ? handler.renderHtml(gamblingState.table) : '';
 }
+
+// ===================== GAMBLING: ROULETTE =====================
+// Standard European single-zero wheel (37 pockets, not the American double-zero layout) —
+// simpler payout math for the exact same "real roulette" experience. ROULETTE_WHEEL_ORDER is
+// the actual physical pocket sequence (not numeric order) used only for the spin visual and to
+// draw the winning pocket uniformly at random; payout math itself never depends on wheel order.
+const ROULETTE_WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const ROULETTE_RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function rouletteColor(n) { return n === 0 ? 'green' : (ROULETTE_RED_NUMBERS.has(n) ? 'red' : 'black'); }
+// TOTAL-return multipliers (stake included), not "X to 1" profit odds — a win is one
+// addPlayerGold(amount * multiplier) call with no separate "and give the stake back" step.
+function rouletteMultiplier(bet, number) {
+  const color = rouletteColor(number);
+  switch (bet.betType) {
+    case 'straight': return Number(bet.betValue) === number ? 36 : 0;
+    case 'red': case 'black': return color === bet.betType ? 2 : 0;
+    case 'even': return number !== 0 && number % 2 === 0 ? 2 : 0;
+    case 'odd': return number % 2 === 1 ? 2 : 0;
+    case 'low': return number >= 1 && number <= 18 ? 2 : 0;
+    case 'high': return number >= 19 && number <= 36 ? 2 : 0;
+    case 'dozen1': return number >= 1 && number <= 12 ? 3 : 0;
+    case 'dozen2': return number >= 13 && number <= 24 ? 3 : 0;
+    case 'dozen3': return number >= 25 && number <= 36 ? 3 : 0;
+    default: return 0;
+  }
+}
+const ROULETTE_OUTSIDE_BETS = [
+  { type:'red', label:'Red' }, { type:'black', label:'Black' },
+  { type:'even', label:'Even' }, { type:'odd', label:'Odd' },
+  { type:'low', label:'1–18' }, { type:'high', label:'19–36' },
+  { type:'dozen1', label:'1st 12' }, { type:'dozen2', label:'2nd 12' }, { type:'dozen3', label:'3rd 12' },
+];
+function newRouletteTable() { return { phase: 'betting', bets: {}, lastResult: null, roundCounter: 0 }; }
+// One live bet per player per round, and bets are final once placed (matching a real table:
+// chips down means committed) — deliberately no clear/cancel here, which sidesteps a whole class
+// of "whose client is responsible for refunding this" timing questions for a fictional-stakes
+// feature where the cost of getting that edge case wrong outweighs the convenience.
+function applyRouletteAction(table, action) {
+  if (action.type === 'place_bet') {
+    if (table.phase !== 'betting' || table.bets[action.playerUid]) return;
+    table.bets[action.playerUid] = { username: action.playerUsername, amount: action.amount, betType: action.betType, betValue: action.betValue };
+  }
+}
+// DM-only, called directly by the Spin button — never routed through the player-action queue
+// since only the dealer ever triggers a spin.
+function spinRouletteWheel() {
+  if (isRealPlayerAccount() || gamblingState.game !== 'roulette') return;
+  const table = gamblingState.table;
+  if (!table || table.phase !== 'betting' || !Object.keys(table.bets).length) return;
+  const number = ri(ROULETTE_WHEEL_ORDER); // drawn the way a physical wheel actually lands, not numerically — same uniform odds either way
+  const color = rouletteColor(number);
+  const betsSnapshot = table.bets;
+  const payouts = {};
+  Object.entries(betsSnapshot).forEach(([uid, bet]) => {
+    const mult = rouletteMultiplier(bet, number);
+    if (mult > 0) payouts[uid] = Math.round(bet.amount * mult * 100) / 100;
+  });
+  table.roundCounter = (table.roundCounter || 0) + 1;
+  table.lastResult = { roundId: table.roundCounter, number, color, bets: betsSnapshot, payouts };
+  table.bets = {};
+  table.phase = 'result';
+  renderGamblingTab();
+  pushGamblingState();
+}
+function rouletteNewRound() {
+  if (isRealPlayerAccount() || gamblingState.game !== 'roulette') return;
+  const table = gamblingState.table;
+  if (!table) return;
+  table.phase = 'betting';
+  table.lastResult = null;
+  renderGamblingTab();
+  pushGamblingState();
+}
+let rouletteSelectedBet = null; // {type, value} — which-bet-to-place UI state, local only, never synced
+function rouletteSelectOutside(type) { rouletteSelectedBet = { type, value: null }; renderGamblingTab(); }
+function rouletteSelectNumber(n) { rouletteSelectedBet = { type: 'straight', value: n }; renderGamblingTab(); }
+function roulettePlaceBet() {
+  const table = gamblingState.table;
+  const msgEl = document.getElementById('gamblingMsg');
+  if (!rouletteSelectedBet) { if (msgEl) msgEl.textContent = 'Pick a number or an outside bet first.'; return; }
+  if (table.bets[gamblingSelfUid()]) { if (msgEl) msgEl.textContent = 'You already have a bet down this round.'; return; }
+  const amount = parseFloat(document.getElementById('rouletteBetAmount')?.value) || 0;
+  if (!placeGamblingBet(amount, { betType: rouletteSelectedBet.type, betValue: rouletteSelectedBet.value })) {
+    if (msgEl) msgEl.textContent = amount > 0 ? "You don't have that much gold." : 'Enter a bet amount first.';
+    return;
+  }
+  if (msgEl) msgEl.textContent = '';
+  rouletteSelectedBet = null;
+  renderGamblingTab();
+}
+// Pixel-dot wheel — same hand-placed-shape technique as the rest of the app's pixel art, just
+// circles-on-a-ring via trig instead of a rect grid, since an actual wheel has no natural grid
+// alignment. The winning pocket (if any) is drawn larger with a gold ring around it.
+function rouletteWheelSvg(highlightNumber) {
+  const cx = 70, cy = 70, r = 58;
+  const n = ROULETTE_WHEEL_ORDER.length;
+  const dots = ROULETTE_WHEEL_ORDER.map((num, i) => {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    const x = (cx + r * Math.cos(angle)).toFixed(1);
+    const y = (cy + r * Math.sin(angle)).toFixed(1);
+    const fill = rouletteColor(num) === 'red' ? '#a83232' : rouletteColor(num) === 'black' ? '#222' : '#1f7a44';
+    const hi = highlightNumber === num;
+    return `<circle cx="${x}" cy="${y}" r="${hi ? 9 : 7}" fill="${fill}" stroke="${hi ? '#e8c84c' : '#000'}" stroke-width="${hi ? 2 : 1}"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 140 140" width="140" height="140" class="roulette-wheel">
+    <circle cx="70" cy="70" r="66" fill="#0d2418" stroke="#3a2a18" stroke-width="3"/>
+    ${dots}
+    <circle cx="70" cy="70" r="22" fill="#3a2a18"/>
+    ${highlightNumber != null ? `<text x="70" y="76" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="18" fill="#e8c84c">${highlightNumber}</text>` : ''}
+  </svg>`;
+}
+function rouletteNumberGridHtml() {
+  let html = '';
+  for (let n = 0; n <= 36; n++) {
+    const selected = rouletteSelectedBet && rouletteSelectedBet.type === 'straight' && rouletteSelectedBet.value === n;
+    html += `<button class="roulette-number-btn ${rouletteColor(n)}${selected ? ' selected' : ''}" onclick="rouletteSelectNumber(${n})">${n}</button>`;
+  }
+  return html;
+}
+function renderRouletteHtml(table) {
+  const isPlayer = isRealPlayerAccount();
+  const selfUid = gamblingSelfUid();
+  const myBet = table.bets[selfUid];
+  const result = table.lastResult;
+  const resultBanner = result
+    ? `<div class="gambling-result-banner" style="color:${result.color === 'red' ? 'var(--danger)' : result.color === 'green' ? 'var(--uncommon)' : 'var(--text)'}">🎡 Landed on <strong>${result.number}</strong> (${result.color})</div>`
+    : '';
+  const betEntries = Object.entries(table.bets);
+  const betsListHtml = betEntries.length
+    ? `<div class="gambling-seat-list">${betEntries.map(([uid, b]) => `<div class="gambling-seat${uid === selfUid ? ' is-self' : ''}"><span>${escapeHtml(b.username)}</span><span>${b.amount.toLocaleString()} gp on ${escapeHtml(b.betType === 'straight' ? ('#' + b.betValue) : b.betType)}</span></div>`).join('')}</div>`
+    : '<div class="empty-results">No bets placed yet this round.</div>';
+  const dmControls = isPlayer ? '' : `
+    <div class="gambling-bet-row">
+      ${table.phase === 'betting'
+        ? `<button class="gambling-action-btn" onclick="spinRouletteWheel()"${betEntries.length ? '' : ' disabled'}>🎡 Spin</button>`
+        : `<button class="gambling-action-btn" onclick="rouletteNewRound()">↻ New Round</button>`}
+    </div>`;
+  const playerControls = (isPlayer && table.phase === 'betting')
+    ? (myBet
+      ? `<div class="empty-results">Your bet is down: ${myBet.amount.toLocaleString()} gp on ${escapeHtml(myBet.betType === 'straight' ? ('#' + myBet.betValue) : myBet.betType)}. Waiting for the dealer to spin.</div>`
+      : `<div class="roulette-number-grid">${rouletteNumberGridHtml()}</div>
+         <div class="roulette-outside-bets">${ROULETTE_OUTSIDE_BETS.map(b => `<button class="roulette-outside-btn${rouletteSelectedBet && rouletteSelectedBet.type === b.type ? ' selected' : ''}" onclick="rouletteSelectOutside('${b.type}')">${b.label}</button>`).join('')}</div>
+         <div class="gambling-bet-row">
+           <input type="number" id="rouletteBetAmount" class="gambling-bet-input" placeholder="Bet (gp)" min="1">
+           <button class="gambling-action-btn" onclick="roulettePlaceBet()">Place Bet</button>
+           <span style="color:var(--text-dim);font-size:0.85rem;">${rouletteSelectedBet ? 'Betting on ' + (rouletteSelectedBet.type === 'straight' ? ('#' + rouletteSelectedBet.value) : rouletteSelectedBet.type) : 'Pick a number or outside bet'}</span>
+         </div>
+         <div id="gamblingMsg" class="gambling-msg"></div>`)
+    : (isPlayer ? '<div class="empty-results">Betting is closed — waiting for the next round.</div>' : '');
+  return `
+    <div class="gambling-felt">
+      <div class="roulette-wheel-wrap">${rouletteWheelSvg(result ? result.number : null)}</div>
+      ${resultBanner}
+      ${dmControls}
+      ${playerControls}
+      <h4 style="color:var(--gold);margin:0.8rem 0 0.4rem;font-size:0.9rem;">This Round's Bets</h4>
+      ${betsListHtml}
+    </div>
+  `;
+}
+GAMBLING_HANDLERS.roulette = { newTable: newRouletteTable, applyAction: applyRouletteAction, renderHtml: renderRouletteHtml };
 
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
@@ -18707,7 +18914,7 @@ function saveAppState() {
       combatLootSettings, chestLootSettings, corpseLootSettings, modWeights, fleshModWeights,
       characterAbilityScores, characterLevel, skillProficiencies, saveProficiencies,
       characterCurrentHp, characterMaxHp, characterMaxHpEffective, characterHitDice, characterAc, characterClass,
-      appliedLootClaimIds,
+      appliedLootClaimIds, appliedGamblingPayoutIds,
       // journeySettingWeights is derived from JOURNEY_SETTINGS (which updateJourneyWeight
       // mutates directly, same pattern as combatLootSettings) rather than a separately
       // tracked override object — reconstructed the same way on load, below.
@@ -18793,6 +19000,7 @@ function applyStateBlob(data) {
   if (typeof data.characterAc === 'number') characterAc = data.characterAc;
   if (data.characterClass !== undefined) characterClass = data.characterClass;
   if (data.appliedLootClaimIds) appliedLootClaimIds = data.appliedLootClaimIds;
+  if (data.appliedGamblingPayoutIds) appliedGamblingPayoutIds = data.appliedGamblingPayoutIds;
   if (data.journeySetting) journeySetting = data.journeySetting;
   if (Array.isArray(data.journeyLog)) journeyLog = data.journeyLog;
   if (typeof data.journeyLogCounter === 'number') journeyLogCounter = data.journeyLogCounter;
