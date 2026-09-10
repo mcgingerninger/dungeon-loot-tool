@@ -1822,6 +1822,11 @@
   .slots-machine { display:flex; justify-content:center; margin-bottom:0.8rem; }
   .slots-reel-row { display:flex; gap:0.6rem; background:#1a1410; border:3px solid #3a2a18; padding:1rem 1.4rem; box-shadow:inset 0 0 20px rgba(0,0,0,0.6); }
   .slots-reel { display:flex; align-items:center; justify-content:center; width:3rem; height:3rem; background:var(--surface2); border:2px solid var(--gold); font-size:1.7rem; }
+  /* ---- Poker ---- */
+  .poker-hand-row { display:flex; gap:0.5rem; margin-bottom:0.6rem; flex-wrap:wrap; }
+  .poker-card-slot { display:flex; flex-direction:column; align-items:center; gap:0.3rem; }
+  .poker-hold-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:0.65rem; padding:0.15rem 0.4rem; cursor:pointer; width:100%; }
+  .poker-hold-btn.held { border-color:var(--gold); color:var(--gold); background:rgba(201,168,76,0.15); }
   .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
   .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
   .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
@@ -18499,6 +18504,124 @@ function renderSlotsHtml(table) {
   </div>`;
 }
 GAMBLING_HANDLERS.slots = { newTable: newSlotsTable, applyAction: applySlotsAction, renderHtml: renderSlotsHtml };
+
+// ===================== GAMBLING: FIVE-CARD POKER =====================
+// Video-poker-style five-card draw, not a shared-pot showdown against other players — same
+// "independent per-player result" shape Slots already established (table.hands keyed by uid
+// while a hand is in progress, table.results once it resolves), and the same reasoning: every
+// other game at this table pays each player based on THEIR OWN outcome against a fixed payout
+// table, never player-vs-player, so keeping Poker consistent with that (rather than building an
+// entirely separate pot/side-pot/showdown system just for this one game) is the safer, smaller
+// build. Reuses freshShuffledDeck/CARD_SUITS/CARD_RANKS from Blackjack above rather than a
+// second deck implementation.
+const POKER_RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+function pokerRankValue(r) { return POKER_RANK_ORDER.indexOf(r); }
+const POKER_PAYOUTS = {
+  royalFlush: 250, straightFlush: 50, fourKind: 25, fullHouse: 9, flush: 6,
+  straight: 4, threeKind: 3, twoPair: 2, jacksOrBetter: 1, lowPair: 0, highCard: 0,
+};
+// Standard Jacks-or-Better video poker rules: a pair below Jacks pays nothing (same as high
+// card) — the pair itself is real, just not a rewarded one.
+function evaluatePokerHand(cards) {
+  const values = cards.map(c => pokerRankValue(c.r)).sort((a, b) => a - b);
+  const isFlush = cards.every(c => c.s === cards[0].s);
+  let isStraight = values.every((v, i) => i === 0 || v === values[i - 1] + 1);
+  if (!isStraight && values.join(',') === '0,1,2,3,12') isStraight = true; // wheel: A-2-3-4-5
+  const counts = {};
+  cards.forEach(c => { counts[c.r] = (counts[c.r] || 0) + 1; });
+  const countValues = Object.values(counts).sort((a, b) => b - a);
+  if (isStraight && isFlush && values[0] === pokerRankValue('10')) return { rank: 'royalFlush', label: 'Royal Flush' };
+  if (isStraight && isFlush) return { rank: 'straightFlush', label: 'Straight Flush' };
+  if (countValues[0] === 4) return { rank: 'fourKind', label: 'Four of a Kind' };
+  if (countValues[0] === 3 && countValues[1] === 2) return { rank: 'fullHouse', label: 'Full House' };
+  if (isFlush) return { rank: 'flush', label: 'Flush' };
+  if (isStraight) return { rank: 'straight', label: 'Straight' };
+  if (countValues[0] === 3) return { rank: 'threeKind', label: 'Three of a Kind' };
+  if (countValues[0] === 2 && countValues[1] === 2) return { rank: 'twoPair', label: 'Two Pair' };
+  if (countValues[0] === 2) {
+    const pairRank = Object.keys(counts).find(r => counts[r] === 2);
+    return ['J','Q','K','A'].includes(pairRank) ? { rank: 'jacksOrBetter', label: 'Jacks or Better' } : { rank: 'lowPair', label: `Pair of ${pairRank}s` };
+  }
+  return { rank: 'highCard', label: 'High Card' };
+}
+function newPokerTable() { return { hands: {}, results: [], roundCounter: 0 }; }
+function applyPokerAction(table, action) {
+  const uid = action.playerUid;
+  if (action.type === 'deal') {
+    if (table.hands[uid]) return; // already mid-hand
+    const deck = freshShuffledDeck();
+    table.hands[uid] = { username: action.playerUsername, bet: action.amount, hand: [deck.pop(), deck.pop(), deck.pop(), deck.pop(), deck.pop()], deck };
+    return;
+  }
+  if (action.type === 'draw') {
+    const h = table.hands[uid];
+    if (!h) return;
+    const held = new Set(action.heldIndexes || []);
+    for (let i = 0; i < 5; i++) { if (!held.has(i)) h.hand[i] = h.deck.pop(); }
+    const evalResult = evaluatePokerHand(h.hand);
+    const mult = POKER_PAYOUTS[evalResult.rank] || 0;
+    const payout = mult > 0 ? Math.round(h.bet * mult * 100) / 100 : 0;
+    table.roundCounter = (table.roundCounter || 0) + 1;
+    table.results = table.results || [];
+    table.results.unshift({
+      roundId: table.roundCounter, uid, username: h.username, hand: h.hand.slice(),
+      handLabel: evalResult.label, amount: h.bet, mult, payouts: payout ? { [uid]: payout } : {},
+    });
+    if (table.results.length > 20) table.results.length = 20;
+    delete table.hands[uid];
+  }
+}
+let pokerHeldSelection = [false, false, false, false, false];
+function pokerToggleHold(i) { pokerHeldSelection[i] = !pokerHeldSelection[i]; renderGamblingTab(); }
+function pokerDeal() {
+  const msgEl = document.getElementById('gamblingMsg');
+  const amount = parseFloat(document.getElementById('pokerBetAmount')?.value) || 0;
+  if (!(amount > 0)) { if (msgEl) msgEl.textContent = 'Enter a bet amount first.'; return; }
+  if (!spendPlayerGold(amount)) { if (msgEl) msgEl.textContent = "You don't have that much gold."; return; }
+  if (msgEl) msgEl.textContent = '';
+  pokerHeldSelection = [false, false, false, false, false];
+  submitGamblingAction({ type: 'deal', amount });
+}
+function pokerDraw() {
+  const heldIndexes = pokerHeldSelection.map((h, i) => h ? i : -1).filter(i => i >= 0);
+  submitGamblingAction({ type: 'draw', heldIndexes });
+  pokerHeldSelection = [false, false, false, false, false];
+}
+function renderPokerHtml(table) {
+  const isPlayer = isRealPlayerAccount();
+  const selfUid = gamblingSelfUid();
+  const myHand = table.hands[selfUid];
+  const results = table.results || [];
+  const myLastResult = results.find(r => r.uid === selfUid);
+  const handSection = myHand ? `
+    <div class="poker-hand-row">${myHand.hand.map((c, i) => `
+      <div class="poker-card-slot">
+        ${bjCardHtml(c, false)}
+        <button class="poker-hold-btn${pokerHeldSelection[i] ? ' held' : ''}" onclick="pokerToggleHold(${i})">${pokerHeldSelection[i] ? 'HELD' : 'Hold'}</button>
+      </div>`).join('')}
+    </div>
+    <div class="gambling-bet-row"><button class="gambling-action-btn" onclick="pokerDraw()">Draw</button></div>` : '';
+  const myOutcome = (!myHand && myLastResult) ? (myLastResult.mult > 0
+    ? `<div class="gambling-result-banner win">${escapeHtml(myLastResult.handLabel)}! Won ${(myLastResult.payouts[selfUid] || 0).toLocaleString()} gp</div>`
+    : `<div class="gambling-result-banner lose">${escapeHtml(myLastResult.handLabel)} — no payout.</div>`) : '';
+  const playerControls = isPlayer ? (myHand ? '' : `
+    <div class="gambling-bet-row">
+      <input type="number" id="pokerBetAmount" class="gambling-bet-input" placeholder="Bet (gp)" min="1">
+      <button class="gambling-action-btn" onclick="pokerDeal()">🂠 Deal</button>
+    </div>
+    <div id="gamblingMsg" class="gambling-msg"></div>`) : '<div class="empty-results">Players deal and draw on their own — nothing for the dealer to run here.</div>';
+  const feedHtml = results.length
+    ? `<div class="gambling-seat-list">${results.slice(0, 10).map(r => `<div class="gambling-seat${r.uid === selfUid ? ' is-self' : ''}"><span>${escapeHtml(r.username)}: ${escapeHtml(r.handLabel)} (${r.hand.map(c => c.r + c.s).join(' ')})</span><span>${r.mult > 0 ? '+' + Math.round(r.amount * r.mult).toLocaleString() + ' gp' : '—'}</span></div>`).join('')}</div>`
+    : '<div class="empty-results">No hands played yet.</div>';
+  return `<div class="gambling-felt">
+    ${handSection}
+    ${myOutcome}
+    ${playerControls}
+    <h4 style="color:var(--gold);margin:0.8rem 0 0.4rem;font-size:0.9rem;">Recent Hands</h4>
+    ${feedHtml}
+  </div>`;
+}
+GAMBLING_HANDLERS.poker = { newTable: newPokerTable, applyAction: applyPokerAction, renderHtml: renderPokerHtml };
 
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
