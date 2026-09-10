@@ -1907,7 +1907,7 @@
   .combat-danger-btn{background:var(--danger);color:#fff;border:none;padding:.5rem .8rem;font-family:'Crimson Text',serif;font-weight:600;cursor:pointer;letter-spacing:.03em}
   .combat-danger-btn:hover{background:#c73e3e}
   /* Roll Loot tab: creature-driven loot source */
-  .spin-source-toggle{display:flex;gap:.6rem;margin-bottom:.8rem}
+  .spin-source-toggle{display:flex;gap:.6rem;margin-bottom:.8rem;flex-wrap:wrap}
   .spin-mode-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-family:'Crimson Text',serif;font-size:.95rem;padding:.55rem 1rem;cursor:pointer;transition:all .2s}
   .spin-mode-btn:hover{border-color:var(--gold);color:var(--gold)}
   .spin-mode-btn.active{background:var(--surface2);border-color:var(--gold);color:var(--gold-bright)}
@@ -2156,7 +2156,6 @@
 
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('spin',this)">🎲 Loot</button>
-  <button class="tab-btn" onclick="showTab('generate',this)">Generate Item</button>
   <button class="tab-btn" onclick="showTab('inventory',this)">🎒 Inventory</button>
   <button class="tab-btn" onclick="showTab('compendium',this)">📚 Compendium</button>
   <button class="tab-btn" onclick="showTab('combat',this)">⚔ Combat</button>
@@ -2196,6 +2195,7 @@
     <button class="spin-mode-btn active" id="spinModeRandomBtn" onclick="setSpinLootMode('random')">🎲 Random Loot</button>
     <button class="spin-mode-btn" id="spinModeChestBtn" onclick="setSpinLootMode('chest')">📦 Treasure Chest</button>
     <button class="spin-mode-btn" id="spinModeDeceasedBtn" onclick="setSpinLootMode('deceased')">💀 Deceased Human</button>
+    <button class="spin-mode-btn" id="spinModeGenerateBtn" onclick="setSpinLootMode('generate')">✦ Generate Item</button>
   </div>
   <!-- Shared by every "Save to Combat" button across all three modes below — see
        flashLootStashMessage/pushLootStashToCombat. -->
@@ -2532,144 +2532,10 @@
     </div>
   </div>
   </div>
-</div>
-
-<!-- ITEM COMPENDIUM TAB (merges Edit Items, Spell Compendium, and Monster Compendium into
-     one tab with a sub-tab switcher, since they're all "reference lookups" in the same
-     spirit — see showCompendiumSub() ) -->
-<div id="tab-compendium" class="tab-content">
-  <div class="compendium-subtabs">
-    <button class="compendium-subtab-btn active" onclick="showCompendiumSub('items',this)">🎒 Items</button>
-    <button class="compendium-subtab-btn" onclick="showCompendiumSub('spells',this)">📖 Spells</button>
-    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsters',this)">🐉 Monsters</button>
-    <button class="compendium-subtab-btn" onclick="showCompendiumSub('effects',this)">🎲 Effects &amp; Traits</button>
-    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsterparts',this)">🦴 Monster Parts</button>
-  </div>
-
-  <div id="compendium-items" class="compendium-subpanel active">
-  <div class="items-layout">
-    <div class="items-panel">
-      <div class="items-panel-header">
-        <h3 id="itemsPanelTitle">All Items</h3>
-      </div>
-      <div class="token-toolbar" style="padding:0.6rem 1rem; border-bottom:1px solid var(--border);">
-        <input type="text" id="itemsSearch" class="token-search" placeholder="Search all items…" oninput="renderItemsList()">
-        <span class="token-count" id="itemsFilterCount"></span>
-      </div>
-      <div class="token-toolbar" style="padding:0 1rem 0.6rem; border-bottom:1px solid var(--border);">
-        <select id="itemsRarityFilter" class="token-filter" onchange="renderItemsList()">
-          <option value="all" selected>All Rarities</option>
-          <option value="common">Common</option>
-          <option value="uncommon">Uncommon</option>
-          <option value="rare">Rare</option>
-          <option value="superrare">Super Rare</option>
-          <option value="legendary">Legendary</option>
-          <option value="celestial">Celestial</option>
-        </select>
-        <select id="itemsTypeFilter" class="token-filter" onchange="renderItemsList()">
-          <option value="all">All Types</option>
-          <option value="armor">Armor</option>
-          <option value="weapon">Weapon</option>
-          <option value="consumable">Consumable</option>
-          <option value="misc">Misc</option>
-          <option value="limb">Limb</option>
-          <option value="companion">Companion</option>
-          <option value="craftable">Craftable (Monster Parts)</option>
-          <option value="unknown">Unknown</option>
-        </select>
-        <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
-          <option value="all">All Slot Sizes</option>
-          <option value="1">Slot Size 1</option>
-          <option value="2">Slot Size 2</option>
-          <option value="3">Slot Size 3</option>
-        </select>
-      </div>
-      <div class="add-item-area">
-        <input type="text" id="newItemName" placeholder="Item name...">
-        <textarea id="newItemDesc" placeholder="Item description..."></textarea>
-        <div class="item-form-meta">
-          <select id="newItemRarity">
-            <option value="common">Common</option>
-            <option value="uncommon">Uncommon</option>
-            <option value="rare">Rare</option>
-            <option value="superrare">Super Rare</option>
-            <option value="legendary">Legendary</option>
-            <option value="celestial">Celestial</option>
-          </select>
-          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select>
-          <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
-        </div>
-        <input type="number" id="newItemWeight" step="0.1" min="0" placeholder="Weight in lbs (optional — auto-estimated if left blank)">
-        <input type="text" id="newItemDmg" class="type-field" data-for="weapon" placeholder="Damage dice (e.g. 1d8+2)" style="display:none;">
-        <input type="text" id="newItemAc" class="type-field" data-for="armor companion" placeholder="Armor Class (e.g. 16 or +2) — mounts only, leave blank for pets" style="display:none;">
-        <input type="text" id="newItemHp" class="type-field" data-for="consumable" placeholder="Healing dice (e.g. 2d4+2) — leave blank if non-healing" style="display:none;">
-        <input type="text" id="newItemCharges" placeholder="Charges (optional — e.g. 7, 3/dawn, 1 use)">
-        <textarea id="newItemEffect" placeholder="Effect / special ability (optional — for any item type)"></textarea>
-        <button class="add-btn" onclick="addItem()">+ Add Item</button>
-      </div>
-      <div class="items-list" id="itemsList"></div>
-    </div>
-  </div>
-  </div>
-
-  <div id="compendium-spells" class="compendium-subpanel">
-  <div class="spell-warning">
-    <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
-  </div>
-  <div class="spells-controls">
-    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
-    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both" selected>Both rulesets</option></select>
-    <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
-    <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
-    <select id="spellCastFilter" onchange="renderSpellTable()"><option value="all">All Casting Times</option><option>Action</option><option>Bonus Action</option><option>Reaction</option><option>Minute</option><option>10 Minutes</option><option>Hour</option><option>8 Hours</option><option>12 Hours</option><option>24 Hours</option></select>
-    <select id="spellSourceFilter" onchange="renderSpellTable()"><option value="all">All Sources</option></select>
-    <div class="spell-checks">
-      <label><input type="checkbox" id="spellConcentrationFilter" onchange="renderSpellTable()"> Concentration only</label>
-      <label><input type="checkbox" id="spellRitualFilter" onchange="renderSpellTable()"> Ritual only</label>
-      <label><input type="checkbox" id="spellVFilter" onchange="renderSpellTable()"> Verbal</label>
-      <label><input type="checkbox" id="spellSFilter" onchange="renderSpellTable()"> Somatic</label>
-      <label><input type="checkbox" id="spellMFilter" onchange="renderSpellTable()"> Material</label>
-      <label>Sort: <select id="spellSort" onchange="renderSpellTable()" style="width:auto;padding:.18rem .35rem"><option value="level">Level</option><option value="name">Name</option><option value="casting">Casting Time</option><option value="school">School</option><option value="duration">Duration</option><option value="range">Range</option><option value="source">Source</option></select></label>
-    </div>
-  </div>
-  <div class="spells-toolbar"><span class="spells-count" id="spellCount">Loading spell database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadSpellDatabase(true)">↻ Refresh Spell Data</button></div>
-  <div class="spell-table-wrap" id="spellTableWrap"><div class="spell-loading">Loading the official-source spell catalog…</div></div>
-  <div class="spell-detail" id="spellDetail"></div>
-  </div>
-
-  <div id="compendium-monsters" class="compendium-subpanel">
-  <div class="spell-warning">
-    <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
-    This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
-  </div>
-  <div class="spells-controls">
-    <input id="monsterSearch" type="text" placeholder="Search creature name, type, trait, action…" oninput="renderMonsterTable()">
-    <select id="monsterTypeFilter" onchange="renderMonsterTable()"><option value="all">All Types</option></select>
-    <select id="monsterSizeFilter" onchange="renderMonsterTable()">
-      <option value="all">All Sizes</option><option value="Tiny">Tiny</option><option value="Small">Small</option>
-      <option value="Medium">Medium</option><option value="Large">Large</option><option value="Huge">Huge</option><option value="Gargantuan">Gargantuan</option>
-    </select>
-    <select id="monsterSourceFilter" onchange="renderMonsterTable()"><option value="all">All Sources</option></select>
-    <label>Sort: <select id="monsterSort" onchange="renderMonsterTable()" style="width:auto;padding:.18rem .35rem"><option value="cr">Challenge Rating</option><option value="name">Name</option><option value="type">Type</option><option value="size">Size</option><option value="source">Source</option></select></label>
-  </div>
-  <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
-  <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
-  <div class="spell-detail" id="monsterDetail"></div>
-  </div>
-
-  <div id="compendium-effects" class="compendium-subpanel">
-  <input id="effectsSearch" type="text" class="effects-search" placeholder="Search effects, conditions, traits…" oninput="renderEffectsCompendium()">
-  <div id="effectsCompendiumWrap"></div>
-  </div>
-
-  <div id="compendium-monsterparts" class="compendium-subpanel">
-  <div id="monsterPartsCompendiumWrap"></div>
-  </div>
-</div>
-
-<!-- PRINT TAB -->
-<!-- GENERATE UNIQUE ITEM TAB -->
-<div id="tab-generate" class="tab-content">
+  <!-- Generate Item — fourth mode of the same Loot tab (see setSpinLootMode); moved here
+       from its own top-level tab so it lives alongside the other "produce some loot" flows
+       instead of a separate destination. Saved Items / Modifier Weights below are unchanged. -->
+  <div id="spinGeneratePanel" style="display:none;">
   <div class="gen-layout">
     <!-- Left: controls -->
     <div class="gen-controls">
@@ -2860,6 +2726,140 @@
       </div>
     </div>
   </details>
+</div>
+</div>
+
+<!-- ITEM COMPENDIUM TAB (merges Edit Items, Spell Compendium, and Monster Compendium into
+     one tab with a sub-tab switcher, since they're all "reference lookups" in the same
+     spirit — see showCompendiumSub() ) -->
+<div id="tab-compendium" class="tab-content">
+  <div class="compendium-subtabs">
+    <button class="compendium-subtab-btn active" onclick="showCompendiumSub('items',this)">🎒 Items</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('spells',this)">📖 Spells</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsters',this)">🐉 Monsters</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('effects',this)">🎲 Effects &amp; Traits</button>
+    <button class="compendium-subtab-btn" onclick="showCompendiumSub('monsterparts',this)">🦴 Monster Parts</button>
+  </div>
+
+  <div id="compendium-items" class="compendium-subpanel active">
+  <div class="items-layout">
+    <div class="items-panel">
+      <div class="items-panel-header">
+        <h3 id="itemsPanelTitle">All Items</h3>
+      </div>
+      <div class="token-toolbar" style="padding:0.6rem 1rem; border-bottom:1px solid var(--border);">
+        <input type="text" id="itemsSearch" class="token-search" placeholder="Search all items…" oninput="renderItemsList()">
+        <span class="token-count" id="itemsFilterCount"></span>
+      </div>
+      <div class="token-toolbar" style="padding:0 1rem 0.6rem; border-bottom:1px solid var(--border);">
+        <select id="itemsRarityFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all" selected>All Rarities</option>
+          <option value="common">Common</option>
+          <option value="uncommon">Uncommon</option>
+          <option value="rare">Rare</option>
+          <option value="superrare">Super Rare</option>
+          <option value="legendary">Legendary</option>
+          <option value="celestial">Celestial</option>
+        </select>
+        <select id="itemsTypeFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all">All Types</option>
+          <option value="armor">Armor</option>
+          <option value="weapon">Weapon</option>
+          <option value="consumable">Consumable</option>
+          <option value="misc">Misc</option>
+          <option value="limb">Limb</option>
+          <option value="companion">Companion</option>
+          <option value="craftable">Craftable (Monster Parts)</option>
+          <option value="unknown">Unknown</option>
+        </select>
+        <select id="itemsSlotFilter" class="token-filter" onchange="renderItemsList()">
+          <option value="all">All Slot Sizes</option>
+          <option value="1">Slot Size 1</option>
+          <option value="2">Slot Size 2</option>
+          <option value="3">Slot Size 3</option>
+        </select>
+      </div>
+      <div class="add-item-area">
+        <input type="text" id="newItemName" placeholder="Item name...">
+        <textarea id="newItemDesc" placeholder="Item description..."></textarea>
+        <div class="item-form-meta">
+          <select id="newItemRarity">
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare">Rare</option>
+            <option value="superrare">Super Rare</option>
+            <option value="legendary">Legendary</option>
+            <option value="celestial">Celestial</option>
+          </select>
+          <select id="newItemType" onchange="updateAddFormFields()"><option value="armor">Armor</option><option value="weapon">Weapon</option><option value="consumable">Consumable</option><option value="misc" selected>Misc</option><option value="limb">Limb</option><option value="companion">Companion</option><option value="unknown">Unknown</option></select>
+          <select id="newItemSlot"><option value="1" selected>Slot Size 1</option><option value="2">Slot Size 2</option><option value="3">Slot Size 3</option></select>
+        </div>
+        <input type="number" id="newItemWeight" step="0.1" min="0" placeholder="Weight in lbs (optional — auto-estimated if left blank)">
+        <input type="text" id="newItemDmg" class="type-field" data-for="weapon" placeholder="Damage dice (e.g. 1d8+2)" style="display:none;">
+        <input type="text" id="newItemAc" class="type-field" data-for="armor companion" placeholder="Armor Class (e.g. 16 or +2) — mounts only, leave blank for pets" style="display:none;">
+        <input type="text" id="newItemHp" class="type-field" data-for="consumable" placeholder="Healing dice (e.g. 2d4+2) — leave blank if non-healing" style="display:none;">
+        <input type="text" id="newItemCharges" placeholder="Charges (optional — e.g. 7, 3/dawn, 1 use)">
+        <textarea id="newItemEffect" placeholder="Effect / special ability (optional — for any item type)"></textarea>
+        <button class="add-btn" onclick="addItem()">+ Add Item</button>
+      </div>
+      <div class="items-list" id="itemsList"></div>
+    </div>
+  </div>
+  </div>
+
+  <div id="compendium-spells" class="compendium-subpanel">
+  <div class="spell-warning">
+    <strong style="color:var(--gold)">Source note:</strong> the catalog is populated from structured 5e spell records and mapped to official Wizards/D&amp;D Beyond source books. The official D&amp;D Beyond spell directory provides the authoritative reference for spell metadata and full spell text.
+  </div>
+  <div class="spells-controls">
+    <input id="spellSearch" type="text" placeholder="Search spell name, source, damage, condition, description…" oninput="renderSpellTable()">
+    <select id="spellRuleset" onchange="loadSpellDatabase(true)"><option value="2014">2014 5e + supplements</option><option value="2024">2024 rules</option><option value="both" selected>Both rulesets</option></select>
+    <select id="spellLevelFilter" onchange="renderSpellTable()"><option value="all">All Levels</option><option value="0">Cantrip</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th</option><option value="6">6th</option><option value="7">7th</option><option value="8">8th</option><option value="9">9th</option></select>
+    <select id="spellSchoolFilter" onchange="renderSpellTable()"><option value="all">All Schools</option><option>Abjuration</option><option>Conjuration</option><option>Divination</option><option>Enchantment</option><option>Evocation</option><option>Illusion</option><option>Necromancy</option><option>Transmutation</option><option>Psionic</option></select>
+    <select id="spellCastFilter" onchange="renderSpellTable()"><option value="all">All Casting Times</option><option>Action</option><option>Bonus Action</option><option>Reaction</option><option>Minute</option><option>10 Minutes</option><option>Hour</option><option>8 Hours</option><option>12 Hours</option><option>24 Hours</option></select>
+    <select id="spellSourceFilter" onchange="renderSpellTable()"><option value="all">All Sources</option></select>
+    <div class="spell-checks">
+      <label><input type="checkbox" id="spellConcentrationFilter" onchange="renderSpellTable()"> Concentration only</label>
+      <label><input type="checkbox" id="spellRitualFilter" onchange="renderSpellTable()"> Ritual only</label>
+      <label><input type="checkbox" id="spellVFilter" onchange="renderSpellTable()"> Verbal</label>
+      <label><input type="checkbox" id="spellSFilter" onchange="renderSpellTable()"> Somatic</label>
+      <label><input type="checkbox" id="spellMFilter" onchange="renderSpellTable()"> Material</label>
+      <label>Sort: <select id="spellSort" onchange="renderSpellTable()" style="width:auto;padding:.18rem .35rem"><option value="level">Level</option><option value="name">Name</option><option value="casting">Casting Time</option><option value="school">School</option><option value="duration">Duration</option><option value="range">Range</option><option value="source">Source</option></select></label>
+    </div>
+  </div>
+  <div class="spells-toolbar"><span class="spells-count" id="spellCount">Loading spell database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadSpellDatabase(true)">↻ Refresh Spell Data</button></div>
+  <div class="spell-table-wrap" id="spellTableWrap"><div class="spell-loading">Loading the official-source spell catalog…</div></div>
+  <div class="spell-detail" id="spellDetail"></div>
+  </div>
+
+  <div id="compendium-monsters" class="compendium-subpanel">
+  <div class="spell-warning">
+    <strong style="color:var(--gold)">Source note:</strong> stat blocks are pulled from structured 5e monster records mapped to official Wizards source books.
+    This compendium starts with the core Monster Manual — more source books can be added over time without disrupting anything already here.
+  </div>
+  <div class="spells-controls">
+    <input id="monsterSearch" type="text" placeholder="Search creature name, type, trait, action…" oninput="renderMonsterTable()">
+    <select id="monsterTypeFilter" onchange="renderMonsterTable()"><option value="all">All Types</option></select>
+    <select id="monsterSizeFilter" onchange="renderMonsterTable()">
+      <option value="all">All Sizes</option><option value="Tiny">Tiny</option><option value="Small">Small</option>
+      <option value="Medium">Medium</option><option value="Large">Large</option><option value="Huge">Huge</option><option value="Gargantuan">Gargantuan</option>
+    </select>
+    <select id="monsterSourceFilter" onchange="renderMonsterTable()"><option value="all">All Sources</option></select>
+    <label>Sort: <select id="monsterSort" onchange="renderMonsterTable()" style="width:auto;padding:.18rem .35rem"><option value="cr">Challenge Rating</option><option value="name">Name</option><option value="type">Type</option><option value="size">Size</option><option value="source">Source</option></select></label>
+  </div>
+  <div class="spells-toolbar"><span class="spells-count" id="monsterCount">Loading monster database…</span><button class="action-btn" style="width:auto;max-width:none" onclick="loadMonsterDatabase(true)">↻ Refresh Monster Data</button></div>
+  <div class="spell-table-wrap" id="monsterTableWrap"><div class="spell-loading">Loading the official-source monster catalog…</div></div>
+  <div class="spell-detail" id="monsterDetail"></div>
+  </div>
+
+  <div id="compendium-effects" class="compendium-subpanel">
+  <input id="effectsSearch" type="text" class="effects-search" placeholder="Search effects, conditions, traits…" oninput="renderEffectsCompendium()">
+  <div id="effectsCompendiumWrap"></div>
+  </div>
+
+  <div id="compendium-monsterparts" class="compendium-subpanel">
+  <div id="monsterPartsCompendiumWrap"></div>
+  </div>
 </div>
 
 <!-- FLESHMANCER TAB -->
@@ -4796,16 +4796,21 @@ function setSpinLootMode(mode) {
   const randomBtn = document.getElementById('spinModeRandomBtn');
   const chestBtn = document.getElementById('spinModeChestBtn');
   const deceasedBtn = document.getElementById('spinModeDeceasedBtn');
+  const generateBtn = document.getElementById('spinModeGenerateBtn');
   const randomPanel = document.getElementById('spinRandomPanel');
   const chestPanel = document.getElementById('spinChestPanel');
   const deceasedPanel = document.getElementById('spinDeceasedPanel');
+  const generatePanel = document.getElementById('spinGeneratePanel');
   if (randomBtn) randomBtn.classList.toggle('active', mode === 'random');
   if (chestBtn) chestBtn.classList.toggle('active', mode === 'chest');
   if (deceasedBtn) deceasedBtn.classList.toggle('active', mode === 'deceased');
+  if (generateBtn) generateBtn.classList.toggle('active', mode === 'generate');
   if (randomPanel) randomPanel.style.display = mode === 'random' ? 'block' : 'none';
   if (chestPanel) chestPanel.style.display = mode === 'chest' ? 'block' : 'none';
   if (deceasedPanel) deceasedPanel.style.display = mode === 'deceased' ? 'block' : 'none';
+  if (generatePanel) generatePanel.style.display = mode === 'generate' ? 'block' : 'none';
   if (mode === 'deceased' && typeof renderDeceasedResults === 'function') renderDeceasedResults();
+  if (mode === 'generate' && typeof renderSavedItems === 'function') renderSavedItems();
 }
 
 // Monster parts are exclusive to actually defeating that monster in Combat (see

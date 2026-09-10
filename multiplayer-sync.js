@@ -1094,7 +1094,7 @@ function enforceRoleRestrictions(role) {
   // If the page's default active tab is one now hidden for players, move them to Inventory
   // instead of leaving them looking at a blank content area.
   const activeBtn = document.querySelector(".tab-btn.active");
-  const restricted = ["spin", "generate", "combat"];
+  const restricted = ["spin", "combat"];
   const onRestricted = activeBtn && restricted.some((t) => activeBtn.getAttribute("onclick") === `showTab('${t}',this)`);
   if (onRestricted && typeof window.showTab === "function") {
     const invBtn = document.querySelector(`[onclick="showTab('inventory',this)"]`);
@@ -1108,24 +1108,24 @@ function injectStyles() {
   style.textContent = `
     /* ---- Role-based tab hiding (see enforceRoleRestrictions) ---- */
     body.role-player [onclick="showTab('spin',this)"],
-    body.role-player [onclick="showTab('generate',this)"],
     body.role-player [onclick="showTab('combat',this)"],
     body.role-player [onclick="showTab('players',this)"],
     body.role-player [onclick="showTab('journey',this)"],
     body.role-player #tab-spin,
-    body.role-player #tab-generate,
     body.role-player #tab-combat,
     body.role-player #tab-players,
     body.role-player #tab-journey,
     body.role-player .add-item-area,
     body.role-player [onclick*="editItem("],
     body.role-player [onclick*="removeItem("],
-    /* The Loot and Generate Item TABS are already hidden above, but the Item Compendium's
-       "Items" browser has its own standalone Save/Loot buttons on every entry (grab any item
-       in the whole catalog straight into your Token Library or Recently Looted, completely
-       free) that aren't part of either restricted tab — closing that off is what actually makes
-       "items only ever come from mobs, shops, or the DM" true for players; browsing the
-       Compendium for reference stays available. */
+    /* The Loot tab is already hidden above (#tab-spin) — Generate Item lives inside it now as
+       a fourth setSpinLootMode sub-panel (#spinGeneratePanel), not its own tab, so hiding the
+       parent already covers it with no separate selector needed. The Item Compendium's "Items"
+       browser has its own standalone Save/Loot buttons on every entry (grab any item in the
+       whole catalog straight into your Token Library or Recently Looted, completely free) that
+       aren't part of any restricted tab — closing that off is what actually makes "items only
+       ever come from mobs, shops, or the DM" true for players; browsing the Compendium for
+       reference stays available. */
     body.role-player [onclick*="saveCompendiumItem("],
     body.role-player [onclick*="lootCompendiumItem("] { display: none !important; }
 
