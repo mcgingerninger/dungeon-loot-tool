@@ -2051,6 +2051,15 @@
   .combat-result-title.hit{color:var(--uncommon)}
   .combat-result-title.miss{color:var(--danger)}
   .combat-result-title.crit{color:var(--legendary)}
+  /* Legendary-ACTION treatment (a monster's own Legendary Actions, e.g. a Lich's Disrupt Life)
+     is deliberately independent of hit/miss/crit (.legendary-action layers over any of the
+     three above rather than replacing it — a legendary action can still miss) and reuses the
+     same gold-ember visual language as legendary-RARITY items (textLegendaryEmber) so "gold and
+     glowing" reads consistently as "legendary" everywhere in the app, not just on loot. Dark
+     gradient background is what makes it read as clearly different from a plain natural-20 crit
+     (gold border only, default background) at a glance. */
+  .combat-result.legendary-action{background:linear-gradient(135deg,rgba(20,14,8,0.75),rgba(50,32,10,0.55));border-left-color:var(--legendary);border-left-width:4px;box-shadow:inset 0 0 12px rgba(255,159,67,0.25);}
+  .legendary-action-badge{display:inline-block;color:var(--legendary);font-size:0.78rem;letter-spacing:0.04em;margin-right:0.3rem;animation:textLegendaryEmber 2s ease-in-out infinite;}
   .combat-action-name{border-bottom:1px dotted var(--text-dim);cursor:help}
   .combat-log{background:var(--surface);border:1px solid var(--border);max-height:400px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:.5rem;padding:.8rem}
   .combat-log-empty{color:var(--text-dim);font-style:italic;text-align:center;padding:1.5rem}
@@ -13090,11 +13099,22 @@ function buildTooltipHtml(entry) {
 function buildMonsterTooltipHtml(m) {
   const stats = [`🛡 AC ${m.ac}`, `❤ HP ${m.hp}`, `🏃 ${m.speed}`, `⚔ CR ${m.cr}`];
   const statsLine = `<div class="tt-stats">${stats.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div>`;
+  // Unlike the Compendium's full detail card (which always shows every field, '—' included, as
+  // a consistent reference table), this hover popup is a quick mid-combat glance — resistance/
+  // immunity/vulnerability/condition-immunity rows only show up here when the creature actually
+  // has one, so a plain wolf's tooltip isn't padded with four "—" lines nobody needs mid-fight.
+  const damageRows = [
+    ['🛡 Resist', m.resist], ['✋ Immune', m.immune], ['⚠ Vulnerable', m.vulnerable], ['🚫 Condition Immune', m.conditionImmune],
+  ].filter(([, v]) => v && v !== '—');
+  const damageLine = damageRows.length
+    ? `<div class="tt-classification">${damageRows.map(([label, v]) => `${label}: ${escapeHtml(v)}`).join(' · ')}</div>`
+    : '';
   return `
     <div class="tt-header" style="display:flex;align-items:center;gap:0.5rem;"><span>${escapeHtml(m.name)}</span></div>
     <div class="tt-rarity">${escapeHtml(m.size)} ${escapeHtml(m.type)} · ${escapeHtml(m.alignment)}</div>
     ${statsLine}
     <div class="tt-classification">Senses ${escapeHtml(m.senses || '—')} · Languages ${escapeHtml(m.languages || '—')}</div>
+    ${damageLine}
     ${m.desc ? `<div class="tt-desc">${escapeHtml(m.desc)}</div>` : ''}
   `;
 }
@@ -13503,6 +13523,23 @@ function monsterActionList(list) {
     };
   });
 }
+// resist/immune/vulnerable/conditionImmune all share the same three-shape grammar in the raw
+// 5etools data: a plain string ("fire"), a {special:"freeform text"} note for anything that
+// doesn't fit the normal list (e.g. Archmage's "damage from spells"), or a grouped/conditional
+// entry ({resist:[...], note, preNote, cond:true}) for things like "bludgeoning, piercing, and
+// slashing from nonmagical attacks" — one formatter covers all four fields rather than writing
+// the same shape-handling four times.
+function monsterDamageListText(list) {
+  if (!list || !list.length) return '';
+  return list.map(entry => {
+    if (typeof entry === 'string') return entry;
+    if (entry.special) return entry.special;
+    const items = entry.resist || entry.immune || entry.vulnerable || entry.conditionImmune || [];
+    const pre = entry.preNote ? entry.preNote + ' ' : '';
+    const note = entry.note ? ' ' + entry.note : '';
+    return `${pre}${items.join(', ')}${note}`.trim();
+  }).join('; ');
+}
 // The official fluff file has no entry at all for ~64 Monster Manual beasts — almost entirely
 // ordinary real-world animals (or a "Giant" reskin of one), which the source material never
 // bothered giving lore text since there's nothing fantastical to explain. Hand-written
@@ -13605,6 +13642,10 @@ function monsterNormalize(raw, fluffByKey) {
   const saves = raw.save ? Object.entries(raw.save).map(([k, v]) => k.toUpperCase() + ' ' + v).join(', ') : '—';
   const senses = [(raw.senses || []).join(', '), raw.passive ? `passive Perception ${raw.passive}` : ''].filter(Boolean).join(', ') || '—';
   const languages = (raw.languages || []).join(', ') || '—';
+  const resist = monsterDamageListText(raw.resist) || '—';
+  const immune = monsterDamageListText(raw.immune) || '—';
+  const vulnerable = monsterDamageListText(raw.vulnerable) || '—';
+  const conditionImmune = monsterDamageListText(raw.conditionImmune) || '—';
   const fluffEntry = fluffByKey && fluffByKey.get(raw.name + '|' + raw.source);
   const desc = (fluffEntry && spellCleanTags(firstFluffText(fluffEntry.entries) || '')) || MUNDANE_ANIMAL_DESC_FALLBACK[raw.name] || undefined;
   return {
@@ -13612,6 +13653,7 @@ function monsterNormalize(raw, fluffByKey) {
     size, type, alignment, ac, acFrom, hp, speed, cr,
     str: raw.str, dex: raw.dex, con: raw.con, int: raw.int, wis: raw.wis, cha: raw.cha,
     skills, saves, senses, languages,
+    resist, immune, vulnerable, conditionImmune,
     traits: monsterActionList(raw.trait),
     actions: monsterActionList(raw.action),
     bonusActions: monsterActionList(raw.bonus),
@@ -13779,6 +13821,7 @@ function humanNpc(cfg) {
     speed: cfg.speed || '30 ft.', cr: cfg.cr,
     str: cfg.str, dex: cfg.dex, con: cfg.con, int: cfg.int, wis: cfg.wis, cha: cfg.cha,
     skills: cfg.skills || '—', saves: cfg.saves || '—',
+    resist: cfg.resist || '—', immune: cfg.immune || '—', vulnerable: cfg.vulnerable || '—', conditionImmune: cfg.conditionImmune || '—',
     senses: `passive Perception ${10 + abilityMod(cfg.wis)}`, languages: cfg.languages || 'Common',
     traits: cfg.traits || [], actions, bonusActions: cfg.bonusActions || [], reactions: cfg.reactions || [], legendary: [],
     desc: cfg.desc,
@@ -14093,7 +14136,10 @@ function showMonsterDetail(i) {
     ['Size',m.size],['Type',m.type],['Alignment',m.alignment],
     ['Armor Class', m.ac + (m.acFrom ? ' (' + m.acFrom + ')' : '')],
     ['Hit Points',m.hp],['Speed',m.speed],['Challenge Rating',m.cr],
-    ['Saving Throws',m.saves],['Skills',m.skills],['Senses',m.senses],['Languages',m.languages],
+    ['Saving Throws',m.saves],['Skills',m.skills],
+    ['Damage Resistances',m.resist ?? '—'],['Damage Immunities',m.immune ?? '—'],
+    ['Damage Vulnerabilities',m.vulnerable ?? '—'],['Condition Immunities',m.conditionImmune ?? '—'],
+    ['Senses',m.senses],['Languages',m.languages],
     ['Source',m.sourceLabel],['Page',m.page ?? '—'],
   ];
   const actionsHtml = [
@@ -15120,7 +15166,17 @@ function pickBattleAction(monster, entry) {
   const chaosSpells = (entry?.chaosGearList || []).filter(g => g.kind === 'spell').map(g => g.spellAction);
   const pools = [[...(monster.actions || []), ...(monster.legendary || []), ...chaosSpells], monster.bonusActions, monster.traits];
   for (const pool of pools) {
-    if (pool && pool.length) return ri(pool);
+    if (pool && pool.length) {
+      const picked = ri(pool);
+      // Spread into a fresh object rather than tagging `picked` in place — `monster` here is
+      // very often a shared reference (the same monsterDatabase[i] entry backing several
+      // roster slots, or a bounty record's baseMonster spread), so mutating the actual action
+      // object from monster.legendary would leak the tag onto every future read of it too.
+      // Reference-equality check against monster.legendary is safe specifically because pool
+      // items were never cloned going in — same object identity, just concatenated.
+      const isLegendaryAction = !!(monster.legendary && monster.legendary.includes(picked));
+      return { ...picked, isLegendaryAction };
+    }
   }
   return { name: 'Improvised Strike', text: 'The creature lashes out with whatever is within reach.' };
 }
@@ -15239,15 +15295,15 @@ function resolveBattleAttack(entry) {
       }
     }
     const cls = isFumble ? 'miss' : isCrit ? 'crit' : hit ? 'hit' : 'miss';
-    const title = isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss';
+    const title = (isFumble ? 'Critical Miss' : isCrit ? 'Critical Hit!' : hit ? 'Hit' : 'Miss');
     result = {
-      cls, title,
+      cls, title, isLegendary: !!action.isLegendaryAction,
       detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text, action.recharge)} — rolled <strong>${d20}</strong> + ${effToHit} = <strong>${total}</strong> vs ${targetDesc}. ${hit ? ('Hit' + dmgText + '.') : 'Missed.'}`,
     };
   } else {
     const eff = battleEffectivenessLabel(d20);
     result = {
-      cls: eff.cls, title: eff.label,
+      cls: eff.cls, title: eff.label, isLegendary: !!action.isLegendaryAction,
       detail: `<strong>${escapeHtml(name)}</strong> uses ${battleActionNameHtml(action.name, action.text, action.recharge)}${saveDC ? ` (DC ${saveDC})` : ''} — effectiveness roll: <strong>${d20}</strong> → <strong>${eff.label}</strong>.`,
     };
   }
@@ -15438,7 +15494,7 @@ function combatCardHtml(entry, mode, shellOnly) {
     ${statLinesHtml}
     ${chaosLines}
     ${actionHtml}
-    ${r ? `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
+    ${r ? `<div class="combat-result ${r.cls}${r.isLegendary ? ' legendary-action' : ''}"><div class="combat-result-title ${r.cls}">${r.isLegendary ? '<span class="legendary-action-badge">👑 Legendary</span> ' : ''}${escapeHtml(r.title)}</div>${r.detail}</div>` : ''}
   </div>`;
 }
 
@@ -15652,7 +15708,10 @@ function renderCombatLog() {
   const wrap = document.getElementById('combatLog'); if (!wrap) return;
   if (!battleLog.length) { wrap.innerHTML = '<div class="combat-log-empty">No attacks rolled yet.</div>'; return; }
   // Container is column-reverse, so entries in chronological array order render newest-on-top.
-  wrap.innerHTML = battleLog.map(r => `<div class="combat-result ${r.cls}"><div class="combat-result-title ${r.cls}">${escapeHtml(r.title)}</div>${r.detail}</div>`).join('');
+  // isLegendary is independent of hit/miss/crit (r.cls) — a legendary action can still miss —
+  // so it layers its own gold/dark treatment and badge on top of the normal hit/miss coloring
+  // rather than replacing it, reusing this exact same result-card markup either way.
+  wrap.innerHTML = battleLog.map(r => `<div class="combat-result ${r.cls}${r.isLegendary ? ' legendary-action' : ''}"><div class="combat-result-title ${r.cls}">${r.isLegendary ? '<span class="legendary-action-badge">👑 Legendary</span> ' : ''}${escapeHtml(r.title)}</div>${r.detail}</div>`).join('');
 }
 
 // ===================== PLAYER BATTLEFIELD (read-only) =====================
