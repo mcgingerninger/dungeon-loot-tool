@@ -1805,6 +1805,19 @@
   .roulette-outside-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.5rem; cursor:pointer; }
   .roulette-outside-btn:hover { border-color:var(--gold); }
   .roulette-outside-btn.selected { border-color:var(--gold); background:rgba(201,168,76,0.15); color:var(--gold); }
+  /* ---- Blackjack ---- */
+  .bj-hand-row { margin-bottom:0.7rem; }
+  .bj-hand-label { display:block; font-family:'Crimson Text',serif; color:var(--text); margin-bottom:0.3rem; font-size:0.9rem; }
+  .bj-status { font-family:'Share Tech Mono',monospace; font-size:0.7rem; padding:0.1rem 0.35rem; border:1px solid var(--border); margin-left:0.3rem; }
+  .bj-status.win { color:var(--uncommon); border-color:var(--uncommon); }
+  .bj-status.lose { color:var(--danger); border-color:var(--danger); }
+  .bj-card {
+    display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:3.3rem;
+    background:#f0ead6; color:#111; border:2px solid #222; font-family:'Share Tech Mono',monospace;
+    font-size:0.9rem; font-weight:700; margin-right:0.3rem; box-shadow:2px 2px 0 rgba(0,0,0,0.4);
+  }
+  .bj-card.bj-red { color:#a52020; }
+  .bj-card-back { background:repeating-linear-gradient(45deg,#3a2a6a,#3a2a6a 4px,#2a1a5a 4px,#2a1a5a 8px); }
   .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
   .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
   .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
@@ -18209,6 +18222,191 @@ function renderRouletteHtml(table) {
   `;
 }
 GAMBLING_HANDLERS.roulette = { newTable: newRouletteTable, applyAction: applyRouletteAction, renderHtml: renderRouletteHtml };
+
+// ===================== GAMBLING: BLACKJACK =====================
+const CARD_SUITS = ['♠','♥','♦','♣'];
+const CARD_RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+function freshShuffledDeck() {
+  const deck = [];
+  CARD_SUITS.forEach(s => CARD_RANKS.forEach(r => deck.push({ r, s })));
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+function cardValue(card) {
+  if (card.r === 'A') return 11;
+  if (card.r === 'J' || card.r === 'Q' || card.r === 'K') return 10;
+  return parseInt(card.r, 10);
+}
+// Every ace counts as 11 first, then downgrades to 1 (-10) one at a time for as long as the
+// hand is still bust and still holds an ace left to downgrade — the standard soft/hard-hand rule.
+function blackjackHandValue(cards) {
+  let total = cards.reduce((sum, c) => sum + cardValue(c), 0);
+  let aces = cards.filter(c => c.r === 'A').length;
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return total;
+}
+function isBlackjackHand(cards) { return cards.length === 2 && blackjackHandValue(cards) === 21; }
+function newBlackjackTable() {
+  return { phase: 'betting', deck: [], dealerHand: [], players: {}, lastResult: null, roundCounter: 0 };
+}
+// hit/stand only apply to a hand actually in play; a request arriving after that player's hand
+// is already resolved (bust/stand/blackjack) or after the round moved on is silently dropped,
+// same "just no-op on a stale request" spirit as the rest of this app's request queues.
+function applyBlackjackAction(table, action) {
+  const uid = action.playerUid;
+  if (action.type === 'place_bet') {
+    if (table.phase !== 'betting' || table.players[uid]) return;
+    table.players[uid] = { username: action.playerUsername, bet: action.amount, hand: [], status: 'betting' };
+    return;
+  }
+  if (action.type === 'hit') {
+    const p = table.players[uid];
+    if (!p || table.phase !== 'playing' || p.status !== 'playing') return;
+    p.hand.push(table.deck.pop());
+    if (blackjackHandValue(p.hand) > 21) p.status = 'bust';
+    return;
+  }
+  if (action.type === 'stand') {
+    const p = table.players[uid];
+    if (!p || table.phase !== 'playing' || p.status !== 'playing') return;
+    p.status = 'stand';
+  }
+}
+// DM-only, direct actions (not routed through the player-action queue) — dealing and playing
+// the dealer's own hand are dealer decisions, not something any player proposes.
+function blackjackDeal() {
+  if (isRealPlayerAccount() || gamblingState.game !== 'blackjack') return;
+  const table = gamblingState.table;
+  if (!table || table.phase !== 'betting' || !Object.keys(table.players).length) return;
+  table.deck = freshShuffledDeck();
+  table.dealerHand = [table.deck.pop(), table.deck.pop()];
+  Object.values(table.players).forEach(p => {
+    p.hand = [table.deck.pop(), table.deck.pop()];
+    p.status = isBlackjackHand(p.hand) ? 'blackjack' : 'playing';
+  });
+  table.phase = 'playing';
+  renderGamblingTab();
+  pushGamblingState();
+}
+function blackjackAllDone(table) { return Object.values(table.players).every(p => p.status !== 'playing'); }
+function blackjackDealerPlay() {
+  if (isRealPlayerAccount() || gamblingState.game !== 'blackjack') return;
+  const table = gamblingState.table;
+  if (!table || table.phase !== 'playing' || !blackjackAllDone(table)) return;
+  // A dealer whose whole table busted or already holds blackjack still reveals, but only
+  // actually draws if at least one hand is still live to play against — same real-table
+  // etiquette of not bothering to draw out a hand nobody can still beat by a worse total.
+  const anyLive = Object.values(table.players).some(p => p.status === 'stand' || p.status === 'blackjack');
+  if (anyLive) { while (blackjackHandValue(table.dealerHand) < 17) table.dealerHand.push(table.deck.pop()); }
+  const dealerTotal = blackjackHandValue(table.dealerHand);
+  const dealerBJ = isBlackjackHand(table.dealerHand);
+  const dealerBust = dealerTotal > 21;
+  const outcomes = {}, payouts = {};
+  Object.entries(table.players).forEach(([uid, p]) => {
+    const total = blackjackHandValue(p.hand);
+    let result, mult;
+    if (p.status === 'bust') { result = 'lose'; mult = 0; }
+    else if (p.status === 'blackjack' && dealerBJ) { result = 'push'; mult = 1; }
+    else if (p.status === 'blackjack') { result = 'blackjack'; mult = 2.5; }
+    else if (dealerBJ) { result = 'lose'; mult = 0; }
+    else if (dealerBust) { result = 'win'; mult = 2; }
+    else if (total > dealerTotal) { result = 'win'; mult = 2; }
+    else if (total === dealerTotal) { result = 'push'; mult = 1; }
+    else { result = 'lose'; mult = 0; }
+    outcomes[uid] = { result, total };
+    if (mult > 0) payouts[uid] = Math.round(p.bet * mult * 100) / 100;
+  });
+  table.roundCounter = (table.roundCounter || 0) + 1;
+  table.lastResult = { roundId: table.roundCounter, dealerHand: table.dealerHand.slice(), dealerTotal, outcomes, payouts };
+  table.phase = 'result';
+  renderGamblingTab();
+  pushGamblingState();
+}
+function blackjackNewRound() {
+  if (isRealPlayerAccount() || gamblingState.game !== 'blackjack') return;
+  const table = gamblingState.table;
+  if (!table) return;
+  table.phase = 'betting';
+  table.players = {};
+  table.dealerHand = [];
+  table.lastResult = null;
+  renderGamblingTab();
+  pushGamblingState();
+}
+function blackjackPlaceBet() {
+  const msgEl = document.getElementById('gamblingMsg');
+  const amount = parseFloat(document.getElementById('blackjackBetAmount')?.value) || 0;
+  if (gamblingState.table.players[gamblingSelfUid()]) { if (msgEl) msgEl.textContent = 'You already have a bet down this round.'; return; }
+  if (!placeGamblingBet(amount, {})) { if (msgEl) msgEl.textContent = amount > 0 ? "You don't have that much gold." : 'Enter a bet amount first.'; return; }
+  if (msgEl) msgEl.textContent = '';
+  renderGamblingTab();
+}
+function blackjackHit() { submitGamblingAction({ type: 'hit' }); }
+function blackjackStand() { submitGamblingAction({ type: 'stand' }); }
+function bjCardHtml(card, faceDown) {
+  if (faceDown) return `<span class="bj-card bj-card-back"></span>`;
+  const red = card.s === '♥' || card.s === '♦';
+  return `<span class="bj-card${red ? ' bj-red' : ''}">${card.r}${card.s}</span>`;
+}
+function bjHandHtml(cards, faceDownLast) { return cards.map((c, i) => bjCardHtml(c, faceDownLast && i === cards.length - 1)).join(''); }
+function renderBlackjackHtml(table) {
+  const isPlayer = isRealPlayerAccount();
+  const selfUid = gamblingSelfUid();
+  const me = table.players[selfUid];
+  const result = table.lastResult;
+  const dealerHidden = table.phase === 'playing';
+  const dealerTotalText = dealerHidden ? '?' : blackjackHandValue(table.dealerHand);
+  const dealerHtml = table.dealerHand.length
+    ? `<div class="bj-hand-row"><span class="bj-hand-label">Dealer (${dealerTotalText})</span>${bjHandHtml(table.dealerHand, dealerHidden)}</div>`
+    : '';
+  const resultBanner = result ? `<div class="gambling-result-banner">Dealer ${result.dealerTotal > 21 ? `busts at ${result.dealerTotal}` : `stands at ${result.dealerTotal}`}</div>` : '';
+  const playerEntries = Object.entries(table.players);
+  const playersHtml = playerEntries.length ? `<div class="gambling-seat-list">${playerEntries.map(([uid, p]) => {
+    const outcome = result && result.outcomes[uid];
+    const total = blackjackHandValue(p.hand);
+    const statusText = outcome ? outcome.result.toUpperCase() : (p.status !== 'playing' && p.status !== 'betting' ? p.status.toUpperCase() : '');
+    const cls = outcome ? (outcome.result === 'win' || outcome.result === 'blackjack' ? 'win' : outcome.result === 'lose' ? 'lose' : '') : '';
+    return `<div class="bj-hand-row${uid === selfUid ? ' is-self' : ''}">
+      <span class="bj-hand-label">${escapeHtml(p.username)} (${total})${statusText ? ` <span class="bj-status ${cls}">${statusText}</span>` : ''}</span>
+      ${bjHandHtml(p.hand, false)}
+    </div>`;
+  }).join('')}</div>` : '<div class="empty-results">No hands dealt yet.</div>';
+  const dmControls = isPlayer ? '' : `<div class="gambling-bet-row">
+    ${table.phase === 'betting' ? `<button class="gambling-action-btn" onclick="blackjackDeal()"${playerEntries.length ? '' : ' disabled'}>🃏 Deal</button>` : ''}
+    ${table.phase === 'playing' ? `<button class="gambling-action-btn" onclick="blackjackDealerPlay()"${blackjackAllDone(table) ? '' : ' disabled'}>Dealer Plays</button>` : ''}
+    ${table.phase === 'result' ? `<button class="gambling-action-btn" onclick="blackjackNewRound()">↻ New Round</button>` : ''}
+  </div>`;
+  let playerControls = '';
+  if (isPlayer) {
+    if (table.phase === 'betting') {
+      playerControls = me
+        ? `<div class="empty-results">Your bet is down: ${me.bet.toLocaleString()} gp. Waiting for the deal.</div>`
+        : `<div class="gambling-bet-row">
+             <input type="number" id="blackjackBetAmount" class="gambling-bet-input" placeholder="Bet (gp)" min="1">
+             <button class="gambling-action-btn" onclick="blackjackPlaceBet()">Place Bet</button>
+           </div>
+           <div id="gamblingMsg" class="gambling-msg"></div>`;
+    } else if (table.phase === 'playing' && me) {
+      playerControls = me.status === 'playing'
+        ? `<div class="gambling-bet-row"><button class="gambling-action-btn" onclick="blackjackHit()">Hit</button><button class="gambling-action-btn" onclick="blackjackStand()">Stand</button></div>`
+        : `<div class="empty-results">You ${me.status}. Waiting on the rest of the table.</div>`;
+    } else if (!me && table.phase !== 'betting') {
+      playerControls = '<div class="empty-results">No bet down — you\'re sitting this hand out. Wait for the next round.</div>';
+    }
+  }
+  return `<div class="gambling-felt">
+    ${dealerHtml}
+    ${resultBanner}
+    ${dmControls}
+    ${playerControls}
+    <h4 style="color:var(--gold);margin:0.8rem 0 0.4rem;font-size:0.9rem;">Hands at the Table</h4>
+    ${playersHtml}
+  </div>`;
+}
+GAMBLING_HANDLERS.blackjack = { newTable: newBlackjackTable, applyAction: applyBlackjackAction, renderHtml: renderBlackjackHtml };
 
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
