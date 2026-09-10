@@ -1818,6 +1818,10 @@
   }
   .bj-card.bj-red { color:#a52020; }
   .bj-card-back { background:repeating-linear-gradient(45deg,#3a2a6a,#3a2a6a 4px,#2a1a5a 4px,#2a1a5a 8px); }
+  /* ---- Slots ---- */
+  .slots-machine { display:flex; justify-content:center; margin-bottom:0.8rem; }
+  .slots-reel-row { display:flex; gap:0.6rem; background:#1a1410; border:3px solid #3a2a18; padding:1rem 1.4rem; box-shadow:inset 0 0 20px rgba(0,0,0,0.6); }
+  .slots-reel { display:flex; align-items:center; justify-content:center; width:3rem; height:3rem; background:var(--surface2); border:2px solid var(--gold); font-size:1.7rem; }
   .puzzle-category-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1rem; }
   .puzzle-cat-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-dim); font-family:'Crimson Text',serif; font-size:0.85rem; padding:0.4rem 0.75rem; cursor:pointer; transition:all .2s; }
   .puzzle-cat-btn:hover { border-color:var(--gold); color:var(--gold); }
@@ -18029,18 +18033,30 @@ function renderGamblingShell() {
 // render, whether IT has an unapplied payout addressed to its own uid — persisted the same way
 // appliedLootClaimIds guards a reload from re-granting an already-applied combat loot claim.
 let appliedGamblingPayoutIds = [];
+// Roulette/Blackjack only ever have ONE round in flight at a time (table.lastResult); Slots
+// (and any future game where players act independently rather than waiting on a shared round)
+// can have several results outstanding at once (table.results, newest first) — checking both
+// shapes here means every game's own code just writes whichever shape actually fits how it
+// plays, without needing to know or care how payouts get picked up client-side.
 function checkOwnGamblingPayout() {
   const table = gamblingState.table;
-  const result = table && table.lastResult;
-  if (!result || !result.roundId || !result.payouts) return;
+  if (!table) return;
+  const results = table.results ? table.results : (table.lastResult ? [table.lastResult] : []);
+  if (!results.length) return;
   const uid = gamblingSelfUid();
-  const payoutId = gamblingState.game + ':' + result.roundId + ':' + uid;
-  if (appliedGamblingPayoutIds.includes(payoutId)) return;
-  appliedGamblingPayoutIds.push(payoutId);
+  let dirty = false;
+  results.forEach(result => {
+    if (!result || !result.roundId || !result.payouts) return;
+    const payoutId = gamblingState.game + ':' + result.roundId + ':' + uid;
+    if (appliedGamblingPayoutIds.includes(payoutId)) return;
+    appliedGamblingPayoutIds.push(payoutId);
+    dirty = true;
+    const amount = result.payouts[uid];
+    if (amount) addPlayerGold(amount);
+  });
+  if (!dirty) return;
   if (appliedGamblingPayoutIds.length > 300) appliedGamblingPayoutIds = appliedGamblingPayoutIds.slice(-300);
-  const amount = result.payouts[uid];
-  if (amount) addPlayerGold(amount);
-  else if (typeof scheduleSave === 'function') scheduleSave();
+  if (typeof scheduleSave === 'function') scheduleSave();
 }
 // Shared by every game's "place a bet" button: spends the bettor's OWN gold locally (same
 // reasoning as checkOwnGamblingPayout — this account is the only one that can correctly touch
@@ -18407,6 +18423,82 @@ function renderBlackjackHtml(table) {
   </div>`;
 }
 GAMBLING_HANDLERS.blackjack = { newTable: newBlackjackTable, applyAction: applyBlackjackAction, renderHtml: renderBlackjackHtml };
+
+// ===================== GAMBLING: SLOTS =====================
+// Dungeon-themed reel symbols, weighted rarer-symbol-pays-more the same way the rest of this
+// app's loot already scales (see BAL.rarityOrder) — a common Potion barely pays, a Monster
+// triple is the jackpot. "triple" is a TOTAL-return multiplier (stake included), matching
+// Roulette/Blackjack's own convention.
+const SLOTS_SYMBOLS = [
+  { key:'potion',  icon:'🧪', weight:30, triple:3 },
+  { key:'gold',    icon:'💰', weight:25, triple:5 },
+  { key:'weapon',  icon:'⚔️', weight:20, triple:10 },
+  { key:'gem',     icon:'💎', weight:15, triple:20 },
+  { key:'monster', icon:'👹', weight:10, triple:50 },
+];
+function slotsSymbolIcon(key) { return (SLOTS_SYMBOLS.find(s => s.key === key) || {}).icon || '❔'; }
+function newSlotsTable() { return { results: [], roundCounter: 0 }; }
+// Unlike Roulette/Blackjack, every spin is a single player acting entirely on their own — there
+// is no "wait for the table" phase and no dealer decision to make, so this is the only one of
+// the four games where the DM has nothing to actually operate; applyAction resolves a spin
+// completely in one step the instant the request arrives.
+function applySlotsAction(table, action) {
+  if (action.type !== 'spin') return;
+  const weights = {}; SLOTS_SYMBOLS.forEach(s => { weights[s.key] = s.weight; });
+  const reels = [weightedPickFromObject(weights), weightedPickFromObject(weights), weightedPickFromObject(weights)];
+  const counts = {};
+  reels.forEach(r => { counts[r] = (counts[r] || 0) + 1; });
+  const maxCount = Math.max(...Object.values(counts));
+  let mult = 0;
+  if (maxCount === 3) mult = (SLOTS_SYMBOLS.find(s => s.key === reels[0]) || {}).triple || 0;
+  else if (maxCount === 2) mult = 1; // any matching pair: consolation stake-back, not a real win
+  const payout = mult > 0 ? Math.round(action.amount * mult * 100) / 100 : 0;
+  table.roundCounter = (table.roundCounter || 0) + 1;
+  table.results = table.results || [];
+  table.results.unshift({
+    roundId: table.roundCounter, uid: action.playerUid, username: action.playerUsername,
+    reels, amount: action.amount, mult, payouts: payout ? { [action.playerUid]: payout } : {},
+  });
+  if (table.results.length > 20) table.results.length = 20;
+}
+function slotsPullLever() {
+  const msgEl = document.getElementById('gamblingMsg');
+  const amount = parseFloat(document.getElementById('slotsBetAmount')?.value) || 0;
+  if (!(amount > 0)) { if (msgEl) msgEl.textContent = 'Enter a bet amount first.'; return; }
+  if (!spendPlayerGold(amount)) { if (msgEl) msgEl.textContent = "You don't have that much gold."; return; }
+  if (msgEl) msgEl.textContent = '';
+  submitGamblingAction({ type: 'spin', amount });
+}
+function renderSlotsHtml(table) {
+  const isPlayer = isRealPlayerAccount();
+  const selfUid = gamblingSelfUid();
+  const results = table.results || [];
+  const myLast = results.find(r => r.uid === selfUid);
+  const reelIcons = myLast ? myLast.reels.map(slotsSymbolIcon) : ['❔','❔','❔'];
+  const reelsHtml = `<div class="slots-reel-row">${reelIcons.map(ic => `<span class="slots-reel">${ic}</span>`).join('')}</div>`;
+  const myOutcome = !myLast ? '' :
+    myLast.mult >= 3 ? `<div class="gambling-result-banner win">🎉 Triple ${slotsSymbolIcon(myLast.reels[0])}! Won ${(myLast.payouts[selfUid]||0).toLocaleString()} gp</div>`
+    : myLast.mult === 1 ? `<div class="gambling-result-banner">Pair — stake returned (${(myLast.payouts[selfUid]||0).toLocaleString()} gp).</div>`
+    : `<div class="gambling-result-banner lose">No match — better luck next pull.</div>`;
+  const playerControls = isPlayer ? `
+    <div class="gambling-bet-row">
+      <input type="number" id="slotsBetAmount" class="gambling-bet-input" placeholder="Bet (gp)" min="1">
+      <button class="gambling-action-btn" onclick="slotsPullLever()">🎰 Pull Lever</button>
+    </div>
+    <div id="gamblingMsg" class="gambling-msg"></div>`
+    : '<div class="empty-results">Players can pull the lever anytime — nothing for the dealer to run here.</div>';
+  const feedHtml = results.length
+    ? `<div class="gambling-seat-list">${results.slice(0, 10).map(r => `<div class="gambling-seat${r.uid === selfUid ? ' is-self' : ''}"><span>${escapeHtml(r.username)}: ${r.reels.map(slotsSymbolIcon).join(' ')}</span><span>${r.mult > 0 ? '+' + Math.round(r.amount * r.mult).toLocaleString() + ' gp' : '—'}</span></div>`).join('')}</div>`
+    : '<div class="empty-results">No spins yet.</div>';
+  return `<div class="gambling-felt">
+    <div class="slots-machine">${reelsHtml}</div>
+    ${myOutcome}
+    ${playerControls}
+    <h4 style="color:var(--gold);margin:0.8rem 0 0.4rem;font-size:0.9rem;">Recent Spins</h4>
+    ${feedHtml}
+  </div>`;
+}
+GAMBLING_HANDLERS.slots = { newTable: newSlotsTable, applyAction: applySlotsAction, renderHtml: renderSlotsHtml };
 
 // ---------- Journey pixel-art scenes ----------
 // Same technique as the existing battle-stage sprites (hand-placed SVG <rect>s + CSS keyframe
