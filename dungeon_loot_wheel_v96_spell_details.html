@@ -7650,22 +7650,36 @@ function pickMonsterForRarity(rarity, needActions) {
   });
   return pool.length ? ri(pool) : null;
 }
-// Powers the "Monster Skill" modifier type: grants the bearer the ability to use one
-// random attack from one random monster, drawn from the same CR band as any other
-// creature-based effect at this rarity. Unlike summon/transform, this has no built-in
-// flavor-pool fallback — it simply won't be offered (generation just tries another
+// Actions, traits, legendary actions, and reactions all carry the same {name, text} shape
+// (see monsterActionList) — this is the full "things a monster can do" surface, not just its
+// standard actions. Used by pickMonsterSkill below so a passive ability like Pack Tactics or
+// Magic Resistance, or a boss's own Legendary Action, is just as eligible to become a "Monster
+// Skill" item modifier as an ordinary attack — nothing new stored, nothing copied into a
+// second array, just a wider read of monster records the Compendium already loaded.
+function monsterSkillSourcePool(monster) {
+  return [
+    ...(monster.actions || []),
+    ...(monster.traits || []),
+    ...(monster.legendary || []),
+    ...(monster.reactions || []),
+  ];
+}
+// Powers the "Monster Skill" modifier type: grants the bearer the ability to use one random
+// action/trait/legendary action/reaction from one random monster, drawn from the same CR band
+// as any other creature-based effect at this rarity. Unlike summon/transform, this has no
+// built-in flavor-pool fallback — it simply won't be offered (generation just tries another
 // modifier type) if the Monster Compendium hasn't loaded any matching creatures yet.
 function pickMonsterSkill(rarity, usedKeys = []) {
   const [lo, hi] = RARITY_CR_RANGES[rarity] || [0, 30];
   if (typeof monsterDatabase === 'undefined' || !monsterDatabase.length) return null;
   const pool = monsterDatabase.filter(m => {
     const cr = crSortValue(m.cr);
-    return cr >= lo && cr <= hi && m.actions && m.actions.length;
+    return cr >= lo && cr <= hi && monsterSkillSourcePool(m).length;
   });
   if (!pool.length) return null;
   for (let attempts = 0; attempts < 15; attempts++) {
     const monster = ri(pool);
-    const action = ri(monster.actions);
+    const action = ri(monsterSkillSourcePool(monster));
     const key = 'monsterskill:' + monster.name + ':' + action.name;
     if (usedKeys.includes(key)) continue;
     return { key, text: `Grants the ability to use <strong>${escapeHtml(monster.name)}'s ${escapeHtml(action.name)}</strong>: ${action.text}` };
