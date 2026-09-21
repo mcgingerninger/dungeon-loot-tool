@@ -3495,6 +3495,41 @@
     </div>
   </details>
 
+  <details class="collapsible loadouts-collapsible">
+    <summary>⚔️ Quick Class Equip</summary>
+    <div class="collapsible-body">
+      <div class="loadouts-panel">
+        <p class="sheet-note" style="margin-top:0;">Pick a class or archetype to drop its D&amp;D 5e-style starting-equipment kit straight into your inventory and set your Class field to match. Doesn't cost gold or touch anything you've already got equipped.</p>
+        <div class="loadout-save-row">
+          <select id="classEquipSelect" class="loadout-name-input">
+            <option value="Fighter">Fighter</option>
+            <option value="Barbarian">Barbarian</option>
+            <option value="Rogue">Rogue</option>
+            <option value="Ranger">Ranger</option>
+            <option value="Paladin">Paladin</option>
+            <option value="Cleric">Cleric</option>
+            <option value="Wizard">Wizard</option>
+            <option value="Sorcerer">Sorcerer</option>
+            <option value="Warlock">Warlock</option>
+            <option value="Druid">Druid</option>
+            <option value="Monk">Monk</option>
+            <option value="Bard">Bard</option>
+            <option value="Artificer">Artificer</option>
+            <option value="Knight">Knight</option>
+            <option value="Archer">Archer</option>
+            <option value="Battle Mage">Battle Mage</option>
+            <option value="Healer">Healer</option>
+            <option value="Scout">Scout</option>
+            <option value="Alchemist">Alchemist</option>
+            <option value="Adventurer">Adventurer</option>
+          </select>
+          <button class="action-btn" style="width:auto;max-width:none" onclick="applyClassStartingGear()">Equip Starting Gear</button>
+        </div>
+        <div id="classEquipMsg" class="loadout-save-msg"></div>
+      </div>
+    </div>
+  </details>
+
   <div class="inv-summary-bar">
     <span>💰 Gold: <strong id="playerGoldDisplay">0 gp</strong></span>
     <span>💰 Total Value: <strong id="invTotalGp">0 gp</strong></span>
@@ -12327,6 +12362,124 @@ function loadLoadout(id) {
 function deleteLoadout(id) {
   savedLoadouts = savedLoadouts.filter(l => l.id !== id);
   renderSavedLoadouts();
+}
+
+// ===================== QUICK CLASS EQUIP =====================
+// A fixed catalog of D&D 5e-flavored starting-equipment kits, one per class/archetype.
+// STARTING_GEAR_ITEMS holds each unique piece of gear once (shared by every class that
+// grants it, e.g. Explorer's Pack or Dagger); CLASS_STARTING_LOADOUTS just lists which of
+// those items a given class starts with. Ammo/thrown-weapon stacks (arrows, javelins, darts)
+// are bundled into a single named item rather than N separate tiles, same idea as how packs
+// bundle a dozen small items into one — keeps a starting kit from eating half the grid.
+const STARTING_GEAR_ITEMS = {
+  "Longsword": { type:"weapon", dmg:"1d8", gp:"15 gp", desc:"A straight double-edged blade about a yard long.", effect:"Versatile (1d10)." },
+  "Shield": { type:"armor", ac:"+2", gp:"10 gp", desc:"A sturdy wood-and-metal shield strapped to the forearm.", effect:"+2 AC." },
+  "Wooden Shield": { type:"armor", ac:"+2", gp:"10 gp", desc:"A round shield of light, unworked wood, favored by druids who avoid metal.", effect:"+2 AC." },
+  "Chain Shirt": { type:"armor", ac:"13", gp:"50 gp", desc:"A shirt of interlocking metal rings worn under clothing.", effect:"AC 13 + Dex modifier (max 2)." },
+  "Javelins (2)": { type:"weapon", dmg:"1d6", gp:"1 gp", desc:"A pair of light throwing spears.", effect:"Thrown (range 30/120)." },
+  "Javelins (3)": { type:"weapon", dmg:"1d6", gp:"2 gp", desc:"Three light throwing spears.", effect:"Thrown (range 30/120)." },
+  "Explorer's Pack": { type:"misc", gp:"10 gp", desc:"Backpack, bedroll, mess kit, tinderbox, 10 torches, 10 days of rations, a waterskin, and 50 ft of hempen rope." },
+  "Greataxe": { type:"weapon", dmg:"1d12", gp:"30 gp", desc:"A massive, heavy-headed axe swung in both hands.", effect:"Heavy, two-handed." },
+  "Handaxes (2)": { type:"weapon", dmg:"1d6", gp:"10 gp", desc:"A pair of light axes balanced for throwing.", effect:"Thrown (range 20/60), light." },
+  "Hide Armor": { type:"armor", ac:"12", gp:"10 gp", desc:"Crude armor made from thick furs and pelts.", effect:"AC 12 + Dex modifier (max 2)." },
+  "Hunting Knife": { type:"weapon", dmg:"1d4", gp:"2 gp", desc:"A sturdy fixed-blade knife used for field-dressing game.", effect:"Finesse, light, thrown (range 20/60)." },
+  "Shortsword": { type:"weapon", dmg:"1d6", gp:"10 gp", desc:"A short, balanced blade suited to quick strikes.", effect:"Finesse, light." },
+  "Dagger": { type:"weapon", dmg:"1d4", gp:"2 gp", desc:"A short double-edged blade with a simple crossguard.", effect:"Finesse, light, thrown (range 20/60)." },
+  "Daggers (2)": { type:"weapon", dmg:"1d4", gp:"4 gp", desc:"A pair of short double-edged blades.", effect:"Finesse, light, thrown (range 20/60)." },
+  "Shortbow & 20 Arrows": { type:"weapon", dmg:"1d6", gp:"25 gp", desc:"A short recurve bow, strung and ready, with a quiver of 20 arrows.", effect:"Ammunition (range 80/320), two-handed." },
+  "Leather Armor": { type:"armor", ac:"11", gp:"10 gp", desc:"A suit of stiff, boiled leather.", effect:"AC 11 + Dex modifier." },
+  "Thieves' Tools": { type:"misc", gp:"25 gp", desc:"A small pouch of lockpicks, files, and mirrors on a rod." },
+  "Burglar's Pack": { type:"misc", gp:"16 gp", desc:"Backpack, ball bearings, 10 ft of string, a bell, candles, a crowbar, a hammer, pitons, a hooded lantern, oil, rations, a tinderbox, and waterskin." },
+  "Longbow & 20 Arrows": { type:"weapon", dmg:"1d8", gp:"50 gp", desc:"A tall, powerful bow, strung and ready, with a quiver of 20 arrows.", effect:"Ammunition (range 150/600), heavy, two-handed." },
+  "Hunting Trap": { type:"misc", gp:"5 gp", desc:"A steel jaw trap set to snap shut on a pressure plate." },
+  "Holy Symbol": { type:"misc", gp:"5 gp", desc:"An emblem of your deity, worn or carried as a focus for divine magic." },
+  "Mace": { type:"weapon", dmg:"1d6", gp:"5 gp", desc:"A heavy metal head mounted on a wooden haft." },
+  "Scale Mail": { type:"armor", ac:"14", gp:"50 gp", desc:"A coat and leggings of leather covered in overlapping metal scales.", effect:"AC 14 + Dex modifier (max 2)." },
+  "Healer's Kit": { type:"misc", gp:"5 gp", desc:"Bandages, salves, and splints in a leather pouch.", effect:"10 uses of first-aid supplies." },
+  "Priest's Pack": { type:"misc", gp:"19 gp", desc:"Backpack, a blanket, 10 candles, a tinderbox, an alms box, incense, censer, vestments, rations, and waterskin." },
+  "Quarterstaff": { type:"weapon", dmg:"1d6", gp:"2 sp", desc:"A simple wooden staff about six feet long.", effect:"Versatile (1d8)." },
+  "Spellbook": { type:"misc", gp:"50 gp", desc:"A leather-bound tome of blank vellum pages, filled with your practiced hand." },
+  "Component Pouch": { type:"misc", gp:"25 gp", desc:"A small watertight leather pouch stocked with the material components spellcasting consumes." },
+  "Scholar's Pack": { type:"misc", gp:"40 gp", desc:"Backpack, a book of lore, ink, an ink pen, parchment, a small bag of sand, and a small knife." },
+  "Ink & Parchment": { type:"misc", gp:"12 gp", desc:"A vial of ink, a quill pen, and several sheets of parchment." },
+  "Light Crossbow & 20 Bolts": { type:"weapon", dmg:"1d8", gp:"25 gp", desc:"A compact crossbow with a hand crank, and a case of 20 bolts.", effect:"Ammunition (range 80/320), two-handed, loading." },
+  "Arcane Focus": { type:"misc", gp:"10 gp", desc:"A crystal, orb, wand, or rod that channels arcane spellcasting energy." },
+  "Sickle": { type:"weapon", dmg:"1d4", gp:"1 gp", desc:"A curved single-edged blade on a short handle.", effect:"Light." },
+  "Druidic Focus": { type:"misc", gp:"10 gp", desc:"A sprig of mistletoe, a totem, or a carved wooden staff used to channel primal magic." },
+  "Darts (4)": { type:"weapon", dmg:"1d4", gp:"2 sp", desc:"A set of four small weighted throwing spikes.", effect:"Finesse, thrown (range 20/60)." },
+  "Simple Robes": { type:"misc", gp:"1 gp", desc:"Loose, unadorned traveling robes — no armor, just cloth." },
+  "Herbalism Kit": { type:"misc", gp:"5 gp", desc:"Pouches, clippings, and a mortar and pestle for identifying and preparing herbs." },
+  "Musical Instrument": { type:"misc", gp:"35 gp", desc:"An instrument of your choosing — lute, flute, drum, whatever you favor." },
+  "Entertainer's Pack": { type:"misc", gp:"40 gp", desc:"Backpack, a bedroll, costumes, candles, rations, waterskin, and a disguise kit." },
+  "Rapier": { type:"weapon", dmg:"1d8", gp:"25 gp", desc:"A slender, sharply pointed dueling blade.", effect:"Finesse." },
+  "Light Hammer": { type:"weapon", dmg:"1d4", gp:"2 gp", desc:"A small hammer balanced for throwing.", effect:"Light, thrown (range 20/60)." },
+  "Studded Leather": { type:"armor", ac:"12", gp:"45 gp", desc:"Leather armor reinforced with close-set rivets and studs.", effect:"AC 12 + Dex modifier." },
+  "Tinker's Tools": { type:"misc", gp:"50 gp", desc:"A small pouch of specialized tools for building and repairing tinkered devices." },
+  "Riding Saddle": { type:"misc", gp:"10 gp", desc:"A saddle built for a long ride, not for combat." },
+  "Bedroll": { type:"misc", gp:"1 gp", desc:"A simple roll of padding and blankets for sleeping outdoors." },
+  "Quiver": { type:"misc", gp:"1 gp", desc:"A spare leather quiver for carrying ammunition." },
+  "Climbing Kit": { type:"misc", gp:"25 gp", desc:"Pitons, boot tips, gloves, and a harness for scaling rough terrain." },
+  "Alchemist's Supplies": { type:"misc", gp:"50 gp", desc:"Vials, a mortar and pestle, and reagents for mixing alchemical compounds." },
+  "Empty Vials (2)": { type:"misc", gp:"2 gp", desc:"A pair of small, stoppered glass vials." },
+  "Rope (50 ft.)": { type:"misc", gp:"1 gp", desc:"Sturdy hempen rope, coiled." },
+  "Flint & Steel": { type:"misc", gp:"5 sp", desc:"A small tin with flint, steel, and charcloth for starting fires." },
+  "Healing Poultices (2)": { type:"consumable", gp:"10 gp", desc:"A pair of herb-and-resin poultices wrapped in cloth.", effect:"Restores 1d4+2 HP when applied to a wound (2 uses)." },
+};
+const CLASS_STARTING_LOADOUTS = [
+  { name:"Fighter", items:["Longsword","Shield","Chain Shirt","Javelins (2)","Explorer's Pack"] },
+  { name:"Barbarian", items:["Greataxe","Handaxes (2)","Hide Armor","Explorer's Pack","Hunting Knife"] },
+  { name:"Rogue", items:["Shortsword","Dagger","Shortbow & 20 Arrows","Leather Armor","Thieves' Tools","Burglar's Pack"] },
+  { name:"Ranger", items:["Longbow & 20 Arrows","Shortsword","Dagger","Leather Armor","Explorer's Pack","Hunting Trap"] },
+  { name:"Paladin", items:["Longsword","Shield","Chain Shirt","Javelins (3)","Holy Symbol","Explorer's Pack"] },
+  { name:"Cleric", items:["Mace","Shield","Scale Mail","Holy Symbol","Healer's Kit","Priest's Pack"] },
+  { name:"Wizard", items:["Quarterstaff","Dagger","Spellbook","Component Pouch","Scholar's Pack","Ink & Parchment"] },
+  { name:"Sorcerer", items:["Light Crossbow & 20 Bolts","Daggers (2)","Component Pouch","Arcane Focus","Explorer's Pack"] },
+  { name:"Warlock", items:["Light Crossbow & 20 Bolts","Dagger","Leather Armor","Arcane Focus","Scholar's Pack"] },
+  { name:"Druid", items:["Quarterstaff","Wooden Shield","Sickle","Hide Armor","Druidic Focus","Explorer's Pack"] },
+  { name:"Monk", items:["Quarterstaff","Darts (4)","Simple Robes","Herbalism Kit","Explorer's Pack"] },
+  { name:"Bard", items:["Rapier","Dagger","Leather Armor","Musical Instrument","Entertainer's Pack"] },
+  { name:"Artificer", items:["Light Hammer","Light Crossbow & 20 Bolts","Studded Leather","Tinker's Tools","Thieves' Tools"] },
+  { name:"Knight", items:["Longsword","Shield","Chain Shirt","Javelins (3)","Riding Saddle","Bedroll"] },
+  { name:"Archer", items:["Longbow & 20 Arrows","Shortsword","Leather Armor","Quiver","Hunting Knife"] },
+  { name:"Battle Mage", items:["Quarterstaff","Light Crossbow & 20 Bolts","Leather Armor","Arcane Focus","Component Pouch"] },
+  { name:"Healer", items:["Mace","Shield","Leather Armor","Healer's Kit","Holy Symbol","Healing Poultices (2)"] },
+  { name:"Scout", items:["Shortsword","Shortbow & 20 Arrows","Leather Armor","Climbing Kit","Hunting Knife"] },
+  { name:"Alchemist", items:["Light Crossbow & 20 Bolts","Dagger","Leather Armor","Alchemist's Supplies","Empty Vials (2)"] },
+  { name:"Adventurer", items:["Shortsword","Shield","Leather Armor","Dagger","Rope (50 ft.)","Bedroll","Flint & Steel","Explorer's Pack"] },
+];
+// Same construction buyStapleItem uses (subcategory/slotSize/weight derived the same way
+// every other item in the project gets them), just free instead of gold-gated, and routed
+// through placeItemIntoInventory one item at a time so each kit piece gets its own id/tile.
+function applyClassStartingGear() {
+  const selectEl = document.getElementById('classEquipSelect');
+  const msgEl = document.getElementById('classEquipMsg');
+  const className = selectEl ? selectEl.value : '';
+  const loadout = CLASS_STARTING_LOADOUTS.find(c => c.name === className);
+  if (!loadout) { if (msgEl) msgEl.textContent = 'Pick a class first.'; return; }
+  let overflowCount = 0;
+  loadout.items.forEach(itemName => {
+    const base = STARTING_GEAR_ITEMS[itemName];
+    if (!base) return;
+    const type = base.type;
+    const subcategory = classifySubcategory(itemName, type, 'common');
+    const slotSize = SUBCATEGORY_SLOT_SIZE[subcategory] || 1;
+    const item = {
+      name: itemName, rarity: 'common', cat: type, type, subcategory,
+      gp: base.gp || '', dmg: base.dmg || '', ac: base.ac || '', hp: base.hp || '', requirement: '',
+      charges: base.charges || '',
+      slotSize, weight: computeItemWeight({ type, subcategory, name: itemName }), mods: [],
+      desc: base.desc, flavor: base.desc + (base.effect ? '\n\n' + base.effect : ''),
+      tags: [], effect: base.effect || '',
+    };
+    const { placed } = placeItemIntoInventory(item);
+    if (!placed) overflowCount++;
+  });
+  updateCharacterField('characterClass', className);
+  if (msgEl) {
+    msgEl.textContent = overflowCount
+      ? `Equipped ${className} starting gear — ${overflowCount} item${overflowCount !== 1 ? 's' : ''} didn't fit and went to the Token Library instead.`
+      : `Equipped ${className} starting gear (${loadout.items.length} items) and set Class to ${className}.`;
+  }
 }
 
 // ===================== CHARACTER SHEET =====================
